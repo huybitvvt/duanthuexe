@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+class AddDashboardQueryIndexes extends Migration {
     public function up(): void
     {
         if (Schema::hasTable('orders')) {
@@ -32,4 +32,4 @@ return new class extends Migration {
             if (Schema::hasTable($table)) Schema::table($table, fn (Blueprint $blueprint) => $blueprint->dropIndex($index));
         }
     }
-};
+}
