@@ -29,5 +29,6 @@
 !.env.example
 .env_bk
 dev.env
+env.supabase
 notes.txt
 crontab
