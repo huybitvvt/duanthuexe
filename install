@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+WROOT_DIR="$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+cd ${WROOT_DIR}
+chmod 777 -R ${WROOT_DIR}/boostrap/cache
+mkdir ${WROOT_DIR}/storage/framework
+mkdir ${WROOT_DIR}/storage/framework/cache
+mkdir ${WROOT_DIR}/storage/framework/sessions
+mkdir ${WROOT_DIR}/storage/framework/views
+chmod 777 -R ${WROOT_DIR}/storage
+composer update
+cd ${WROOT_DIR}/Themes/Edutalk
+npm i
+npm run dev
+
+cd ${WROOT_DIR}
+npm i
+npm run dev
+php artisan stylist:publish Edutalk

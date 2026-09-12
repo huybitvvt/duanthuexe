@@ -1,0 +1,231 @@
+<template>
+	<div class="payment-methods">
+		<div class="payment-method-heading">
+			<label><strong>{{ label }}</strong></label>
+			<span class="payment-method-summary">{{ paymentMethodLabel }}</span>
+		</div>
+
+		<div class="row mt-2">
+			<div class="col-md-4 form-group">
+				<label><strong>Tiền chuyển khoản</strong></label>
+				<ValidationProvider vid="bank_transfer_amount" name="Tiền chuyển khoản" rules="numeric|min_value:0" v-slot="{ errors }">
+					<money v-model="settings.bank_transfer_amount" v-bind="money" class="form-control" placeholder="Tiền chuyển khoản"></money>
+					<error-message :errors="errors" field="bank_transfer_amount"></error-message>
+				</ValidationProvider>
+			</div>
+
+			<div class="col-md-4 form-group">
+				<label><strong>Tiền mặt</strong></label>
+				<ValidationProvider vid="cash_amount" name="Tiền mặt" rules="numeric|min_value:0" v-slot="{ errors }">
+					<money v-model="settings.cash_amount" v-bind="money" class="form-control" placeholder="Tiền mặt"></money>
+					<error-message :errors="errors" field="cash_amount"></error-message>
+				</ValidationProvider>
+			</div>
+
+			<div class="col-md-4 form-group">
+				<label><strong>Tài khoản nhận tiền</strong></label>
+				<ValidationProvider vid="bank_id" name="Tài khoản" :rules="hasBankTransfer ? 'required' : ''" v-slot="{ errors }">
+					<el-select
+						filterable
+						class="w-100"
+						:placeholder="hasBankTransfer ? 'Chọn tài khoản' : 'Không có chuyển khoản'"
+						v-model="settings.bank_id"
+						:disabled="!hasBankTransfer"
+						clearable
+					>
+						<el-option v-for="item in banks" :key="item.id" :label="item.bank_name + ' - ' + item.owner_name + ' - ' + item.account_number" :value="item.id">
+							<span style="float: left">{{ showAccType(item.account_type) }}: {{ item.bank_name }} - {{ item.owner_name }} - {{ item.account_number }}</span>
+						</el-option>
+					</el-select>
+					<error-message :errors="errors" field="bank_id"></error-message>
+				</ValidationProvider>
+			</div>
+		</div>
+
+		<div v-if="allocationError" class="payment-allocation-error">
+			{{ allocationError }}
+		</div>
+	</div>
+</template>
+
+<script>
+import { Money } from 'v-money';
+import ErrorMessage from "../common/ErrorMessage";
+
+export default {
+    name: "PaymentMethod",
+    props: {
+		label: {
+			type: String,
+			default: () => {
+                return 'Phương thức thanh toán';
+            },
+		},
+		settings: {
+			type: Object,
+			default: () => {
+                return {
+					payment_method: 1,
+					bank_id: null,
+					bank_transfer_amount: 0,
+					cash_amount: 0,
+				};
+            },
+		},
+		banks: {
+			type: Array,
+			default: () => {
+                return [];
+            },
+		},
+		fixedAmount: {
+			type: Number,
+			default: () => {
+				return 0;
+			}
+		}
+    },
+	components: {
+		Money,
+		ErrorMessage,
+    },
+    data() {
+        return {
+			money: {
+                decimal: ',',
+                thousands: ',',
+                prefix: '',
+                suffix: ' VNĐ',
+                precision: 0,
+                masked: false,
+            },
+        };
+    },
+    methods: {
+		amount(value) {
+			const parsed = Number(value);
+			return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+		},
+		showAccType(type) {
+			if (1 == type) {
+				return 'TK Thu';
+			} else if (2 == type) {
+				return 'TK Chi';
+			}
+			return 'TK Thu & Chi';
+		},
+		inferPaymentMethod() {
+			const bankAmount = this.amount(this.settings.bank_transfer_amount);
+			const cashAmount = this.amount(this.settings.cash_amount);
+			let paymentMethod = 1;
+
+			if (bankAmount > 0 && cashAmount > 0) {
+				paymentMethod = 3;
+			} else if (bankAmount > 0) {
+				paymentMethod = 2;
+			}
+
+			if (this.settings.payment_method !== paymentMethod) {
+				this.$set(this.settings, "payment_method", paymentMethod);
+			}
+
+			if (bankAmount === 0 && this.settings.bank_id !== null) {
+				this.$set(this.settings, "bank_id", null);
+			}
+		},
+		syncFixedAmount(value, oldValue) {
+			const total = this.amount(value);
+			const previousTotal = this.amount(oldValue);
+			const bankAmount = this.amount(this.settings.bank_transfer_amount);
+			const cashAmount = this.amount(this.settings.cash_amount);
+
+			if (total === 0) {
+				return;
+			}
+
+			if (bankAmount === 0 && cashAmount === 0) {
+				if (Number(this.settings.payment_method) === 2) {
+					this.$set(this.settings, "bank_transfer_amount", total);
+				} else {
+					this.$set(this.settings, "cash_amount", total);
+				}
+				return;
+			}
+
+			if (previousTotal > 0 && bankAmount === previousTotal && cashAmount === 0) {
+				this.$set(this.settings, "bank_transfer_amount", total);
+			} else if (previousTotal > 0 && cashAmount === previousTotal && bankAmount === 0) {
+				this.$set(this.settings, "cash_amount", total);
+			}
+		},
+		watch_settings(val, oldVal) {
+			this.$emit("setting_changed", val);
+		},
+    },
+	watch: {
+		settings: {
+			handler: "watch_settings",
+			deep: true,
+		},
+		"settings.bank_transfer_amount": {
+			handler: "inferPaymentMethod",
+		},
+		"settings.cash_amount": {
+			handler: "inferPaymentMethod",
+		},
+		fixedAmount: {
+			handler: "syncFixedAmount",
+			immediate: true,
+		},
+	},
+	computed: {
+		hasBankTransfer() {
+			return this.amount(this.settings.bank_transfer_amount) > 0;
+		},
+		paymentMethodLabel() {
+			if (Number(this.settings.payment_method) === 3) {
+				return "Tự xác định: Tiền mặt & Chuyển khoản";
+			}
+			if (Number(this.settings.payment_method) === 2) {
+				return "Tự xác định: Chuyển khoản";
+			}
+			return "Tự xác định: Tiền mặt";
+		},
+		allocationError() {
+			const total = this.amount(this.fixedAmount);
+			if (total === 0) {
+				return "";
+			}
+
+			const allocated = this.amount(this.settings.bank_transfer_amount)
+				+ this.amount(this.settings.cash_amount);
+			if (allocated === total) {
+				return "";
+			}
+
+			return "Tổng tiền mặt và chuyển khoản phải bằng số tiền cần thu.";
+		},
+	}
+};
+</script>
+
+<style scoped>
+.payment-method-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.payment-method-summary {
+	color: #606266;
+	font-size: 12px;
+}
+
+.payment-allocation-error {
+	color: #f56c6c;
+	font-size: 12px;
+	line-height: 1;
+	padding-bottom: 8px;
+}
+</style>

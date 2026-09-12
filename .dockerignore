@@ -1,0 +1,17 @@
+.git
+.idea
+.env
+.env.*
+!.env.example
+dev.env
+.env_bk
+node_modules
+static-dist
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+tests
+*.zip
+*.sql
+*.pdf

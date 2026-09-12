@@ -1,0 +1,516 @@
+<template>
+    <div>
+        <div class="card card-custom gutter-b">
+            <div class="card-header">
+                <div class="card-title">
+                    <h3 class="card-label">Danh sách xe</h3>
+                </div>
+                <div class="card-title">
+                    <ModalVehicleCreate @storeSuccess="getList"></ModalVehicleCreate>
+                    <button class="btn btn-success" @click="exportFile">Export</button>
+                </div>
+
+            </div>
+            <div class="alert alert-custom alert-white alert-shadow fade show gutter-b" role="alert">
+                <div class="alert-icon">
+                    <span class="svg-icon svg-icon-primary svg-icon-xl">
+                        <!--begin::Svg Icon | path:/metronic/theme/html/demo1/dist/assets/media/svg/icons/Tools/Compass.svg-->
+                        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24px"
+                            height="24px" viewBox="0 0 24 24" version="1.1">
+                            <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                                <rect x="0" y="0" width="24" height="24"></rect>
+                                <path
+                                    d="M7.07744993,12.3040451 C7.72444571,13.0716094 8.54044565,13.6920474 9.46808594,14.1079953 L5,23 L4.5,18 L7.07744993,12.3040451 Z M14.5865511,14.2597864 C15.5319561,13.9019016 16.375416,13.3366121 17.0614026,12.6194459 L19.5,18 L19,23 L14.5865511,14.2597864 Z M12,3.55271368e-14 C12.8284271,3.53749572e-14 13.5,0.671572875 13.5,1.5 L13.5,4 L10.5,4 L10.5,1.5 C10.5,0.671572875 11.1715729,3.56793164e-14 12,3.55271368e-14 Z"
+                                    fill="#000000" opacity="0.3"></path>
+                                <path
+                                    d="M12,10 C13.1045695,10 14,9.1045695 14,8 C14,6.8954305 13.1045695,6 12,6 C10.8954305,6 10,6.8954305 10,8 C10,9.1045695 10.8954305,10 12,10 Z M12,13 C9.23857625,13 7,10.7614237 7,8 C7,5.23857625 9.23857625,3 12,3 C14.7614237,3 17,5.23857625 17,8 C17,10.7614237 14.7614237,13 12,13 Z"
+                                    fill="#000000" fill-rule="nonzero"></path>
+                            </g>
+                        </svg>
+                        <!--end::Svg Icon-->
+                    </span>
+                </div>
+                <div class="alert-text">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <p>
+                                Số lượng xe:
+                                <span class="font-weight-bold">{{
+                                    reports.total_vehicle
+                                    }}</span>
+                            </p>
+                            <p>
+                                Phí đầu tư:
+                                <span class="font-weight-bold">{{
+                                    reports.total_price | formatPrice
+                                    }}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-3">
+                            <p>
+                                Sẵn sàng:
+                                <span class="font-weight-bold">{{
+                                    reports.total_vehicle_ready
+                                    }}</span>
+                            </p>
+                            <p>
+                                Đang sử dụng:
+                                <span class="font-weight-bold">{{
+                                    reports.total_vehicle_using
+                                    }}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-3">
+                            <p>
+                                Xe ga:
+                                <span class="font-weight-bold">{{
+                                    reports.total_vehicle_ga
+                                    }}</span>
+                            </p>
+                            <p>
+                                Xe số:
+                                <span class="font-weight-bold">{{
+                                    reports.total_vehicle_so
+                                    }}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-3">
+                            <p>
+                                Xe côn:
+                                <span class="font-weight-bold">{{
+                                    reports.total_vehicle_con
+                                    }}</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="card-body">
+
+                <div class="row col-md-12 filter-row">
+                    <div class="">
+
+
+                        <el-input clearable placeholder="Tên xe, biển số" v-model="query.name"></el-input>
+
+                    </div>
+                    <div class=" ">
+
+
+                        <el-select filterable class="w-100" placeholder="Trạng thái" v-model="query.status" clearable>
+                            <el-option v-for="item in status" :key="item.id" :label="item.name" :value="item.id">
+                                <span style="float: left">{{
+                                    item.name
+                                }}</span>
+                            </el-option>
+                        </el-select>
+
+                    </div>
+                    <div class=" ">
+
+
+                        <el-select filterable class="w-100" placeholder="Cửa hàng" v-model="query.store_id" clearable>
+                            <el-option v-for="item in stores" :key="item.id" :label="item.store_name" :value="item.id">
+                                <span style="float: left">{{
+                                    item.store_name
+                                }}</span>
+                            </el-option>
+                        </el-select>
+
+                    </div>
+
+                    <div class=" ">
+
+
+                        <el-select filterable class="w-100" placeholder="Loại xe" v-model="query.type" clearable>
+                            <el-option v-for="item in types" :key="item.id" :label="item.name" :value="item.id">
+                                <span style="float: left">{{
+                                    item.name
+                                }}</span>
+                            </el-option>
+                        </el-select>
+
+                    </div>
+
+                    <div class=" ">
+
+
+                        <el-select filterable class="w-100" placeholder="Loại dịch vụ"
+                            v-model="query.type_of_service_id" clearable>
+                            <el-option v-for="item in typeOfServices" :key="item.id" :label="item.name"
+                                :value="item.id">
+                                <span style="float: left">{{
+                                    item.name
+                                }}</span>
+                            </el-option>
+                        </el-select>
+
+                    </div>
+                    <div class=" ">
+
+
+                        <el-select filterable class="w-100" placeholder="Tình trạng bảo dưỡng"
+                            v-model="query.maintenance_status" clearable>
+                            <el-option v-for="item in maintenance_status" :key="item.id" :label="item.name"
+                                :value="item.id">
+                                <span style="float: left">{{
+                                    item.name
+                                }}</span>
+                            </el-option>
+                        </el-select>
+
+                    </div>
+
+                    <div>
+
+
+                        <el-button :loading="loading" icon="fa fa-search" class=" btn btn-primary font-weight-bold mr-2"
+                            @click="search">
+                            Tìm kiếm
+                        </el-button>
+                    </div>
+                </div>
+
+                <div class="example mb-10">
+                    <div class="example-preview table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">#</th>
+									<th scope="col" class="min-w-130px">
+                                        Hình ảnh
+                                    </th>
+                                    <th scope="col" class="min-w-130px">
+                                        Ngày tạo
+                                    </th>
+                                    <th scope="col">Tên</th>
+                                    <th scope="col">Biển số</th>
+                                    <th scope="col" class="min-w-120px">
+                                        Loại xe - Đời xe
+                                    </th>
+                                    <th scope="col">Giá mua</th>
+                                    <th scope="col" class="min-w-120px">
+                                        Giá bán
+                                    </th>
+                                    <th scope="col" class="min-w-120px">
+                                        Mục đích sử dụng
+                                    </th>
+									<th scope="col" class="min-w-120px">
+                                        Số km hiện tại
+                                    </th>
+                                    <th scope="col" class="min-w-150px">
+                                        Cửa hàng
+                                    </th>
+                                    <th scope="col">Trạng thái</th>
+
+                                    <th scope="col">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, index) in vehicles.data" :key="index">
+                                    <th scope="row">{{ index + 1 }}</th>
+                                    <th scope="row">
+										<el-image
+											v-if="getFirstImage(item)"
+											style="width: 100px; height: 100px"
+											:src="getFirstImage(item)" 
+											:preview-src-list="getItemImages(item)">
+										</el-image>
+									</th>
+                                    <td>{{ item.created_at | formatDate }}</td>
+                                    <td>
+                                        <span>{{ item.name }}<br /></span>
+                                    </td>
+                                    <td><span class="badge badge-primary">{{ item.license }}</span></td>
+                                    <td>{{ type_define[item.type] }} - {{ item.year }}</td>
+                                    <td>{{ item.cost_price | formatPrice }}</td>
+                                    <td>{{ item.sale_price | formatPrice }}</td>
+                                    <td>
+                                        <span :class="typeOfServiceDefineCss[
+                                            item.type_of_service_id
+                                        ]
+                                            ">{{
+                                                type_of_service[
+                                                item.type_of_service_id
+                                                ]
+                                            }}</span>
+                                    </td>
+									<td>
+                                        <span>{{ item.odometer }}</span>
+                                    </td>
+                                    <td>
+                                        <span v-if="item.store" class="label label-info label-inline mr-2">{{
+                                            item.store.store_name }}</span>
+                                    </td>
+                                    <td>
+                                        <span :class="status_define_css[item.status]
+                                            ">
+                                            {{ status_define[item.status] }}
+                                        </span>
+                                    </td>
+
+                                    <td>
+                                        <button v-b-modal.modal-show-car-rental
+                                            class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
+                                            @click="showPopup(item)">
+                                            <i class="far fa-eye"></i>
+                                        </button>
+                                        <button v-b-modal.modal-vehicle-edit @click="item_current = item"
+                                            class="btn btn-xs btn-icon btn-outline-info">
+                                            <i class="far fa-edit"> </i>
+                                        </button>
+                                        <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteVehicle(item.id)" href="javascript:"
+                                            class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <ModalView :vehicle="vehicle_show"></ModalView>
+            <ModalVehicleEdit :item="item_current" @storeSuccess="getList"></ModalVehicleEdit>
+            <div class="edu-paginate mx-auto text-center">
+                <paginate v-model="page" :page-count="last_page" :page-range="3" :margin-pages="1"
+                    :click-handler="clickCallback" :prev-text="'Trước'" :next-text="'Sau'"
+                    :container-class="'pagination b-pagination'" :pageLinkClass="'page-link'"
+                    :next-link-class="'next-link-item'" :prev-link-class="'prev-link-item'" :prev-class="'page-link'"
+                    :next-class="'page-link'" :page-class="'page-item'">
+                </paginate>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
+import { EXPORT_VEHICLES } from "@/core/services/store/exports.module";
+import { mapGetters } from "vuex";
+import {
+    VEHICLE_DELETE,
+    VEHICLE_GET_ALL,
+    VEHICLE_GET_ALL_REPORT,
+} from "../../../core/services/store/vehicle.module";
+import ModalVehicleCreate from "./ModalVehicleCreate";
+import {
+    types,
+    typeOfService,
+    typeOfServiceDefineCss,
+    status,
+    brands,
+    type_define,
+    status_define,
+    status_define_css,
+    typeOfServices,
+} from "../../../option/vehicle";
+import { STORE_GET_ALL } from "../../../core/services/store/store.module";
+import ModalVehicleEdit from "./ModalVehicleEdit";
+import queryMixin from '@/utils/queryMixin.js';
+import ModalView from "./ModalView";
+import Swal from "sweetalert2";
+
+export default {
+    mixins: [queryMixin],
+    name: "VehicleIndex",
+    components: { ModalVehicleEdit, ModalVehicleCreate, ModalView },
+    data() {
+        const { page, store_id, type_of_service_id, ...restQuery } =
+            this.$route?.query || {};
+
+        return {
+
+            vehicle_show: null,
+            query: {
+                name: "",
+                status: "",
+                store_id: store_id ? +store_id : "",
+                created_at: "",
+                type: "",
+                type_of_service_id: type_of_service_id
+                    ? +type_of_service_id
+                    : "",
+                ...(restQuery || {}),
+            },
+            status: status,
+            stores: [],
+            brands: brands,
+            vehicles: [],
+            reports: [],
+            page: +page || 1,
+            last_page: 1,
+            types: types,
+            type_define: type_define,
+            typeOfServiceDefineCss: typeOfServiceDefineCss,
+            type_of_service: typeOfService,
+            typeOfServices: typeOfServices,
+            status_define_css: status_define_css,
+            status_define: status_define,
+            loading: false,
+            item_current: null,
+            maintenance_status: [
+                {
+                    id: 1,
+                    name: "Đã quá hạn"
+                },
+                {
+                    id: 2,
+                    name: "Còn 3 ngày"
+                },
+                {
+                    id: 3,
+                    name: "Còn 1 tuần"
+                }
+            ]
+        };
+    },
+    computed: {
+        ...mapGetters(["currentUser"]),
+    },
+  
+    mounted() {
+        this.getStore();
+        this.$store.dispatch(SET_BREADCRUMB, [{ title: "Quản lý xe" }]);
+        this.getList();
+        this.getReport();
+    },
+    methods: {
+		getFirstImage(item) {
+			return item?.images && item?.images.length > 0 ? item?.images[0]?.url : null;
+		},
+		getItemImages(item) {
+			let urls = item?.images.map(img => img?.url );
+			return urls;
+		},
+
+        showPopup(item) {
+            this.vehicle_show = item;
+
+        },
+        search() {
+            // this.pushParamsUrl();
+            this.getList();
+            this.getReport();
+        },
+        pushParamsUrl() {
+            this.$router.push({
+                path: "",
+                query: {
+                    page: this.page,
+                    ...this.query,
+                },
+            });
+        },
+        getList() {
+            this.loading = true;
+            this.$store
+                .dispatch(VEHICLE_GET_ALL, {
+                    page: this.page,
+                    ...this.query,
+                })
+                .then((data) => {
+                    this.vehicles = data.data;
+                    this.last_page = data.data.last_page;
+                })
+                .finally(() => {
+                    this.loading = false;
+                });
+        },
+        getReport() {
+            this.loading = true;
+            this.$store
+                .dispatch(VEHICLE_GET_ALL_REPORT, this.query)
+                .then((data) => {
+                    this.reports = data.data;
+                });
+        },
+        clickCallback(obj) {
+            this.page = obj;
+            this.$router.push({ path: "", query: { page: this.page } });
+            this.getList();
+        },
+        getStore() {
+            this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
+                this.stores = data.data;
+            });
+        },
+        deleteVehicle(id) {
+            Swal.fire({
+                title: "Bạn chắc chắn muốn xóa? Dữ liệu bị xóa sẽ không thể khôi phục lại.",
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonText: "Đồng ý",
+                cancelButtonText: "Không",
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.$store
+                        .dispatch(VEHICLE_DELETE, id)
+                        .then((data) => {
+                            this.$message.success(data.message);
+                            this.getList();
+                        })
+                        .catch((err) => {
+                            this.$message.error(err.data.message);
+                        });
+                }
+            });
+        },
+        exportFile() {
+            this.loading = true;
+            this.$store.dispatch(EXPORT_VEHICLES, this.query).then().catch((error) => {
+                this.noticeMessage('error', 'Thất bại', error.message);
+            }).finally(() => {
+                this.loading = false;
+            })
+        },
+        convertDaysToWeeksAndMonths(days) {
+            if (!days) {
+                return '';
+            }
+
+            const absoluteDays = Math.abs(days);
+            const months = Math.floor(absoluteDays / 30);
+            const weeks = Math.floor((absoluteDays % 30) / 7);
+            const remainingDays = absoluteDays % 7;
+
+            let result = '';
+
+            if (months > 0) {
+                result += `${months} tháng `;
+            }
+
+            if (weeks > 0) {
+                result += `${weeks} tuần `;
+            }
+
+            if (remainingDays > 0) {
+                result += `${remainingDays} ngày`;
+            }
+
+            if (!result) {
+                result = 'ngày';
+            }
+
+            if (days < 0) {
+                result = `Quá hạn: ${result}`;
+            }
+
+            return result.trim();
+        },
+    },
+};
+</script>
+
+<style scoped>
+.mx-datepicker {
+    width: 100% !important;
+}
+.vehicle-image {
+	width: 130px;
+	height: 130px;
+	object-fit: cover;
+	border: 1px solid #E9EDF3;
+}
+</style>

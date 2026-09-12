@@ -1,0 +1,70 @@
+services:
+  - type: web
+    name: himoto-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: APP_NAME
+        value: HIMOTO
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_SSLMODE
+        value: require
+      - key: DB_SCHEMA
+        value: himoto
+      - key: DATABASE_URL
+        sync: false
+      - key: CACHE_DRIVER
+        value: array
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: SESSION_DRIVER
+        value: cookie
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CORS_SUPPORTS_CREDENTIALS
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_TTL
+        value: "10000"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: himoto/vehicles
+      - key: WORDPRESS_LEADS_URL
+        value: https://himoto.vn/wp-json/omg-leads/v1/leads?limit=-1
+      - key: WORDPRESS_LEADS_TOKEN
+        sync: false
+      - key: RUN_MIGRATIONS
+        value: "true"
+
+  - type: web
+    name: himoto-web
+    runtime: static
+    buildCommand: npm ci && npm run build:static
+    staticPublishPath: ./static-dist
+    autoDeployTrigger: commit
+    envVars:
+      - key: MIX_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
