@@ -18,29 +18,43 @@ Không commit `.env`, database dump, file backup hoặc khóa dịch vụ vào G
 
 ## 2. Chuyển MySQL sang Supabase
 
-Database dump hiện tại đã được thử chuyển bằng pgloader: 37 bảng, 683.548 dòng,
-không lỗi. PostgreSQL dùng khoảng 202 MB. pgloader tạo schema `himoto`, vì vậy biến
-`DB_SCHEMA` của backend phải giữ giá trị `himoto`.
+Database dump đã được chuyển lên Supabase: 37 bảng, 683.548 dòng, không lỗi.
+Sau migration Cloudinary, database dùng khoảng 206 MB. Schema là `himoto`, vì vậy
+biến `DB_SCHEMA` của backend phải giữ giá trị `himoto`.
 
 Trước khi chạy với Supabase thật, lấy Session Pooler URI trong Supabase Dashboard.
-Mật khẩu có ký tự đặc biệt phải được URL-encode trong URI. Chạy pgloader từ máy có
-Docker và dùng database MySQL tạm được nạp từ file dump:
+Mật khẩu có ký tự đặc biệt phải được URL-encode trong URI. Pgloader 3.6.x có lỗi xác
+minh certificate với Supabase pooler, vì vậy chuyển MySQL sang PostgreSQL local trước,
+sau đó dùng `pg_restore` (libpq/SSL) để nhập lên Supabase:
 
 ```powershell
 docker network create himoto-migration
 docker run -d --name himoto-mysql --network himoto-migration `
-  -e MYSQL_ROOT_PASSWORD=local-mysql-only -e MYSQL_DATABASE=himoto mysql:8.0
-Get-Content -Raw "E:\duanthuexe\database-qfsfaedgjh.sql" | `
-  docker exec -i himoto-mysql mysql -uroot -plocal-mysql-only himoto
-$env:SUPABASE_DATABASE_URL = "postgresql://...session-pooler.../postgres?sslmode=require"
+  -e MYSQL_ROOT_PASSWORD=local-mysql-only -e MYSQL_DATABASE=himoto `
+  --mount type=bind,source="E:\duanthuexe\database-qfsfaedgjh.sql",target=/docker-entrypoint-initdb.d/01.sql,readonly `
+  mysql:5.7
+docker run -d --name himoto-postgres --network himoto-migration `
+  -e POSTGRES_PASSWORD=local-postgres-only -e POSTGRES_DB=himoto postgres:17-alpine
+docker run --rm --network himoto-migration --entrypoint pgloader `
+  dimitri/pgloader:latest --on-error-stop `
+  mysql://root:local-mysql-only@himoto-mysql/himoto `
+  postgresql://postgres:local-postgres-only@himoto-postgres:5432/himoto
+docker volume create himoto-pg-dump
 docker run --rm --network himoto-migration `
-  -e SUPABASE_DATABASE_URL `
-  dimitri/pgloader:latest `
-  pgloader mysql://root:local-mysql-only@himoto-mysql/himoto $env:SUPABASE_DATABASE_URL
+  -e PGHOST=himoto-postgres -e PGDATABASE=himoto -e PGUSER=postgres `
+  -e PGPASSWORD=local-postgres-only `
+  --mount type=volume,source=himoto-pg-dump,target=/backup `
+  postgres:17-alpine pg_dump --format=custom --no-owner --no-acl `
+  --file=/backup/himoto.dump
+$env:SUPABASE_DATABASE_URL = "postgresql://...session-pooler.../postgres?sslmode=require"
+docker run --rm -e SUPABASE_DATABASE_URL `
+  --mount type=volume,source=himoto-pg-dump,target=/backup `
+  postgres:17-alpine sh -c `
+  'pg_restore --dbname="$SUPABASE_DATABASE_URL" --no-owner --no-acl --exit-on-error /backup/himoto.dump'
 ```
 
-Sau khi kiểm tra số dòng và dữ liệu, xóa đúng hai container/database tạm. Không dùng
-`docker system prune` vì có thể xóa dữ liệu Docker khác.
+Sau khi kiểm tra số dòng và dữ liệu, xóa đúng hai container, volume và network tạm.
+Không dùng `docker system prune` vì có thể xóa dữ liệu Docker khác.
 
 ## 3. Tạo dịch vụ Render
 
