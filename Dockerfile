@@ -4,8 +4,23 @@ FROM php:7.4-apache
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
-RUN apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update \
-    && apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 -o Acquire::http::Timeout=30 install -y --no-install-recommends \
+RUN set -eux; \
+    for attempt in 1 2 3; do \
+        rm -rf /var/lib/apt/lists/*; \
+        if apt-get -o Acquire::ForceIPv4=true \
+            -o Acquire::Retries=5 \
+            -o Acquire::http::Timeout=60 \
+            -o Acquire::https::Timeout=60 \
+            update --allow-releaseinfo-change; then \
+            break; \
+        fi; \
+        if [ "${attempt}" = "3" ]; then exit 100; fi; \
+    done; \
+    apt-get -o Acquire::ForceIPv4=true \
+        -o Acquire::Retries=5 \
+        -o Acquire::http::Timeout=60 \
+        -o Acquire::https::Timeout=60 \
+        install -y --no-install-recommends \
         git \
         libfreetype6-dev \
         libjpeg62-turbo-dev \
