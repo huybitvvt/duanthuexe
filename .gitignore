@@ -30,5 +30,6 @@
 .env_bk
 dev.env
 env.supabase
+env.cloudinary
 notes.txt
 crontab
