@@ -16,6 +16,7 @@ use App\Helpers\DateTimeHelper;
 use App\Repositories\TransactionRepository;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use App\Http\Services\ReportService;
 
 class DashboardService
@@ -46,36 +47,29 @@ class DashboardService
 
     public function reportChart(Carbon $startDate, Carbon $endDate)
     {
-        $labels = [];
-        $values = [];
-        $diffInDays = $endDate->diffInDays($startDate);
-		$user = auth()->user();
-
-        for ($i = 0; $i <= $diffInDays; $i++) {
-            $day = $startDate->copy()->addDays($i);
-
-            $total_query = $this->orderRepository->whereBetween('created_at', [$day->copy()->startOfDay(), $day->copy()->endOfDay()]);
-            $addOns_query = Transaction::whereBetween('created_at', [$day->copy()->startOfDay(), $day->copy()->endOfDay()]);
-
-			if ($user->role_rel->slug !== 'quan-tri-vien') {
-				$total_query = $total_query->where('store_id', $user->store_id);
-				$addOns_query = $addOns_query->where('store_id', $user->store_id);
-			}
-
-			$total = $total_query->sum('total');
-            $addOns = $addOns_query->sum('value');
-
-            array_push($labels, $day->format('d-m-Y'));
-            array_push($values, $total + $addOns);
-        }
-
-        return [
-            'labels' => $labels,
-            'values' => $values
-        ];
+        $user = auth()->user();
+        $storeId = $user->role_rel->slug !== 'quan-tri-vien' ? $user->store_id : null;
+        $key = 'dashboard:chart:' . ($storeId ?: 'all') . ':' . $startDate->toDateString() . ':' . $endDate->toDateString();
+        return Cache::remember($key, 30, function () use ($startDate, $endDate, $storeId) {
+            $orders = $this->orderRepository->whereBetween('created_at', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])->selectRaw('DATE(created_at) as day, COALESCE(SUM(total), 0) as total')->when($storeId, fn ($q) => $q->where('store_id', $storeId))->groupBy('day')->pluck('total', 'day');
+            $transactions = Transaction::whereBetween('created_at', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])->selectRaw('DATE(created_at) as day, COALESCE(SUM(value), 0) as total')->when($storeId, fn ($q) => $q->where('store_id', $storeId))->groupBy('day')->pluck('total', 'day');
+            $labels = []; $values = [];
+            for ($day = $startDate->copy()->startOfDay(); $day->lte($endDate); $day->addDay()) {
+                $date = $day->toDateString(); $labels[] = $day->format('d-m-Y');
+                $values[] = (float) ($orders[$date] ?? 0) + (float) ($transactions[$date] ?? 0);
+            }
+            return ['labels' => $labels, 'values' => $values];
+        });
     }
 
     public function report()
+    {
+        $user = auth()->user();
+        $key = 'dashboard:report:' . ($user->role_rel->slug === 'quan-tri-vien' ? 'all' : $user->store_id);
+        return Cache::remember($key, 30, fn () => $this->buildReport());
+    }
+
+    private function buildReport()
     {
         $now = DateTimeHelper::now();
         $start_day = $now->copy()->startOfDay();
