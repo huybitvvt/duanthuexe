@@ -8,6 +8,7 @@ use Carbon\Carbon;
 
 class MaintenanceVehicle extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     protected $table = 'maintenance_vehicle';
     protected $dates = [
         'last_time',  'next_time'

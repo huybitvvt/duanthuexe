@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Bank extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     //
     protected $fillable = ['bank_name', 'account_number', 'account_type', 'owner_name', 'store_id', 'opening_balance'];
     // public function store()

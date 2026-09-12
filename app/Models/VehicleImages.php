@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class VehicleImages extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     protected $fillable = [
         'vehicle_id',
         'file_id',

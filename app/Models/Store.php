@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Store extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     protected $fillable = [
         'store_name',
         'store_phone',

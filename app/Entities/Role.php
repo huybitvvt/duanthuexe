@@ -14,6 +14,7 @@ use Prettus\Repository\Traits\TransformableTrait;
  */
 class Role extends Model implements Transformable
 {
+    use \App\Traits\HandlesPostgresDates;
     use TransformableTrait;
 
     /**

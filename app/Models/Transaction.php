@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
  */
 class Transaction extends Model implements Transformable
 {
+    use \App\Traits\HandlesPostgresDates;
     use TransformableTrait;
 
     const THU = 'in';

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MaintenanceType extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     
     protected $fillable = ['name', 'note'];
    

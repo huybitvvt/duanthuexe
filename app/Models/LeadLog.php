@@ -15,6 +15,7 @@ use Prettus\Repository\Traits\TransformableTrait;
  */
 class LeadLog extends Model implements Transformable
 {
+    use \App\Traits\HandlesPostgresDates;
     use TransformableTrait;
 
     /**

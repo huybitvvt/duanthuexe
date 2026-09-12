@@ -7,6 +7,7 @@ use Carbon\Carbon;
 
 class MaintenanceRule extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     
     protected $fillable = [
        'maintenance_type_id',

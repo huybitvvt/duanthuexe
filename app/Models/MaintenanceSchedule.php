@@ -8,6 +8,7 @@ use Carbon\Carbon;
 
 class MaintenanceSchedule extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     
     protected $dates = [
            'next_time_auto','next_time_manual'

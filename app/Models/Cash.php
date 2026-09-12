@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Cash extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     protected $table = 'cash';
     protected $fillable = [  'store_id', 'opening_balance'];
     public function transactions(): HasMany

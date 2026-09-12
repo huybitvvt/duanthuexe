@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Lead extends Model
 {   
+    use \App\Traits\HandlesPostgresDates;
     use SoftDeletes;
     protected $dates   = [
         'rent_at',  'return_at','created_at'

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class MaintenanceLog extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     protected $table = 'maintenance_log';
     protected $fillable = ['vehicle_id', 'maintenance_at', 'note','maintenance_type_id'];
    

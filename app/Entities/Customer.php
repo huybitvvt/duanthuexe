@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Customer extends Model implements Transformable
 {
+    use \App\Traits\HandlesPostgresDates;
     use TransformableTrait;
 
     /**

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class File extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     protected $fillable = [
         'name',
         'key',

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PriceVehicle extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     protected $table = 'pricing';
 
     protected $fillable = ['type', 'from_year', 'to_year', 'from_date', 'to_date', 'price', 'price_type'];

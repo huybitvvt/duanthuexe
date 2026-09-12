@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vehicle extends Model
 {
+    use \App\Traits\HandlesPostgresDates;
     const STATUS_READY = 'ready';
     const STATUS_PENDING = 'pending';
     const STATUS_USING = 'using';
