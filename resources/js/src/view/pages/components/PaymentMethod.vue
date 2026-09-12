@@ -7,7 +7,7 @@
 
 		<div class="row mt-2">
 			<div class="col-md-4 form-group">
-				<label><strong>Tiền chuyển khoản</strong></label>
+				<label><strong>Tổng tiền chuyển khoản</strong></label>
 				<ValidationProvider vid="bank_transfer_amount" name="Tiền chuyển khoản" rules="numeric|min_value:0" v-slot="{ errors }">
 					<money v-model="settings.bank_transfer_amount" v-bind="money" class="form-control" placeholder="Tiền chuyển khoản"></money>
 					<error-message :errors="errors" field="bank_transfer_amount"></error-message>
@@ -15,14 +15,14 @@
 			</div>
 
 			<div class="col-md-4 form-group">
-				<label><strong>Tiền mặt</strong></label>
+				<label><strong>Tổng tiền mặt</strong></label>
 				<ValidationProvider vid="cash_amount" name="Tiền mặt" rules="numeric|min_value:0" v-slot="{ errors }">
 					<money v-model="settings.cash_amount" v-bind="money" class="form-control" placeholder="Tiền mặt"></money>
 					<error-message :errors="errors" field="cash_amount"></error-message>
 				</ValidationProvider>
 			</div>
 
-			<div class="col-md-4 form-group">
+			<div v-if="hasBankTransfer" class="col-md-4 form-group">
 				<label><strong>Tài khoản nhận tiền</strong></label>
 				<ValidationProvider vid="bank_id" name="Tài khoản" :rules="hasBankTransfer ? 'required' : ''" v-slot="{ errors }">
 					<el-select
@@ -40,6 +40,11 @@
 					<error-message :errors="errors" field="bank_id"></error-message>
 				</ValidationProvider>
 			</div>
+		</div>
+
+		<div v-if="totalAmount > 0" class="payment-allocation-summary">
+			<span>Đã phân bổ: <strong>{{ allocatedAmount | formatPrice }}</strong></span>
+			<span>Cần thu: <strong>{{ totalAmount | formatPrice }}</strong></span>
 		</div>
 
 		<div v-if="allocationError" class="payment-allocation-error">
@@ -90,7 +95,8 @@ export default {
 		ErrorMessage,
     },
     data() {
-        return {
+		return {
+			allocationSyncing: false,
 			money: {
                 decimal: ',',
                 thousands: ',',
@@ -133,6 +139,39 @@ export default {
 				this.$set(this.settings, "bank_id", null);
 			}
 		},
+		syncAllocation(field, value, oldValue) {
+			if (this.allocationSyncing) {
+				return;
+			}
+
+			const total = this.amount(this.fixedAmount);
+			if (total === 0) {
+				return;
+			}
+
+			const changedAmount = this.amount(value);
+			const previousAmount = this.amount(oldValue);
+			const otherField = field === "bank_transfer_amount" ? "cash_amount" : "bank_transfer_amount";
+			const previousOtherAmount = this.amount(this.settings[otherField]);
+
+			// When the previous allocation was complete, keep it complete while the
+			// user edits either side. This makes entering "CK = 1.000.000, tiền mặt
+			// = 0" work without requiring the old three-option selector.
+			if (previousAmount + previousOtherAmount !== total) {
+				return;
+			}
+
+			const nextOtherAmount = Math.max(total - changedAmount, 0);
+			if (previousOtherAmount === nextOtherAmount) {
+				return;
+			}
+
+			this.allocationSyncing = true;
+			this.$set(this.settings, otherField, nextOtherAmount);
+			this.$nextTick(() => {
+				this.allocationSyncing = false;
+			});
+		},
 		syncFixedAmount(value, oldValue) {
 			const total = this.amount(value);
 			const previousTotal = this.amount(oldValue);
@@ -140,6 +179,12 @@ export default {
 			const cashAmount = this.amount(this.settings.cash_amount);
 
 			if (total === 0) {
+				if (bankAmount !== 0) {
+					this.$set(this.settings, "bank_transfer_amount", 0);
+				}
+				if (cashAmount !== 0) {
+					this.$set(this.settings, "cash_amount", 0);
+				}
 				return;
 			}
 
@@ -168,10 +213,16 @@ export default {
 			deep: true,
 		},
 		"settings.bank_transfer_amount": {
-			handler: "inferPaymentMethod",
+			handler(value, oldValue) {
+				this.syncAllocation("bank_transfer_amount", value, oldValue);
+				this.inferPaymentMethod();
+			},
 		},
 		"settings.cash_amount": {
-			handler: "inferPaymentMethod",
+			handler(value, oldValue) {
+				this.syncAllocation("cash_amount", value, oldValue);
+				this.inferPaymentMethod();
+			},
 		},
 		fixedAmount: {
 			handler: "syncFixedAmount",
@@ -179,6 +230,12 @@ export default {
 		},
 	},
 	computed: {
+		totalAmount() {
+			return this.amount(this.fixedAmount);
+		},
+		allocatedAmount() {
+			return this.amount(this.settings.bank_transfer_amount) + this.amount(this.settings.cash_amount);
+		},
 		hasBankTransfer() {
 			return this.amount(this.settings.bank_transfer_amount) > 0;
 		},
@@ -192,14 +249,12 @@ export default {
 			return "Tự xác định: Tiền mặt";
 		},
 		allocationError() {
-			const total = this.amount(this.fixedAmount);
+			const total = this.totalAmount;
 			if (total === 0) {
 				return "";
 			}
 
-			const allocated = this.amount(this.settings.bank_transfer_amount)
-				+ this.amount(this.settings.cash_amount);
-			if (allocated === total) {
+			if (this.allocatedAmount === total) {
 				return "";
 			}
 
@@ -220,6 +275,14 @@ export default {
 .payment-method-summary {
 	color: #606266;
 	font-size: 12px;
+}
+
+.payment-allocation-summary {
+	display: flex;
+	gap: 16px;
+	color: #606266;
+	font-size: 12px;
+	margin-top: -4px;
 }
 
 .payment-allocation-error {

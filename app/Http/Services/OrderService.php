@@ -218,24 +218,82 @@ class OrderService
 		}
 	}
 
+	/**
+	 * Return the payment settings stored inside an order's serialized payment
+	 * details. Older orders may store the settings directly, so support both
+	 * shapes while comparing an update.
+	 */
+	protected function storedPaymentMethod($value)
+	{
+		if ( is_string($value) ) {
+			$value = @unserialize($value);
+		}
+
+		if ( ! is_array($value) ) {
+			return null;
+		}
+
+		if ( isset($value['payment_method']) && is_array($value['payment_method']) ) {
+			return $value['payment_method'];
+		}
+
+		return $value;
+	}
+
+	protected function paymentMethodSignature($payment_method, $total_amount = 0)
+	{
+		if ( ! is_array($payment_method) ) {
+			return null;
+		}
+
+		$method = isset($payment_method['payment_method']) && is_numeric($payment_method['payment_method'])
+			? intval($payment_method['payment_method'])
+			: 1;
+		$bank_amount = isset($payment_method['bank_transfer_amount']) && is_numeric($payment_method['bank_transfer_amount'])
+			? max(0, intval($payment_method['bank_transfer_amount']))
+			: 0;
+		$cash_amount = isset($payment_method['cash_amount']) && is_numeric($payment_method['cash_amount'])
+			? max(0, intval($payment_method['cash_amount']))
+			: 0;
+		$total_amount = is_numeric($total_amount) ? max(0, intval($total_amount)) : 0;
+
+		// Legacy records only kept the selected method. Reconstruct the one-sided
+		// amount so they compare equal to the new direct-allocation format.
+		if ( 0 === $bank_amount && 0 === $cash_amount && $total_amount > 0 ) {
+			if ( 2 === $method ) {
+				$bank_amount = $total_amount;
+			} else {
+				$cash_amount = $total_amount;
+			}
+		}
+
+		return [
+			'payment_method' => $method,
+			'bank_id' => $bank_amount > 0 && isset($payment_method['bank_id']) && is_numeric($payment_method['bank_id'])
+				? intval($payment_method['bank_id'])
+				: null,
+			'bank_transfer_amount' => $bank_amount,
+			'cash_amount' => $cash_amount,
+		];
+	}
+
+	protected function paymentMethodChanged($stored, $input, $total_amount = 0)
+	{
+		if ( ! is_array($input) ) {
+			return false;
+		}
+
+		return $this->paymentMethodSignature($stored, $total_amount) !== $this->paymentMethodSignature($input, $total_amount);
+	}
+
 	protected function maybeUpdateTransactions( Request $request, Order $order ) {
 		$order_id = $order->id;
 		$db_order = Order::find($order_id);
 		
 		if ( $db_order ) {
-			$decode_first_deposit = unserialize( $db_order->first_deposit_payment_method );
-			$decode_rental_fee = unserialize( $db_order->total_rental_payment_method );
-			$decode_additional_deposit = unserialize( $db_order->additional_deposit_payment_method );
-
-			if ( is_array( $decode_first_deposit ) && isset( $decode_first_deposit['payment_method'] ) ) {
-				$decode_first_deposit = $decode_first_deposit['payment_method'];
-			}
-			if ( is_array( $decode_rental_fee ) && isset( $decode_rental_fee['payment_method'] ) ) {
-				$decode_rental_fee = $decode_rental_fee['payment_method'];
-			}
-			if ( is_array( $decode_additional_deposit ) && isset( $decode_additional_deposit['payment_method'] ) ) {
-				$decode_additional_deposit = $decode_additional_deposit['payment_method'];
-			}
+			$decode_first_deposit = $this->storedPaymentMethod($db_order->first_deposit_payment_method);
+			$decode_rental_fee = $this->storedPaymentMethod($db_order->total_rental_payment_method);
+			$decode_additional_deposit = $this->storedPaymentMethod($db_order->additional_deposit_payment_method);
 
 			$input_first_deposit = $request->get('first_deposit_payment_method');
 			$input_rental_fee = $request->get('total_rental_payment_method');
@@ -243,7 +301,7 @@ class OrderService
 			
 
 			if ( is_numeric( $request->first_deposit_amount ) && $request->first_deposit_amount > 0 ) { // New deposit amount diff with the db data.
-				if ( $db_order->first_deposit_amount != $request->first_deposit_amount || ( $decode_first_deposit && $decode_first_deposit['payment_method'] != $input_first_deposit['payment_method'] ) ) {
+				if ( $db_order->first_deposit_amount != $request->first_deposit_amount || $this->paymentMethodChanged($decode_first_deposit, $input_first_deposit, $request->first_deposit_amount) ) {
 					$db_deposit_transaction_ids = Transaction::where('order_id', $order_id)->where(function ($query) use ($order_id) {
 						$query->where('name', "order:deposit:$order_id")->orWhere('name', 'order:deposit:keep_vehicle');
 					})->pluck('id');
@@ -258,7 +316,7 @@ class OrderService
 			}
 
 			if ( is_numeric( $request->additional_deposit_amount ) && $request->additional_deposit_amount > 0 ) { // New deposit amount diff with the db data.
-				if ( $db_order->additional_deposit_amount != $request->additional_deposit_amount || ( $decode_additional_deposit && $decode_additional_deposit['payment_method'] != $input_additional_deposit['payment_method'] ) ) {
+				if ( $db_order->additional_deposit_amount != $request->additional_deposit_amount || $this->paymentMethodChanged($decode_additional_deposit, $input_additional_deposit, $request->additional_deposit_amount) ) {
 					$db_deposit_transaction_ids = Transaction::where('name', "order:additional_deposit")->where('order_id', $order_id)->pluck('id');
 					if ( $db_deposit_transaction_ids ) {
 						Transaction::destroy($db_deposit_transaction_ids);
@@ -270,7 +328,7 @@ class OrderService
 			}
 
 			if ( is_numeric( $request->total_rental_fees ) && $request->total_rental_fees > 0 ) { // New rental fees amount diff with the db data.
-				if ( $db_order->total_rental_fees != $request->total_rental_fees || ( $decode_rental_fee && $decode_rental_fee['payment_method'] != $input_rental_fee['payment_method'] ) ) {
+				if ( $db_order->total_rental_fees != $request->total_rental_fees || $this->paymentMethodChanged($decode_rental_fee, $input_rental_fee, $request->total_rental_fees) ) {
 					$db_rental_fees_transaction_ids = Transaction::where('name', 'order:rental_fees')->where('order_id', $order_id)->pluck('id');
 					
 					if ( $db_rental_fees_transaction_ids ) {
