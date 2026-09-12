@@ -58,7 +58,9 @@ services:
   - type: web
     name: himoto-web
     runtime: static
-    buildCommand: npm ci && npm run build:static
+    buildCommand: >-
+      git config --global url.https://github.com/.insteadOf ssh://git@github.com/ &&
+      npm ci && npm run build:static
     staticPublishPath: ./static-dist
     autoDeployTrigger: commit
     envVars:
