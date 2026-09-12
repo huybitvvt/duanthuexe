@@ -21,7 +21,6 @@ RUN set -eux; \
         -o Acquire::http::Timeout=60 \
         -o Acquire::https::Timeout=60 \
         install -y --no-install-recommends \
-        git \
         libfreetype6-dev \
         libjpeg62-turbo-dev \
         libonig-dev \
