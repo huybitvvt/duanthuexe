@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Entities\Role;
 use Illuminate\Auth\Passwords\CanResetPassword;
@@ -44,6 +45,22 @@ class User extends Authenticatable implements JWTSubject, CanResetPasswordContra
         'email_verified_at' => 'datetime',
         'file' => 'array',
     ];
+
+    /**
+     * PostgreSQL returns timestamptz values with a UTC offset and, when
+     * present, microseconds (for example: 2026-09-12 16:31:11.278902+00).
+     * Laravel 5.8's default parser expects MySQL's Y-m-d H:i:s format and
+     * throws "Trailing data" while serializing the authenticated user.
+     * Parse date strings through Carbon so both database formats work.
+     */
+    protected function asDateTime($value)
+    {
+        if (is_string($value)) {
+            return Carbon::parse($value)->setTimezone(config('app.timezone'));
+        }
+
+        return parent::asDateTime($value);
+    }
 
 
     /**
