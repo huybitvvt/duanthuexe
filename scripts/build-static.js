@@ -12,21 +12,20 @@ const excludedNames = new Set([
     "web.config",
 ]);
 
-function removeDirectory(directory) {
+function emptyDirectory(directory) {
     if (!fs.existsSync(directory)) {
+        fs.mkdirSync(directory, { recursive: true });
         return;
     }
 
     fs.readdirSync(directory).forEach(name => {
         const target = path.join(directory, name);
-        const stat = fs.lstatSync(target);
-        if (stat.isDirectory()) {
-            removeDirectory(target);
-        } else {
-            fs.unlinkSync(target);
+        try {
+            fs.rmSync(target, { recursive: true, force: true });
+        } catch (e) {
+            // Ignore if temporarily locked
         }
     });
-    fs.rmdirSync(directory);
 }
 
 function copyDirectory(source, destination) {
@@ -49,7 +48,7 @@ function copyDirectory(source, destination) {
     });
 }
 
-removeDirectory(outputDir);
+emptyDirectory(outputDir);
 copyDirectory(publicDir, outputDir);
 fs.copyFileSync(indexTemplate, path.join(outputDir, "index.html"));
 
