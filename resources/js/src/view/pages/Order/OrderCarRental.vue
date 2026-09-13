@@ -431,8 +431,8 @@ export default {
         getList() {
             this.loading = true;
             this.$store.dispatch(GET_ORDER_CAR_RENTAL, { page: this.page, ...this.query }).then((data) => {
-                this.orders = data.data;
-                this.last_page = data.pagination.last_page
+                this.orders = data?.data || [];
+                this.last_page = data?.pagination?.last_page || data?.meta?.last_page || 1;
             }).finally(() => this.loading = false)
         },
         getReport() {

@@ -183,7 +183,7 @@
       <button
         type="button"
         class="btn btn-primary btn-sm btn-quick-order"
-        @click="$emit('quick-create-order')"
+        @click="onQuickCreateOrder"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -282,8 +282,22 @@ import { LOGOUT } from "@/core/services/store/auth.module";
 import { STORE_GET_ALL, SET_SELECTED_STORE_ID } from "@/core/services/store/store.module";
 import ApiService from "@/core/services/api.service";
 
+const unwrapList = (payload) => {
+  if (!payload) return [];
+  const val = payload.data !== undefined ? payload.data : payload;
+  if (Array.isArray(val)) return val;
+  if (val && Array.isArray(val.data)) return val.data;
+  return [];
+};
+
 export default {
   name: "HimotoHeader",
+  props: {
+    drawerActive: {
+      type: Boolean,
+      default: false
+    }
+  },
   data() {
     return {
       selectedStoreId: this.$store?.getters?.selectedStoreId || "all",
@@ -389,6 +403,18 @@ export default {
     },
     handleGlobalShortcuts(e) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        // Guard against stealing focus when drawer or modal dialog is open
+        const isOverlayOpen =
+          this.drawerActive ||
+          !!document.querySelector(
+            ".drawer-backdrop.active, .drawer-panel.active, #slideDrawer.active, .modal.show, [role='dialog']"
+          );
+        if (isOverlayOpen) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
         e.preventDefault();
         const isMobile = window.innerWidth <= 768;
         if (isMobile) {
@@ -400,6 +426,9 @@ export default {
           if (this.$refs.desktopSearchInput) this.$refs.desktopSearchInput.focus();
         }
       }
+    },
+    onQuickCreateOrder() {
+      this.$emit("quick-create-order");
     },
     handleDocumentClick(e) {
       const searchBox = this.$refs.searchContainer;
@@ -438,48 +467,50 @@ export default {
       // Search real backend endpoints where available or filter cached list
       const storeIdParam = this.selectedStoreId !== "all" ? { store_id: this.selectedStoreId } : {};
 
-      // Vehicle search
+      // Vehicle search (supports Laravel LengthAwarePaginator and flat array)
       ApiService.query("/api/auth/vehicle/vehicles", { keyword: qLower, limit: 5, ...storeIdParam })
         .then(({ data }) => {
-          const vList = data?.data || [];
+          const vList = unwrapList(data);
           this.searchResults.vehicles = vList.map((v) => ({
             id: v.id,
             type: "vehicle",
             typeLabel: "Xe",
-            title: `${v.name} (${v.license || v.license_plate || ''})`,
+            title: `${v.name || 'Xe'} (${v.license || v.license_plate || ''})`,
             subtitle: `${v.store?.store_name || "Kho"} • ${v.color || ""} • ODO ${v.total_km || 0}km`,
             meta: v.status_name || (v.status === 1 ? "Sẵn sàng" : "Đang thuê"),
             raw: v,
             data: v
           }));
         })
-        .catch(() => {
+        .catch((err) => {
+          console.warn("Himoto search vehicles failed:", err);
           this.searchResults.vehicles = [];
         });
 
-      // Customer search
+      // Customer search (supports Laravel LengthAwarePaginator and flat array)
       ApiService.query("/api/auth/customers", { keyword: qLower, limit: 5 })
         .then(({ data }) => {
-          const cList = data?.data || [];
+          const cList = unwrapList(data);
           this.searchResults.customers = cList.map((c) => ({
             id: c.id,
             type: "customer",
             typeLabel: "Khách hàng",
             title: c.name || "Khách",
-            subtitle: `SĐT: ${c.phone || "---"} • CCCD: ${c.identity_card || "---"}`,
+            subtitle: `SĐT: ${c.phone || "---"} • CCCD: ${c.id_card || c.identity_card || "---"}`,
             meta: c.total_order ? `${c.total_order} đơn` : null,
             raw: c,
             data: c
           }));
         })
-        .catch(() => {
+        .catch((err) => {
+          console.warn("Himoto search customers failed:", err);
           this.searchResults.customers = [];
         });
 
-      // Order search
+      // Order search (supports Laravel LengthAwarePaginator and flat array)
       ApiService.query("/api/auth/order/car-rental", { keyword: qLower, limit: 5, ...storeIdParam })
         .then(({ data }) => {
-          const oList = data?.data || [];
+          const oList = unwrapList(data);
           this.searchResults.orders = oList.map((o) => ({
             id: o.id,
             type: "order",
@@ -491,7 +522,8 @@ export default {
             data: o
           }));
         })
-        .catch(() => {
+        .catch((err) => {
+          console.warn("Himoto search orders failed:", err);
           this.searchResults.orders = [];
         });
     },

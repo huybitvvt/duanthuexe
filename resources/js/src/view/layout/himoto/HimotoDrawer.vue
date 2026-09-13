@@ -84,15 +84,27 @@ export default {
     value(newVal) {
       if (newVal) {
         this.openerElement = document.activeElement;
+        window.addEventListener("keydown", this.interceptShortcutsWhileOpen, true);
         this.$nextTick(() => {
           this.focusDrawer();
         });
       } else {
+        window.removeEventListener("keydown", this.interceptShortcutsWhileOpen, true);
         this.restoreFocus();
       }
     }
   },
+  beforeDestroy() {
+    window.removeEventListener("keydown", this.interceptShortcutsWhileOpen, true);
+  },
   methods: {
+    interceptShortcutsWhileOpen(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }
+    },
     closeDrawer() {
       this.$emit("input", false);
       this.$emit("close");

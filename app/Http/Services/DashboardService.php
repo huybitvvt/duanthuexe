@@ -89,7 +89,9 @@ class DashboardService
         $total_vehicle_repairing = $this->vehicleRepository->where('status', Vehicle::STATUS_REPAIRING)->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
         $total_vehicle_broken = $this->vehicleRepository->where('status', Vehicle::STATUS_BROKEN)->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
 
-        $total_customer = $this->customerRepository->count();
+        $total_customer = $effectiveStoreId
+            ? $this->customerRepository->getModel()->whereHas('orders', fn ($q) => $q->where('store_id', $effectiveStoreId))->count()
+            : $this->customerRepository->count();
         $total_staff = $this->userRepository->where('role_id', '!=', 1)->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
         $total_order_in_day = $this->orderRepository->findWhereBetween('created_at', [$start_day, $end_day])->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
         $total_order_in_month = $this->orderRepository->findWhereBetween('created_at', [$startOfMonth, $endOfMonth])->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();

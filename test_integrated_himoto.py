@@ -2,39 +2,45 @@ import json
 import time
 from playwright.sync_api import sync_playwright
 
-BASE_URL = 'http://localhost:8090/'
+BASE_URL = "http://localhost:8090/"
 
 def run_himoto_integration_tests():
-    print("=== HIMOTO VUE/LARAVEL INTEGRATION TEST SUITE ===")
-    
     test_results = {
         "overflow_tests": [],
         "search_resize_focus": False,
         "drawer_accessibility": False,
-        "role_gating": False,
+        "drawer_ctrl_k_resistant": False,
+        "header_create_button": False,
+        "paginated_search_compatible": False,
+        "role_gating_and_403": False,
         "dashboard_kpi": False
     }
 
+    # Mock Data Fixtures
     mock_user_admin = {
         "id": 1,
-        "name": "Quanlyvanhanh",
-        "email": "Quanlyvanhanh@gmail.com",
+        "name": "Quản Trị Viên HIMOTO",
+        "email": "admin@himoto.vn",
         "role_id": 1,
-        "role_rel": {"slug": "quan-tri-vien"}
+        "store_id": 1,
+        "role_rel": {"slug": "quan-tri-vien", "name": "Quản trị viên"}
     }
 
     mock_user_lead = {
         "id": 4,
-        "name": "NhanVienLead",
-        "email": "lead@himoto.com",
+        "name": "Chuyên Viên Tư Vấn Lead",
+        "email": "lead@himoto.vn",
         "role_id": 4,
-        "role_rel": {"slug": "tu-van-lead"}
+        "store_id": 1,
+        "role_rel": {"slug": "tu-van-lead", "name": "Tư vấn Lead"}
     }
 
     mock_stores = [
+        {"id": "all", "store_name": "Toàn hệ thống"},
         {"id": 1, "store_name": "HIMOTO Đống Đa"},
         {"id": 2, "store_name": "HIMOTO Cầu Giấy"},
-        {"id": 3, "store_name": "HIMOTO Tây Hồ"}
+        {"id": 3, "store_name": "HIMOTO Tây Hồ"},
+        {"id": 4, "store_name": "HIMOTO Hà Đông"}
     ]
 
     mock_dashboard_report = {
@@ -70,17 +76,50 @@ def run_himoto_integration_tests():
     }
 
     mock_vehicles = [
-        {"id": 101, "name": "Honda Vision 2023 Trắng", "license": "29B1-888.88", "license_plate": "29B1-888.88", "status": "ready", "status_label": "Sẵn sàng", "store_name": "HIMOTO Đống Đa", "daily_price": 150000},
-        {"id": 102, "name": "Honda Air Blade 125 Đen Nhám", "license": "29K1-999.99", "license_plate": "29K1-999.99", "status": "using", "status_label": "Đang thuê", "store_name": "HIMOTO Cầu Giấy", "daily_price": 180000}
+        {"id": 101, "name": "Honda Vision 2023 Trắng", "license": "29B1-888.88", "license_plate": "29B1-888.88", "status": 1, "status_name": "Sẵn sàng", "store": {"store_name": "HIMOTO Đống Đa"}, "total_km": 12500},
+        {"id": 102, "name": "Honda Air Blade 125 Đen Nhám", "license": "29K1-999.99", "license_plate": "29K1-999.99", "status": 2, "status_name": "Đang thuê", "store": {"store_name": "HIMOTO Cầu Giấy"}, "total_km": 24800}
     ]
 
     mock_customers = [
-        {"id": 201, "name": "Nguyễn Văn An", "phone": "0912345678", "id_card": "001200012345", "address": "Ba Đình, Hà Nội"}
+        {"id": 201, "name": "Nguyễn Văn An", "phone": "0912345678", "id_card": "001200012345", "address": "Ba Đình, Hà Nội", "total_order": 3}
     ]
 
     mock_orders = [
-        {"id": 301, "customer_name": "Nguyễn Văn An", "store_name": "HIMOTO Đống Đa", "order_status": "renting", "status_label": "Đang thuê", "total": 900000}
+        {"id": 301, "customer_name": "Nguyễn Văn An", "store_name": "HIMOTO Đống Đa", "order_status": "renting", "status_label": "Đang thuê", "total": 900000, "vehicles": [{"name": "Honda Vision", "license": "29B1-888.88"}]}
     ]
+
+    # REALISTIC LARAVEL PAGINATOR SHAPES
+    paginated_vehicles = {
+        "data": {
+            "current_page": 1,
+            "last_page": 1,
+            "per_page": 20,
+            "total": len(mock_vehicles),
+            "data": mock_vehicles
+        }
+    }
+
+    paginated_customers = {
+        "data": {
+            "current_page": 1,
+            "last_page": 1,
+            "per_page": 20,
+            "total": len(mock_customers),
+            "data": mock_customers
+        }
+    }
+
+    paginated_orders = {
+        "data": mock_orders,
+        "pagination": {
+            "current_page": 1,
+            "last_page": 1,
+            "per_page": 20,
+            "total": len(mock_orders)
+        }
+    }
+
+    page_errors = []
 
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge", headless=True)
@@ -88,9 +127,9 @@ def run_himoto_integration_tests():
         page = context.new_page()
 
         page.on("console", lambda msg: print(f"[BROWSER] {msg.text}", flush=True))
-        page.on("pageerror", lambda err: print(f"[PAGE ERROR] {err}", flush=True))
+        page.on("pageerror", lambda err: page_errors.append(str(err)))
 
-        # Intercept API calls
+        # Intercept API calls (Default: Admin Role 1)
         def handle_routes(route):
             url = route.request.url
             if "/api/verify-token" in url:
@@ -102,11 +141,14 @@ def run_himoto_integration_tests():
             elif "/api/auth/dashboard/report" in url:
                 route.fulfill(status=200, content_type="application/json", body=json.dumps({"data": mock_dashboard_report}))
             elif "/api/auth/vehicle/vehicles" in url:
-                route.fulfill(status=200, content_type="application/json", body=json.dumps({"data": mock_vehicles}))
+                # REAL PAGINATOR
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(paginated_vehicles))
             elif "/api/auth/customers" in url:
-                route.fulfill(status=200, content_type="application/json", body=json.dumps({"data": mock_customers}))
+                # REAL PAGINATOR
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(paginated_customers))
             elif "/api/auth/order/car-rental" in url:
-                route.fulfill(status=200, content_type="application/json", body=json.dumps({"data": mock_orders}))
+                # REAL PAGINATOR
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(paginated_orders))
             else:
                 route.fulfill(status=200, content_type="application/json", body=json.dumps({"data": []}))
 
@@ -147,30 +189,27 @@ def run_himoto_integration_tests():
         # TEST 2: Round 5 Specific Constraint: Search Viewport Resize & Focus Preservation
         # -------------------------------------------------------------
         print("\n--- TEST 2: Search Viewport Resize Focus Transfer ---")
-        # 1. Start at desktop (1440px)
         page.set_viewport_size({"width": 1440, "height": 900})
         page.wait_for_timeout(200)
 
         desktop_search = page.locator("#globalSearchInput")
         desktop_search.focus()
         desktop_search.fill("Vision")
-        page.wait_for_timeout(350) # wait for debounce
+        page.wait_for_timeout(350)
 
-        # Verify search dropdown opened
         dropdown = page.locator("#globalSearchResults")
         assert dropdown.is_visible(), "Search results dropdown should be visible on desktop!"
         print("Desktop search results dropdown opened successfully.")
 
-        # 2. Dynamically resize viewport to mobile (390px) while search dropdown is open
+        # Dynamically resize viewport to mobile (390px)
         page.set_viewport_size({"width": 390, "height": 844})
-        page.wait_for_timeout(250) # allow resize debounce handler to execute
+        page.wait_for_timeout(250)
 
-        # 3. Check focus: In Vue lifecycle, focus must transfer smoothly without loss or throwing errors
         active_el_id = page.evaluate("() => document.activeElement ? document.activeElement.id : null")
         print(f"Active element after resize to 390px: {active_el_id}")
         assert active_el_id in ["globalSearchInputMobile", "globalSearchInput", "mobileSearchInput"], f"Focus lost after resize! Active element: {active_el_id}"
 
-        # 4. Resize back to desktop (1440px)
+        # Resize back to desktop (1440px)
         page.set_viewport_size({"width": 1440, "height": 900})
         page.wait_for_timeout(250)
         active_el_desktop = page.evaluate("() => document.activeElement ? document.activeElement.id : null")
@@ -179,41 +218,74 @@ def run_himoto_integration_tests():
         print("PASS: Viewport resize focus preservation tested and validated!")
 
         # -------------------------------------------------------------
-        # TEST 3: Drawer Focus Trap & Escape Key
+        # TEST 3: Realistic Laravel Paginator Search Compatibility
         # -------------------------------------------------------------
-        print("\n--- TEST 3: HimotoDrawer Accessibility & Focus Trap ---")
-        # Open desktop search dropdown again
+        print("\n--- TEST 3: Realistic Laravel Paginator Search Compatibility ---")
         desktop_search.focus()
         desktop_search.fill("")
         page.wait_for_timeout(100)
         desktop_search.fill("Vision")
         page.wait_for_timeout(500)
 
-        results_count = page.locator(".search-result-row").count()
-        print(f"Desktop search results count: {results_count}")
+        result_rows = page.locator(".search-result-row")
+        row_count = result_rows.count()
+        print(f"Total search result rows rendered with Paginator: {row_count}")
+        assert row_count >= 2, f"Paginator search must return multiple rows, got {row_count}!"
 
-        # Press ArrowDown then Enter to select first result
+        # Verify vehicles are mapped (proves unwrapList succeeded!)
+        vehicles_found = page.locator(".search-result-row:has-text('Honda Vision')").count()
+        print(f"Vehicles found in search results: {vehicles_found}")
+        assert vehicles_found > 0, "Vehicle results missing from search dropdown with paginator!"
+
+        customers_found = page.locator(".search-result-row:has-text('Nguyễn Văn An')").count()
+        print(f"Customer/Order rows found in search: {customers_found}")
+        assert customers_found > 0, "Customer/Order results missing from search dropdown with paginator!"
+
+        test_results["paginated_search_compatible"] = True
+        print("PASS: Laravel Paginator unwrapList compatibility verified!")
+
+        # -------------------------------------------------------------
+        # TEST 4: Drawer Focus Trap, Ctrl+K Resistance & Escape Restore
+        # -------------------------------------------------------------
+        print("\n--- TEST 4: HimotoDrawer Accessibility & Ctrl+K Protection ---")
+        # Select first result with ArrowDown + Enter
         page.keyboard.press("ArrowDown")
         page.wait_for_timeout(150)
         page.keyboard.press("Enter")
         page.wait_for_timeout(400)
 
-        # Check drawer is open
         drawer = page.locator(".slide-drawer.open")
         assert drawer.is_visible(), "HimotoDrawer should be open after selecting result!"
         print("HimotoDrawer opened successfully.")
 
-        # Test Tab key focus trap
+        # Focus trap test: Tab keeps focus inside drawer
         page.keyboard.press("Tab")
         page.wait_for_timeout(100)
         is_inside_drawer = page.evaluate("""() => {
-            const drawer = document.querySelector('.slide-drawer.open');
-            return drawer && drawer.contains(document.activeElement);
+            const d = document.querySelector('.slide-drawer.open');
+            return d && d.contains(document.activeElement);
         }""")
         assert is_inside_drawer, "Focus must remain trapped inside drawer on Tab!"
-        print("Focus trapped inside drawer confirmed.")
 
-        # Test Escape key: Closes drawer and restores focus
+        # CRITICAL AUDIT CHECK: Press Ctrl+K while drawer is open!
+        print("Testing Ctrl+K while drawer is active...")
+        page.keyboard.press("Control+KeyK")
+        page.wait_for_timeout(200)
+
+        # Drawer must remain open and focus must NOT jump out to search input
+        assert drawer.is_visible(), "Drawer must remain open after Ctrl+K!"
+        active_after_ctrl_k = page.evaluate("() => document.activeElement ? document.activeElement.id : null")
+        inside_after_ctrl_k = page.evaluate("""() => {
+            const d = document.querySelector('.slide-drawer.open');
+            return d && d.contains(document.activeElement);
+        }""")
+        print(f"Active element after Ctrl+K: {active_after_ctrl_k}, insideDrawer: {inside_after_ctrl_k}")
+        assert inside_after_ctrl_k, "Focus escaped drawer after Ctrl+K!"
+        assert active_after_ctrl_k != "globalSearchInput", "Ctrl+K stole focus to globalSearchInput while drawer is open!"
+        test_results["drawer_ctrl_k_resistant"] = True
+        print("PASS: Drawer is 100% resistant to Ctrl+K focus hijacking!")
+
+        # Escape key closes drawer and restores focus to search input
         page.keyboard.press("Escape")
         page.wait_for_timeout(300)
         assert not drawer.is_visible(), "Drawer should be closed on Escape!"
@@ -221,35 +293,80 @@ def run_himoto_integration_tests():
         print(f"Active element after drawer Escape: {active_after_escape}")
         assert active_after_escape == "globalSearchInput", "Focus must return to search input opener!"
         test_results["drawer_accessibility"] = True
-        print("PASS: Drawer accessibility, focus trap and Escape restore validated!")
+        print("PASS: Drawer accessibility and Escape restore validated!")
 
         # -------------------------------------------------------------
-        # TEST 4: Role 4 Gating (Lead Consultant View)
+        # TEST 5: Header "Tạo đơn" Button Handler
         # -------------------------------------------------------------
-        print("\n--- TEST 4: Role 4 Menu Gating ---")
-        # Route handler for Role 4
+        print("\n--- TEST 5: Header 'Tạo đơn' Button Handler ---")
+        quick_order_btn = page.locator(".header-right .btn-quick-order")
+        assert quick_order_btn.is_visible(), "Header 'Tạo đơn' button must be visible!"
+        quick_order_btn.click()
+        page.wait_for_url("**/car-rental**", timeout=5000)
+        print(f"Current page URL after clicking 'Tạo đơn': {page.url}")
+        assert "/car-rental" in page.url, f"Header 'Tạo đơn' must navigate to /car-rental, got {page.url}!"
+        test_results["header_create_button"] = True
+        print("PASS: Header 'Tạo đơn' button navigates correctly!")
+
+        # -------------------------------------------------------------
+        # TEST 6: Role 4 Gating & Realistic Backend 403 Response
+        # -------------------------------------------------------------
+        print("\n--- TEST 6: Role 4 Gating & Backend 403 Protection ---")
+        # Route handler for Role 4 with realistic Laravel NonSale middleware 403s
         def handle_role4(route):
-            if "/api/verify-token" in route.request.url:
+            url = route.request.url
+            if "/api/verify-token" in url:
                 route.fulfill(status=200, content_type="application/json", body=json.dumps({"user": mock_user_lead, "data": mock_user_lead, "access_token": "mock_jwt_token_himoto"}))
+            elif "/api/auth/stores/all" in url:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"data": mock_stores}))
+            elif "/api/auth/leads" in url:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"data": []}))
+            elif any(blocked in url for blocked in ["/api/auth/dashboard", "/api/auth/order", "/api/auth/vehicle", "/api/auth/report", "/api/auth/stores"]):
+                # REAL LARAVEL NonSale 403 RESPONSE
+                route.fulfill(status=403, content_type="application/json", body=json.dumps({
+                    "error": True,
+                    "message": "Bạn không có quyền, vui lòng liên hệ admin"
+                }))
             else:
-                handle_routes(route)
+                route.fulfill(status=200, content_type="application/json", body=json.dumps({"data": []}))
 
         page.unroute("**/api/**")
-        page.route("**/api/**", lambda r: handle_role4(r) if "/api/verify-token" in r.request.url else handle_routes(r))
-        
-        # Reload page to apply Role 4 state
-        page.reload(wait_until="domcontentloaded")
+        page.route("**/api/**", handle_role4)
+
+        # Navigate to /dashboard as Role 4
+        print("Navigating to /dashboard as Role 4 (expecting redirect or 403 protection)...")
+        page.goto(f"{BASE_URL}dashboard", wait_until="domcontentloaded")
         page.wait_for_timeout(800)
 
-        # Check that admin menus are hidden and only TƯ VẤN LEAD is shown
+        # Verify no runtime crashes occurred
+        assert len(page_errors) == 0, f"Page threw unhandled runtime errors: {page_errors}"
+
+        # Either user was cleanly redirected to /leads, or sees unauthorized fallback card
+        current_path = page.url
+        print(f"Role 4 landing URL: {current_path}")
+        if "/leads" in current_path:
+            print("Role 4 automatically and safely redirected to /leads workspace!")
+        else:
+            unauthorized_card = page.locator(".himoto-unauthorized-container")
+            assert unauthorized_card.is_visible(), "Role 4 on /dashboard must display unauthorized protection card!"
+            print("Role 4 displays clean 'Không có quyền truy cập' card on /dashboard!")
+
+        # Verify Sidebar shows ONLY Lead consultant view
         lead_nav = page.locator(".sidebar-nav-item:has-text('Lead khách hàng')")
         assert lead_nav.first.is_visible(), "Lead menu must be visible for role 4!"
+        admin_menu = page.locator(".sidebar-nav-item:has-text('Xe máy')")
+        assert not admin_menu.is_visible(), "Admin menu 'Xe máy' must be hidden for role 4!"
         admin_kpi = page.locator(".sidebar-nav-item:has-text('Doanh thu theo xe')")
         assert not admin_kpi.is_visible(), "Admin menu 'Doanh thu theo xe' must be hidden for role 4!"
-        vehicles_menu = page.locator(".sidebar-nav-item:has-text('Xe máy')")
-        assert not vehicles_menu.is_visible(), "Admin menu 'Xe máy' must be hidden for role 4!"
-        print("PASS: Role 4 menu gating verified!")
-        test_results["role_gating"] = True
+
+        # Header 'Tạo đơn' for role 4 routes to /leads
+        quick_order_btn = page.locator(".header-right .btn-quick-order")
+        quick_order_btn.click()
+        page.wait_for_timeout(300)
+        assert "/leads" in page.url, f"Role 4 'Tạo đơn' should route to /leads, got {page.url}!"
+
+        test_results["role_gating_and_403"] = True
+        print("PASS: Role 4 gating and realistic backend 403 handling verified!")
 
         # Screenshot artifacts
         page.set_viewport_size({"width": 1440, "height": 900})

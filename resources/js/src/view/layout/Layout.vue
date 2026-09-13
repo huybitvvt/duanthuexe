@@ -16,10 +16,12 @@
     >
       <!-- Topbar Header -->
       <HimotoHeader
+        :drawer-active="drawerOpen"
         @toggle-desktop-sidebar="sidebarCollapsed = !sidebarCollapsed"
         @toggle-mobile-sidebar="mobileSidebarOpen = !mobileSidebarOpen"
         @search-select="onSelectSearchResult"
         @select-result="onSelectSearchResult"
+        @quick-create-order="onQuickCreateOrder"
       />
 
       <!-- Content Area -->
@@ -179,12 +181,15 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(["isAuthenticated"])
+    ...mapGetters(["isAuthenticated", "currentUser"])
   },
   mounted() {
     if (!this.isAuthenticated) {
       this.$router.push({ name: "login" });
       return;
+    }
+    if (this.currentUser && this.currentUser.role_id === 4 && (this.$route.path === "/" || this.$route.path === "/dashboard")) {
+      this.$router.replace("/leads");
     }
     // Remove old legacy loading classes immediately (Zero artificial lag)
     this.$store.dispatch(REMOVE_BODY_CLASSNAME, "page-loading");
@@ -224,6 +229,12 @@ export default {
         this.$router.push({ path: "/customers" });
       } else {
         this.$router.push({ path: "/car-rental" });
+      }
+    },
+    onQuickCreateOrder() {
+      const target = this.currentUser && this.currentUser.role_id === 4 ? "/leads" : "/car-rental";
+      if (this.$route.path !== target) {
+        this.$router.push(target).catch(() => {});
       }
     }
   }

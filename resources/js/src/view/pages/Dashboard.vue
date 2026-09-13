@@ -1,7 +1,25 @@
 <template>
   <div class="himoto-dashboard">
-    <!-- Page Header -->
-    <div class="page-header-row">
+    <!-- Role 4 / 403 Forbidden Fallback State -->
+    <div v-if="!hasPermission" class="himoto-unauthorized-container">
+      <div class="unauthorized-card">
+        <div class="unauthorized-icon">🔒</div>
+        <h2 class="unauthorized-title">Không có quyền truy cập</h2>
+        <p class="unauthorized-desc">
+          Tài khoản của bạn (Tư vấn Lead) không có quyền truy cập trang Tổng quan quản trị theo chính sách phân quyền hệ thống.
+        </p>
+        <div class="unauthorized-actions">
+          <router-link to="/leads" class="btn btn-primary">
+            <span>📥 Chuyển sang Quản lý Lead</span>
+          </router-link>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Dashboard when permitted -->
+    <template v-else>
+      <!-- Page Header -->
+      <div class="page-header-row">
       <div class="page-title-block">
         <h1 class="page-title">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="page-title-icon">
@@ -328,7 +346,8 @@
         <lead-index context="dashboard"></lead-index>
       </div>
     </div>
-  </div>
+  </template>
+</div>
 </template>
 
 <script>
@@ -346,6 +365,7 @@ export default {
   },
   data() {
     return {
+      hasPermission: true,
       currentPeriod: "day", // 'day' or 'month'
       labels: [],
       values: [],
@@ -427,6 +447,10 @@ export default {
   },
   mounted() {
     this.$store.dispatch(SET_BREADCRUMB, [{ title: "Dashboard" }]);
+    if (this.currentUser && this.currentUser.role_id === 4) {
+      this.hasPermission = false;
+      return;
+    }
     this.fetchStores();
     this.loadDashboardData();
   },
@@ -437,6 +461,10 @@ export default {
       });
     },
     loadDashboardData() {
+      if (this.currentUser && this.currentUser.role_id === 4) {
+        this.hasPermission = false;
+        return;
+      }
       const params = {};
       if (this.selectedStoreId && this.selectedStoreId !== "all") {
         params.store_id = this.selectedStoreId;
@@ -445,14 +473,25 @@ export default {
       this.reportChart(params);
     },
     report(params) {
-      this.$store.dispatch(DASHBOARD_REPORT, params).then((res) => {
-        this.reports = res.data || {};
-      });
+      this.$store
+        .dispatch(DASHBOARD_REPORT, params)
+        .then((res) => {
+          this.reports = res.data || {};
+          this.hasPermission = true;
+        })
+        .catch((err) => {
+          if (err && (err.status === 403 || err.statusCode === 403 || err.response?.status === 403)) {
+            this.hasPermission = false;
+          }
+        });
     },
     reportChart(params) {
-      this.$store.dispatch(DASHBOARD_REPORT_CHART, params).then((res) => {
-        this.labels = res.data?.labels || [];
-        this.values = res.data?.values || [];
+      this.$store
+        .dispatch(DASHBOARD_REPORT_CHART, params)
+        .then((res) => {
+          this.labels = res.data?.labels || [];
+          this.values = res.data?.values || [];
+          this.hasPermission = true;
 
         this.chartData = {
           type: "line",
@@ -484,6 +523,11 @@ export default {
             }
           ]
         };
+      })
+      .catch((err) => {
+        if (err && (err.status === 403 || err.statusCode === 403 || err.response?.status === 403)) {
+          this.hasPermission = false;
+        }
       });
     },
     getVehiclePercent(count) {
@@ -829,5 +873,48 @@ export default {
   font-size: 16px;
   font-weight: 800;
   color: var(--text-primary, #17202a);
+}
+
+.himoto-unauthorized-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 32px 16px;
+}
+
+.unauthorized-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 48px 32px;
+  text-align: center;
+  max-width: 480px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.unauthorized-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.unauthorized-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 12px;
+}
+
+.unauthorized-desc {
+  font-size: 0.925rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.unauthorized-actions .btn {
+  padding: 10px 24px;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 </style>
