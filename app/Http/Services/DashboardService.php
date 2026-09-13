@@ -45,10 +45,11 @@ class DashboardService
         $this->reportService = $reportService;
     }
 
-    public function reportChart(Carbon $startDate, Carbon $endDate)
+    public function reportChart(Carbon $startDate, Carbon $endDate, $requestedStoreId = null)
     {
         $user = auth()->user();
-        $storeId = $user->role_rel->slug !== 'quan-tri-vien' ? $user->store_id : null;
+        $isStoreIdRequested = ($requestedStoreId && $requestedStoreId !== 'all');
+        $storeId = $user->role_rel->slug !== 'quan-tri-vien' ? $user->store_id : ($isStoreIdRequested ? $requestedStoreId : null);
         $key = 'dashboard:chart:' . ($storeId ?: 'all') . ':' . $startDate->toDateString() . ':' . $endDate->toDateString();
         return Cache::remember($key, 30, function () use ($startDate, $endDate, $storeId) {
             $orders = $this->orderRepository->whereBetween('created_at', [$startDate->copy()->startOfDay(), $endDate->copy()->endOfDay()])->selectRaw('DATE(created_at) as day, COALESCE(SUM(total), 0) as total')->when($storeId, fn ($q) => $q->where('store_id', $storeId))->groupBy('day')->pluck('total', 'day');
@@ -62,14 +63,16 @@ class DashboardService
         });
     }
 
-    public function report()
+    public function report($requestedStoreId = null)
     {
         $user = auth()->user();
-        $key = 'dashboard:report:' . ($user->role_rel->slug === 'quan-tri-vien' ? 'all' : $user->store_id);
-        return Cache::remember($key, 30, fn () => $this->buildReport());
+        $isStoreIdRequested = ($requestedStoreId && $requestedStoreId !== 'all');
+        $storeId = $user->role_rel->slug !== 'quan-tri-vien' ? $user->store_id : ($isStoreIdRequested ? $requestedStoreId : null);
+        $key = 'dashboard:report:' . ($storeId ?: 'all');
+        return Cache::remember($key, 30, fn () => $this->buildReport($storeId));
     }
 
-    private function buildReport()
+    private function buildReport($storeId = null)
     {
         $now = DateTimeHelper::now();
         $start_day = $now->copy()->startOfDay();
@@ -77,16 +80,19 @@ class DashboardService
         $startOfMonth = $now->copy()->startOfMonth();
         $endOfMonth = $now->copy()->endOfMonth();
 
-        $total_vehicle = $this->vehicleRepository->count();
-        $total_vehicle_using = $this->vehicleRepository->where('status', Vehicle::STATUS_USING)->count();
-        $total_vehicle_ready = $this->vehicleRepository->where('status', Vehicle::STATUS_READY)->count();
-        $total_vehicle_repairing = $this->vehicleRepository->where('status', Vehicle::STATUS_REPAIRING)->count();
-        $total_vehicle_broken = $this->vehicleRepository->where('status', Vehicle::STATUS_BROKEN)->count();
+        $user = auth()->user();
+        $effectiveStoreId = $user->role_rel->slug !== 'quan-tri-vien' ? $user->store_id : $storeId;
+
+        $total_vehicle = $this->vehicleRepository->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
+        $total_vehicle_using = $this->vehicleRepository->where('status', Vehicle::STATUS_USING)->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
+        $total_vehicle_ready = $this->vehicleRepository->where('status', Vehicle::STATUS_READY)->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
+        $total_vehicle_repairing = $this->vehicleRepository->where('status', Vehicle::STATUS_REPAIRING)->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
+        $total_vehicle_broken = $this->vehicleRepository->where('status', Vehicle::STATUS_BROKEN)->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
 
         $total_customer = $this->customerRepository->count();
-        $total_staff = $this->userRepository->where('role_id', '!=', 1)->count();
-        $total_order_in_day = $this->orderRepository->findWhereBetween('created_at', [$start_day, $end_day])->count();
-        $total_order_in_month = $this->orderRepository->findWhereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
+        $total_staff = $this->userRepository->where('role_id', '!=', 1)->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
+        $total_order_in_day = $this->orderRepository->findWhereBetween('created_at', [$start_day, $end_day])->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
+        $total_order_in_month = $this->orderRepository->findWhereBetween('created_at', [$startOfMonth, $endOfMonth])->when($effectiveStoreId, fn ($q) => $q->where('store_id', $effectiveStoreId))->count();
         $total_order_out_date_in_month_query = $this->orderRepository->findWhereBetween('created_at', [$startOfMonth, $endOfMonth])->where('out_date_at', '>', 0)->where('order_status', OrderValidator::ORDER_RENTING);
 
 		$total_profit_in_day_query = $this->transactionRepository->findWhereBetween('created_at', [$start_day, $end_day]);
@@ -111,31 +117,30 @@ class DashboardService
 		$total_origin_refund_new_query = DB::table('orders')->where('order_status', 'completed'); // Tổng số tiền cần refund mà chưa tính phí quá hạn hay trả sớm. VD hợp đồng A khách cọc 1tr thì khoản origin-refund phải là 1tr. Trên thực tế nếu phát sinh trả sớm hoặc trả muộn thì sẽ cộng trừ vào khoản cọc này.
 		/** END NEW QUERY */
         
-		$user = auth()->user();
-        if ($user->role_rel->slug !== 'quan-tri-vien') {
-            $total_order_out_date_in_month_query = $total_order_out_date_in_month_query->where('store_id', $user->store_id);
+        if ($effectiveStoreId) {
+            $total_order_out_date_in_month_query = $total_order_out_date_in_month_query->where('store_id', $effectiveStoreId);
 
-            $total_profit_in_day_query = $total_profit_in_day_query->where('store_id', $user->store_id);
-            $total_profit_in_month_query = $total_profit_in_month_query->where('store_id', $user->store_id);
+            $total_profit_in_day_query = $total_profit_in_day_query->where('store_id', $effectiveStoreId);
+            $total_profit_in_month_query = $total_profit_in_month_query->where('store_id', $effectiveStoreId);
 
-            $total_deposit_in_day_query = $total_deposit_in_day_query->where('store_id', $user->store_id);
-            $total_deposit_in_month_query = $total_deposit_in_month_query->where('store_id', $user->store_id);
+            $total_deposit_in_day_query = $total_deposit_in_day_query->where('store_id', $effectiveStoreId);
+            $total_deposit_in_month_query = $total_deposit_in_month_query->where('store_id', $effectiveStoreId);
 
-            $total_refund_in_day_query = $total_refund_in_day_query->where('store_id', $user->store_id);
-            $total_refund_in_month_query = $total_refund_in_month_query->where('store_id', $user->store_id);
+            $total_refund_in_day_query = $total_refund_in_day_query->where('store_id', $effectiveStoreId);
+            $total_refund_in_month_query = $total_refund_in_month_query->where('store_id', $effectiveStoreId);
 
-            $total_fee_in_day_query = $total_fee_in_day_query->where('store_id', $user->store_id);
-            $total_fee_in_month_query = $total_fee_in_month_query->where('store_id', $user->store_id);
+            $total_fee_in_day_query = $total_fee_in_day_query->where('store_id', $effectiveStoreId);
+            $total_fee_in_month_query = $total_fee_in_month_query->where('store_id', $effectiveStoreId);
 
 
 			/** NEW QUERY */
-			$total_deposit_new_query = $total_deposit_new_query->where('store_id', $user->store_id);
-			$total_renew_new_query = $total_renew_new_query->where('store_id', $user->store_id);
-			$total_rental_fees_new_query = $total_rental_fees_new_query->where('store_id', $user->store_id);
-			$total_refund_new_query = $total_refund_new_query->where('store_id', $user->store_id);
-			$total_money_early_new_query = $total_money_early_new_query->where('orders.store_id', $user->store_id);
-			$total_money_out_date_new_query = $total_money_out_date_new_query->where('orders.store_id', $user->store_id);
-			$total_origin_refund_new_query = $total_origin_refund_new_query->where('store_id', $user->store_id);
+			$total_deposit_new_query = $total_deposit_new_query->where('store_id', $effectiveStoreId);
+			$total_renew_new_query = $total_renew_new_query->where('store_id', $effectiveStoreId);
+			$total_rental_fees_new_query = $total_rental_fees_new_query->where('store_id', $effectiveStoreId);
+			$total_refund_new_query = $total_refund_new_query->where('store_id', $effectiveStoreId);
+			$total_money_early_new_query = $total_money_early_new_query->where('orders.store_id', $effectiveStoreId);
+			$total_money_out_date_new_query = $total_money_out_date_new_query->where('orders.store_id', $effectiveStoreId);
+			$total_origin_refund_new_query = $total_origin_refund_new_query->where('store_id', $effectiveStoreId);
 			/** END NEW QUERY */
         }
 

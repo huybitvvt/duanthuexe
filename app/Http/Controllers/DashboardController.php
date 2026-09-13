@@ -23,7 +23,7 @@ class DashboardController extends Controller
      */
     public function report(Request $request)
     {
-        return $this->successResponse($this->dashboardService->report());
+        return $this->successResponse($this->dashboardService->report($request->input('store_id')));
     }
 
     /**
@@ -35,6 +35,6 @@ class DashboardController extends Controller
         $now = DateTimeHelper::now();
         $startDate = $now->copy()->startOfMonth();
         $endDate = $now;
-        return $this->successResponse($this->dashboardService->reportChart($startDate, $endDate));
+        return $this->successResponse($this->dashboardService->reportChart($startDate, $endDate, $request->input('store_id')));
     }
 }

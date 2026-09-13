@@ -8,12 +8,17 @@ export const STORE_SHOW = "store_show";
 export const STORE_UPDATE = "store_update";
 // export const CUSTOMER_SHOW = "customers-show";
 export const STORE_DELETE = "store_delete";
+export const SET_SELECTED_STORE_ID = "setSelectedStoreId";
 
 // set
 
-const state = {};
+const state = {
+    selectedStoreId: localStorage.getItem("himoto_store_id") || "all"
+};
 
-const getters = {};
+const getters = {
+    selectedStoreId: (state) => state.selectedStoreId
+};
 
 const actions = {
     [STORE_GET_ALL](context, credentials) {
@@ -96,9 +101,17 @@ const actions = {
     //             });
     //     });
     // },
+    [SET_SELECTED_STORE_ID](context, storeId) {
+        context.commit(SET_SELECTED_STORE_ID, storeId);
+    },
 };
 
-const mutations = {};
+const mutations = {
+    [SET_SELECTED_STORE_ID](state, storeId) {
+        state.selectedStoreId = storeId;
+        localStorage.setItem("himoto_store_id", storeId);
+    }
+};
 
 export default {
     state,

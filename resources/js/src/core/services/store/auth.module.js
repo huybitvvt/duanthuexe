@@ -187,10 +187,12 @@ const mutations = {
         state.errors = error;
     },
     [SET_AUTH](state, user) {
-        state.user = user.user;
+        state.user = user ? (user.user || user.data || user) : {};
         state.errors = {};
         state.isAuthenticated = true;
-        JwtService.saveToken(user.access_token);
+        if (user && user.access_token) {
+            JwtService.saveToken(user.access_token);
+        }
     },
     [SET_PASSWORD](state, password) {
         state.user.password = password;
@@ -200,12 +202,6 @@ const mutations = {
         state.user = {};
         state.errors = {};
         JwtService.destroyToken();
-    },
-    [SET_AUTH](state, user) {
-        state.user = user.user;
-        state.errors = {};
-        state.isAuthenticated = true;
-        JwtService.saveToken(user.access_token);
     },
     [SET_REFERENCING_TREE](state, tree) {
         state.user.tree = tree;
