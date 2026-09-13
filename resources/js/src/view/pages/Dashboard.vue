@@ -477,10 +477,16 @@ export default {
         .dispatch(DASHBOARD_REPORT, params)
         .then((res) => {
           this.reports = res.data || {};
-          this.hasPermission = true;
         })
         .catch((err) => {
-          if (err && (err.status === 403 || err.statusCode === 403 || err.response?.status === 403)) {
+          if (
+            err &&
+            (err.status === 403 ||
+              err.statusCode === 403 ||
+              err.response?.status === 403 ||
+              String(err).includes("403") ||
+              err.message?.includes("403"))
+          ) {
             this.hasPermission = false;
           }
         });
@@ -491,44 +497,50 @@ export default {
         .then((res) => {
           this.labels = res.data?.labels || [];
           this.values = res.data?.values || [];
-          this.hasPermission = true;
 
-        this.chartData = {
-          type: "line",
-          "scale-x": {
-            labels: this.labels,
-            guide: {
-              lineStyle: "dashed"
-            }
-          },
-          "scale-y": {
-            short: false,
-            "short-unit": "M",
-            "thousands-separator": ","
-          },
-          plot: {
-            lineColor: "#ed1c24",
-            lineWidth: 3,
-            marker: {
-              backgroundColor: "#ed1c24",
-              borderColor: "#ffffff",
-              borderWidth: 2,
-              size: 5
-            }
-          },
-          series: [
-            {
-              values: this.values,
-              text: "Doanh thu"
-            }
-          ]
-        };
-      })
-      .catch((err) => {
-        if (err && (err.status === 403 || err.statusCode === 403 || err.response?.status === 403)) {
-          this.hasPermission = false;
-        }
-      });
+          this.chartData = {
+            type: "line",
+            "scale-x": {
+              labels: this.labels,
+              guide: {
+                lineStyle: "dashed"
+              }
+            },
+            "scale-y": {
+              short: false,
+              "short-unit": "M",
+              "thousands-separator": ","
+            },
+            plot: {
+              lineColor: "#ed1c24",
+              lineWidth: 3,
+              marker: {
+                backgroundColor: "#ed1c24",
+                borderColor: "#ffffff",
+                borderWidth: 2,
+                size: 5
+              }
+            },
+            series: [
+              {
+                values: this.values,
+                text: "Doanh thu"
+              }
+            ]
+          };
+        })
+        .catch((err) => {
+          if (
+            err &&
+            (err.status === 403 ||
+              err.statusCode === 403 ||
+              err.response?.status === 403 ||
+              String(err).includes("403") ||
+              err.message?.includes("403"))
+          ) {
+            this.hasPermission = false;
+          }
+        });
     },
     getVehiclePercent(count) {
       const total = this.reports.total_vehicle || 0;

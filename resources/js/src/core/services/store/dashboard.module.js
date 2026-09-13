@@ -18,8 +18,8 @@ const actions = {
                 .then(({data}) => {
                     resolve(data);
                 })
-                .catch(({response}) => {
-                    reject(response);
+                .catch((error) => {
+                    reject(error?.response || error);
                 });
         });
     },
@@ -30,8 +30,8 @@ const actions = {
                 .then(({data}) => {
                     resolve(data);
                 })
-                .catch(({response}) => {
-                    reject(response);
+                .catch((error) => {
+                    reject(error?.response || error);
                 });
         });
     },

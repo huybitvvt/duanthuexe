@@ -47,7 +47,7 @@
             <div class="info-row">
               <span class="info-label">Biển số:</span>
               <span class="info-value text-brand-red font-weight-bold" style="font-size: 1.1rem;">
-                {{ drawerItem.data.license_plate || drawerItem.title }}
+                {{ drawerItem.data.license || drawerItem.data.license_plate || drawerItem.title }}
               </span>
             </div>
             <div class="info-row">
@@ -61,8 +61,12 @@
             <div class="info-row">
               <span class="info-label">Trạng thái:</span>
               <span class="status-badge" :class="drawerItem.data.status || 'ready'">
-                {{ drawerItem.data.status_label || 'Sẵn sàng' }}
+                {{ drawerItem.data.status_label || drawerItem.meta || 'Sẵn sàng' }}
               </span>
+            </div>
+            <div class="info-row" v-if="drawerItem.data.odometer != null">
+              <span class="info-label">Số km (ODO):</span>
+              <span class="info-value">{{ drawerItem.data.odometer }} km</span>
             </div>
             <div class="info-row" v-if="drawerItem.data.daily_price">
               <span class="info-label">Giá thuê ngày:</span>
@@ -352,6 +356,7 @@ export default {
   color: #18a66b;
 }
 
+.status-badge.repairing,
 .status-badge.renting,
 .status-badge.warning {
   background: rgba(245, 158, 11, 0.14);

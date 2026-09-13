@@ -37,7 +37,7 @@ class VehicleRepositoryEloquent extends BaseRepository implements VehicleReposit
 
     public function filter(array $params)
     {
-        $keyword = data_get($params, 'name', '');
+        $keyword = data_get($params, 'name', data_get($params, 'keyword', ''));
         $status = data_get($params, 'status', '');
         $store_id = data_get($params, 'store_id', '');
         $created_at = data_get($params, 'created_at', []);

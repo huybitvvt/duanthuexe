@@ -7,6 +7,17 @@ const configuredApiUrl = (process.env.MIX_API_URL || "").replace(/\/$/, "");
 
 export const apiUrl = path => `${configuredApiUrl}${path}`;
 
+function formatApiError(error, prefix = "[KT]") {
+    const err = new Error(`${prefix} ApiService ${error}`);
+    if (error && typeof error === "object") {
+        err.response = error.response;
+        err.status = error.response ? error.response.status : error.status;
+        err.statusCode = err.status;
+        err.data = error.response ? error.response.data : error.data;
+    }
+    return err;
+}
+
 /**
  * Service to call HTTP request via Axios
  */
@@ -31,7 +42,7 @@ const ApiService = {
         return Vue.axios.get(resource, {
             params: params
         }).catch(error => {
-            throw new Error(`[KT] ApiService ${error}`);
+            throw formatApiError(error, "[KT]");
         });
     },
     download(resource, params) {
@@ -39,7 +50,7 @@ const ApiService = {
             params: params,
             responseType: 'blob'  
         }).catch(error => {
-            throw new Error(`[KT] ApiService ${error}`);
+            throw formatApiError(error, "[KT]");
         });
     },
     /**
@@ -56,7 +67,7 @@ const ApiService = {
             url = resource;
         }
         return Vue.axios.get(url).catch(error => {
-            throw new Error(`[KT] ApiService ${error}`);
+            throw formatApiError(error, "[KT]");
         });
     },
 
@@ -99,7 +110,7 @@ const ApiService = {
     delete(resource) {
         return Vue.axios.delete(resource).catch(error => {
             // console.log(error);
-            throw new Error(`[RWV] ApiService ${error}`);
+            throw formatApiError(error, "[RWV]");
         });
     }
 };

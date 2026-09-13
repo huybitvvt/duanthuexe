@@ -290,6 +290,53 @@ const unwrapList = (payload) => {
   return [];
 };
 
+const VEHICLE_STATUS_MAP = {
+  ready: "Sẵn sàng",
+  using: "Đang sử dụng",
+  renting: "Đang thuê",
+  repairing: "Đang sửa",
+  pending: "Chờ duyệt",
+  sold: "Đã bán",
+  broken: "Đã hỏng",
+  bad_debt: "Nợ xấu",
+  1: "Sẵn sàng",
+  2: "Đang thuê",
+  3: "Đang sửa",
+  4: "Chờ duyệt",
+  5: "Đã bán",
+  6: "Đã hỏng",
+  7: "Nợ xấu"
+};
+
+const adaptVehicle = (v) => {
+  if (!v) return {};
+  const statusKey = v.status != null ? String(v.status).toLowerCase() : "ready";
+  const statusLabel =
+    v.status_name ||
+    v.status_label ||
+    VEHICLE_STATUS_MAP[statusKey] ||
+    VEHICLE_STATUS_MAP[v.status] ||
+    (typeof v.status === "string" ? v.status : "Sẵn sàng");
+
+  const license = v.license || v.license_plate || "";
+  const odo = v.odometer != null ? v.odometer : (v.total_km != null ? v.total_km : 0);
+  const storeName = v.store?.store_name || v.store_name || (v.store_id ? `Chi nhánh #${v.store_id}` : "Kho");
+
+  return {
+    ...v,
+    id: v.id,
+    name: v.name || "Xe",
+    license,
+    license_plate: license,
+    odometer: odo,
+    total_km: odo,
+    status: typeof v.status === "string" ? v.status : (v.status === 1 ? "ready" : (v.status === 3 ? "repairing" : "using")),
+    status_label: statusLabel,
+    status_name: statusLabel,
+    store_name: storeName
+  };
+};
+
 export default {
   name: "HimotoHeader",
   props: {
@@ -468,19 +515,27 @@ export default {
       const storeIdParam = this.selectedStoreId !== "all" ? { store_id: this.selectedStoreId } : {};
 
       // Vehicle search (supports Laravel LengthAwarePaginator and flat array)
-      ApiService.query("/api/auth/vehicle/vehicles", { keyword: qLower, limit: 5, ...storeIdParam })
+      ApiService.query("/api/auth/vehicle/vehicles", {
+        name: qLower,
+        keyword: qLower,
+        limit: 5,
+        ...storeIdParam
+      })
         .then(({ data }) => {
           const vList = unwrapList(data);
-          this.searchResults.vehicles = vList.map((v) => ({
-            id: v.id,
-            type: "vehicle",
-            typeLabel: "Xe",
-            title: `${v.name || 'Xe'} (${v.license || v.license_plate || ''})`,
-            subtitle: `${v.store?.store_name || "Kho"} • ${v.color || ""} • ODO ${v.total_km || 0}km`,
-            meta: v.status_name || (v.status === 1 ? "Sẵn sàng" : "Đang thuê"),
-            raw: v,
-            data: v
-          }));
+          this.searchResults.vehicles = vList.map((rawV) => {
+            const v = adaptVehicle(rawV);
+            return {
+              id: v.id,
+              type: "vehicle",
+              typeLabel: "Xe",
+              title: `${v.name} (${v.license})`,
+              subtitle: `${v.store_name}${v.color ? " • " + v.color : ""} • ODO ${v.odometer}km`,
+              meta: v.status_label,
+              raw: rawV,
+              data: v
+            };
+          });
         })
         .catch((err) => {
           console.warn("Himoto search vehicles failed:", err);

@@ -83,7 +83,11 @@ export default {
   watch: {
     value(newVal) {
       if (newVal) {
-        this.openerElement = document.activeElement;
+        const active = document.activeElement;
+        this.openerElement =
+          active && active !== document.body
+            ? active
+            : (document.querySelector("#globalSearchInput") || document.querySelector("#globalSearchInputMobile"));
         window.addEventListener("keydown", this.interceptShortcutsWhileOpen, true);
         this.$nextTick(() => {
           this.focusDrawer();
@@ -125,8 +129,18 @@ export default {
     },
     restoreFocus() {
       this.$nextTick(() => {
-        if (this.openerElement && typeof this.openerElement.focus === "function") {
+        if (
+          this.openerElement &&
+          this.openerElement !== document.body &&
+          typeof this.openerElement.focus === "function" &&
+          document.body.contains(this.openerElement)
+        ) {
           this.openerElement.focus();
+        } else {
+          const fallback = document.querySelector("#globalSearchInput") || document.querySelector("#globalSearchInputMobile");
+          if (fallback && typeof fallback.focus === "function") {
+            fallback.focus();
+          }
         }
       });
     },

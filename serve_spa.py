@@ -3,7 +3,7 @@ import socketserver
 import os
 import sys
 
-PORT = 8090
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8091
 DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static-dist")
 
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
