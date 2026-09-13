@@ -27,7 +27,9 @@
       <!-- Content Area -->
       <main class="himoto-page-content" id="himotoPageContent">
         <transition name="fade-in-fast" mode="out-in">
-          <router-view />
+          <keep-alive :include="cachedViews">
+            <router-view :key="$route.name || $route.path" />
+          </keep-alive>
         </transition>
       </main>
     </div>
@@ -181,7 +183,17 @@ export default {
       drawerTitle: "Chi tiết",
       drawerSubtitle: "",
       drawerBadge: null,
-      drawerItem: null
+      drawerItem: null,
+      cachedViews: [
+        "Dashboard",
+        "dashboard",
+        "VehicleIndex",
+        "CustomerIndex",
+        "OrderCarRental",
+        "LeadIndex",
+        "ReportCardRental",
+        "ReportVehicleRevenue"
+      ]
     };
   },
   computed: {

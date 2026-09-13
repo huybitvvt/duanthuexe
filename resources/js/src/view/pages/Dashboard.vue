@@ -18,8 +18,10 @@
 
     <!-- Main Dashboard when permitted -->
     <template v-else>
-      <!-- Page Header -->
-      <div class="page-header-row">
+      <HimotoPageSkeleton v-if="loading && !hasLoadedAnyData" :kpiCount="5" :rowCount="4" />
+      <div v-show="!loading || hasLoadedAnyData" class="dashboard-content-wrapper">
+        <!-- Page Header -->
+        <div class="page-header-row">
       <div class="page-title-block">
         <h1 class="page-title">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="page-title-icon">
@@ -346,6 +348,7 @@
         <lead-index context="dashboard"></lead-index>
       </div>
     </div>
+    </div>
   </template>
 </div>
 </template>
@@ -357,14 +360,17 @@ import { DASHBOARD_REPORT, DASHBOARD_REPORT_CHART } from "@/core/services/store/
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import { zingChartTheme } from "@/core/config/zingChartTheme";
 import LeadIndex from "@/view/pages/lead/LeadIndex";
+import HimotoPageSkeleton from "@/view/components/himoto/HimotoPageSkeleton.vue";
 
 export default {
-  name: "dashboard",
+  name: "Dashboard",
   components: {
-    LeadIndex
+    LeadIndex,
+    HimotoPageSkeleton
   },
   data() {
     return {
+      loading: false,
       hasPermission: true,
       currentPeriod: "day", // 'day' or 'month'
       labels: [],
@@ -438,6 +444,9 @@ export default {
     totalMonthRevenueFormatted() {
       const sum = (this.values || []).reduce((acc, v) => acc + (Number(v) || 0), 0);
       return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(sum);
+    },
+    hasLoadedAnyData() {
+      return !!(this.reports && Object.keys(this.reports).length > 0);
     }
   },
   watch: {
@@ -456,7 +465,7 @@ export default {
   },
   methods: {
     fetchStores() {
-      this.$store.dispatch(STORE_GET_ALL, {}).then((res) => {
+      return this.$store.dispatch(STORE_GET_ALL, {}).then((res) => {
         this.storeList = res?.data || [];
       });
     },
@@ -469,11 +478,13 @@ export default {
       if (this.selectedStoreId && this.selectedStoreId !== "all") {
         params.store_id = this.selectedStoreId;
       }
-      this.report(params);
-      this.reportChart(params);
+      this.loading = true;
+      Promise.all([this.report(params), this.reportChart(params)]).finally(() => {
+        this.loading = false;
+      });
     },
     report(params) {
-      this.$store
+      return this.$store
         .dispatch(DASHBOARD_REPORT, params)
         .then((res) => {
           this.reports = res.data || {};
@@ -492,7 +503,7 @@ export default {
         });
     },
     reportChart(params) {
-      this.$store
+      return this.$store
         .dispatch(DASHBOARD_REPORT_CHART, params)
         .then((res) => {
           this.labels = res.data?.labels || [];

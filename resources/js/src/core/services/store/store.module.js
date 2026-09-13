@@ -13,22 +13,36 @@ export const SET_SELECTED_STORE_ID = "setSelectedStoreId";
 // set
 
 const state = {
-    selectedStoreId: localStorage.getItem("himoto_store_id") || "all"
+    selectedStoreId: localStorage.getItem("himoto_store_id") || "all",
+    storeList: [],
+    storesLoaded: false,
+    storesLastFetchedAt: 0,
 };
 
 const getters = {
-    selectedStoreId: (state) => state.selectedStoreId
+    selectedStoreId: (state) => state.selectedStoreId,
+    allStores: (state) => state.storeList,
+    isStoresFresh: (state) => state.storesLoaded && (Date.now() - state.storesLastFetchedAt < 60000)
 };
 
 const actions = {
     [STORE_GET_ALL](context, credentials) {
+        // Cache-first: If requesting all stores with no specific filters and data is fresh (< 60s)
+        const isDefaultQuery = !credentials || Object.keys(credentials).length === 0;
+        if (isDefaultQuery && context.state.storesLoaded && (Date.now() - context.state.storesLastFetchedAt < 60000)) {
+            return Promise.resolve({ data: context.state.storeList });
+        }
+
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/stores/all", credentials)
                 .then(({data}) => {
+                    if (isDefaultQuery) {
+                        context.commit("SET_CACHED_STORES", data.data || data);
+                    }
                     resolve(data);
                 })
-                .catch(({response}) => {
-                    reject(response);
+                .catch((err) => {
+                    reject(err?.response || err);
                 });
         });
     },
@@ -110,6 +124,15 @@ const mutations = {
     [SET_SELECTED_STORE_ID](state, storeId) {
         state.selectedStoreId = storeId;
         localStorage.setItem("himoto_store_id", storeId);
+    },
+    SET_CACHED_STORES(state, stores) {
+        state.storeList = stores;
+        state.storesLoaded = true;
+        state.storesLastFetchedAt = Date.now();
+    },
+    INVALIDATE_CACHED_STORES(state) {
+        state.storesLoaded = false;
+        state.storesLastFetchedAt = 0;
     }
 };
 
