@@ -12,9 +12,22 @@ class RunTestsCommand extends Command
     public function handle()
     {
         $php = PHP_BINARY;
-        $phpunit = 'E:\\duanthuexe\\tools\\phpunit.phar';
-        if (!file_exists($phpunit)) {
-            $phpunit = base_path('vendor/bin/phpunit');
+        $configured = getenv('HIMOTO_PHPUNIT_PATH');
+        $candidates = array_filter([
+            $configured ?: null,
+            base_path('vendor/bin/phpunit'),
+            dirname(base_path()) . DIRECTORY_SEPARATOR . 'tools' . DIRECTORY_SEPARATOR . 'phpunit.phar',
+        ]);
+        $phpunit = null;
+        foreach ($candidates as $candidate) {
+            if (file_exists($candidate)) {
+                $phpunit = $candidate;
+                break;
+            }
+        }
+        if (!$phpunit) {
+            $this->error('PHPUnit not found. Set HIMOTO_PHPUNIT_PATH or install vendor/bin/phpunit.');
+            return 1;
         }
 
         $cmd = escapeshellarg($php) . ' ' . escapeshellarg($phpunit);
