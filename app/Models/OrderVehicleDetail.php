@@ -24,7 +24,12 @@ class OrderVehicleDetail extends Model implements Transformable
      *
      * @var array
      */
-    protected $fillable = ['vehicle_id', 'order_id', 'price_id', 'borrow_hats', 'rent_at', 'return_at', 'total_money', 'status', 'type', 'handler_price','substitute_unit_price' ,'completed_at', 'minute_out_date', 'money_out_date', 'odometer_before', 'odometer_after', 'hiring_fee'];
+    protected $fillable = [
+        'vehicle_id', 'order_id', 'price_id', 'borrow_hats', 'rent_at', 'return_at', 
+        'total_money', 'status', 'type', 'handler_price', 'substitute_unit_price', 
+        'completed_at', 'minute_out_date', 'money_out_date', 'odometer_before', 'odometer_after', 'hiring_fee',
+        'driver_name', 'driver_license_number', 'driver_license_issued_on', 'borrow_raincoats'
+    ];
 
 	protected $dates   = [
 		'completed_at',  

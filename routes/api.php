@@ -105,6 +105,7 @@ Route::group(['middleware' => 'api'], function ($router) {
 				Route::post('/close-deposit-order', [Order\OrderController::class, 'closeDeposit']);
 				Route::post('/calc_return_early_amount', [Order\OrderController::class, 'calc_return_early_amount']);
 				Route::post('/calc_order_before_complete', [Order\OrderController::class, 'calc_order_before_complete']);
+				Route::post('/car-rental/lock-contract/{order}', [Order\OrderController::class, 'lockContract']);
             });
         
             Route::group(['prefix' => 'dashboard'], function ($router) {

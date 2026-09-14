@@ -24,7 +24,15 @@ class Customer extends Model implements Transformable
      *
      * @var array
      */
-    protected $fillable = ['name', 'email', 'phone', 'address', 'id_card', 'status', 'warning'];
+    protected $fillable = [
+        'name', 'email', 'phone', 'address', 'id_card', 'status', 'warning',
+        'id_card_issued_on', 'id_card_issued_by', 'relatives'
+    ];
+
+    protected $casts = [
+        'relatives' => 'array',
+        'id_card_issued_on' => 'date',
+    ];
     const STATUS_ACTIVE = 1;
     const STATUS_NOT_ACTIVE = 0;
     const STATUS_WARNING = 2;

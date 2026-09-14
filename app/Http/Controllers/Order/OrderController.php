@@ -57,7 +57,7 @@ class OrderController extends Controller
     {
 		$order_detail = $order->load(
 			[
-				'addOnOrders.user:id,name', 'customer', 'vehicles', 'store', 'orderItems.orderItemFees',  'orderItems.vehicle',
+				'addOnOrders.user:id,name', 'customer', 'vehicles', 'store', 'orderItems.orderItemFees',  'orderItems.vehicle', 'responsibleUser:id,name',
 				'leads' => function ($query) {
 					$query->with(['user:id,name']);
 				},
@@ -148,9 +148,9 @@ class OrderController extends Controller
 
         try {
             DB::beginTransaction();
-            $this->orderService->store($request);
+            $order = $this->orderService->store($request);
             DB::commit();
-            return $this->successResponse('', 'Thêm mới thành công');
+            return $this->successResponse($order, 'Thêm mới thành công');
         } catch (\Exception $exception) {
             DB::rollBack();
             return $this->errorResponse($exception->getMessage(), 422);
@@ -289,7 +289,9 @@ class OrderController extends Controller
      */
     public function complete(Request $request, Order $order): JsonResponse
     {
+        $request->validate(OrderValidator::complete());
         try {
+			$order_paid = $request->has('isPaid') ? filter_var($request->get('isPaid'), FILTER_VALIDATE_BOOLEAN) : true;
 			$using_custom_refund = $request->get('editing_custom_refund');
 			$total_refund_amount = $request->get('total_refund_amount');
 			if ( $using_custom_refund ) {
@@ -301,7 +303,7 @@ class OrderController extends Controller
 			$cash_amount = $request->get('cash_amount');
 			$bank_id = $request->get('refund_bank_id');
 
-			if ( is_numeric( $payment_method ) ) {
+			if ( $order_paid && is_numeric( $payment_method ) ) {
 				if ( in_array( $payment_method, array( 2, 3 ) ) && ! $bank_id ) {
 					return $this->errorResponse('Vui lòng chọn một tài khoản ngân hàng', 422);
 				}
@@ -470,5 +472,14 @@ class OrderController extends Controller
             return $this->errorResponse($exception->getMessage(), 422);
         }
 		return $this->errorResponse('Có lỗi xảy ra', 500);
+	}
+
+	public function lockContract(Order $order) {
+		try {
+			$lockedOrder = $this->orderService->lockContract($order);
+			return $this->successResponse(new OrderResource($lockedOrder), 'Chốt hợp đồng thành công');
+		} catch (\Exception $exception) {
+			return $this->errorResponse($exception->getMessage(), 422);
+		}
 	}
 }

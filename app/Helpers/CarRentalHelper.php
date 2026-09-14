@@ -182,15 +182,23 @@ class CarRentalHelper
         return $string;
     }
     public static function getUnitPrice($order_item){
-       
-        if ($order_item->substitute_unit_price){
+        if (!empty($order_item->substitute_unit_price)){
             return $order_item->substitute_unit_price;
         }
         
         $vehicle = $order_item->vehicle;
+        if (!$vehicle) {
+            return 0;
+        }
         
-        $priceVehicle = PriceVehicle::query()->where('type', $vehicle->type)->where('price_type', $order_item->type)->first();
-        return $priceVehicle->price ;
+        $hours = Carbon::parse($order_item->rent_at)->diffInHours(Carbon::parse($order_item->return_at));
+        $days = max(1, (int) floor($hours / 24) + (($hours % 24) >= 8 ? 1 : 0));
+        $priceVehicle = PriceVehicle::query()
+            ->where('type', $vehicle->type)->where('price_type', $order_item->type)
+            ->where('from_date', '<=', $days)->where('to_date', '>=', $days)
+            ->where('from_year', '<=', $vehicle->year)->where('to_year', '>=', $vehicle->year)
+            ->orderBy('id')->first();
+        return $priceVehicle ? (float) $priceVehicle->price : 0;
     }
     public static function calMoneyOutDate($order_item, $hours, $price_type = 'day')
     {

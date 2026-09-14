@@ -3,15 +3,23 @@
         <ValidationObserver v-slot="{ handleSubmit }" ref="form">
             <form class="form" @submit.prevent="handleSubmit(handleFormSubmit)">
 				
-				<div class="row mb-3">
-					<div class="col-md-4">
-						<div class="d-flex justify-content-start align-items-center">
-							<h6 v-if="id" class="mb-0">ID hợp đồng: #{{ id }}</h6>
-							<span v-if="id && is_deposit_contract_mode" class="font-weight-bold badge badge-success ml-2">Cọc giữ xe</span>
+				<div class="row mb-4 align-items-center">
+					<div class="col-md-6">
+						<div class="d-flex justify-content-start align-items-center flex-wrap">
+							<h6 v-if="id" class="mb-0 mr-3">ID hợp đồng: #{{ id }}</h6>
+							<div class="d-inline-flex align-items-center">
+								<span class="badge badge-primary px-3 py-2" style="font-size: 13px;">
+									<i class="fas fa-file-contract mr-1"></i> Số HĐ: <strong>{{ order.contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
+								</span>
+								<span v-if="id && is_deposit_contract_mode" class="font-weight-bold badge badge-success ml-2">Cọc giữ xe</span>
+								<span v-if="order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))" class="font-weight-bold badge badge-warning ml-2" style="font-size: 12px;">
+									<i class="fas fa-lock mr-1"></i>Hợp đồng đã chốt
+								</span>
+							</div>
 						</div>
 
-						<div class="form-group mt-2" v-if="id && order">
-							<label>
+						<div class="form-group mt-2 mb-0" v-if="id && order">
+							<label class="mb-0">
 								<strong>Ngày tạo hợp đồng</strong>
 								<span v-if="!editing_order_created_at">: &nbsp;{{ order.created_at }}</span>
 								<span style="display:inline-block;width: 16px;cursor: pointer;" @click="editingOrderCreatedAt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" data-v-d2e47025=""><path fill="currentColor" d="m199.04 672.64 193.984 112 224-387.968-193.92-112-224 388.032zm-23.872 60.16 32.896 148.288 144.896-45.696zM455.04 229.248l193.92 112 56.704-98.112-193.984-112-56.64 98.112zM104.32 708.8l384-665.024 304.768 175.936L409.152 884.8h.064l-248.448 78.336zm384 254.272v-64h448v64h-448z"></path></svg></span>
@@ -22,48 +30,63 @@
 							</ValidationProvider>
 						</div>
 					</div>
-					<div class="col-md-8">
+					<div class="col-md-6 text-right">
 						<div class="d-flex justify-content-end align-items-center" v-if="id && order && order.order_status == 'deposit_contract'">
 							<div class="checkbox-wrapper deposit-contract-checkbox">
 								<input type="checkbox" class="checkbox-input" v-model="start_this_contract" id="start-this-contract">
-								<label for="start-this-contract" class="mb-0">Kích hoạt hợp đồng này</label>
+								<label for="start-this-contract" class="mb-0 font-weight-bold text-success">Kích hoạt hợp đồng này (Cấp Số HĐ chính thức)</label>
 							</div>
+						</div>
+						<div class="d-flex justify-content-end align-items-center" v-else-if="id && order && order.order_status == 'renting' && !(order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))">
+							<button type="button" class="btn btn-sm btn-outline-warning font-weight-bold" @click="handleLockContract" :disabled="loadingLock">
+								<i class="fas fa-lock mr-1"></i> Chốt hợp đồng đã ký
+							</button>
 						</div>
 					</div>
 				</div>
 
-
-				<div v-if="id == 0 || id == null">
-					<div class="d-flex justify-content-center mb-6">
-						<h2 class="font-weight-bold">Thông tin chung</h2>
+				<div class="card card-custom gutter-b border p-4 bg-light-secondary mb-6">
+					<div class="d-flex justify-content-between align-items-center mb-3">
+						<h5 class="font-weight-bold text-primary mb-0">Thông tin hợp đồng & Pháp lý</h5>
+						<div class="checkbox-wrapper d-flex align-items-center">
+							<input type="checkbox" class="checkbox-input mr-2" v-model="order.is_authorized_contract" id="is-authorized-contract">
+							<label for="is-authorized-contract" class="mb-0 font-weight-bold">Hợp đồng theo ủy quyền</label>
+						</div>
 					</div>
 					<div class="row">
-						<div class="col-md-4 form-group">
-							<div>
-								<label for="payment-method"><strong>Loại hợp đồng<span class="text-danger">(*)</span></strong></label>
-								<div class="deposit-contract-checkbox checkbox-wrapper">
-									<el-radio-group id="payment-method" v-model="contract_type" size="medium">
-										<el-radio-button label="1">Thuê xe</el-radio-button>
-										<el-radio-button label="2">Đặt cọc giữ xe</el-radio-button>
-									</el-radio-group>
-								</div>
+						<div class="col-md-4 form-group" v-if="id == 0 || id == null">
+							<label for="payment-method"><strong>Loại hợp đồng<span class="text-danger">(*)</span></strong></label>
+							<div class="deposit-contract-checkbox checkbox-wrapper">
+								<el-radio-group id="payment-method" v-model="contract_type" size="medium">
+									<el-radio-button label="1">Thuê xe</el-radio-button>
+									<el-radio-button label="2">Đặt cọc giữ xe</el-radio-button>
+								</el-radio-group>
 							</div>
 						</div>
-						<div class="col-md-4"></div>
-						<div class="col-md-4">
-                            <div class="form-group">
-                                <label><strong>Ngày tạo hợp đồng<span class="text-danger">(*)</span></strong></label>
-                                <ValidationProvider vid="completed_at" name="Ngày tạo hợp đồng" rules="required" v-slot="{ errors }">
-                                    <el-date-picker class="w-100" v-model="order.created_at" format="dd-MM-yyyy HH:mm:ss" type="datetime" placeholder="Ngày tạo hợp đồng"></el-date-picker>
-									<error-message :errors="errors" field="completed_at"></error-message>
-                                </ValidationProvider>
-                            </div>
-                        </div>
+						<div class="col-md-4 form-group">
+							<label><strong>Ngày ký hợp đồng<span class="text-danger">(*)</span></strong></label>
+							<el-date-picker class="w-100" v-model="order.contract_signed_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Chọn ngày ký"></el-date-picker>
+						</div>
+						<div class="col-md-4 form-group" v-if="id == 0 || id == null">
+							<label><strong>Ngày tạo hợp đồng<span class="text-danger">(*)</span></strong></label>
+							<ValidationProvider vid="completed_at" name="Ngày tạo hợp đồng" rules="required" v-slot="{ errors }">
+								<el-date-picker class="w-100" v-model="order.created_at" format="dd-MM-yyyy HH:mm:ss" type="datetime" placeholder="Ngày tạo hợp đồng"></el-date-picker>
+								<error-message :errors="errors" field="completed_at"></error-message>
+							</ValidationProvider>
+						</div>
+						<div class="col-md-6 form-group" v-if="order.is_authorized_contract">
+							<label><strong>Ngày HĐ ủy quyền</strong></label>
+							<el-date-picker class="w-100" v-model="order.contract_authorization_date" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Ngày HĐ ủy quyền"></el-date-picker>
+						</div>
+						<div class="col-md-6 form-group" v-if="order.is_authorized_contract">
+							<label><strong>Bên được ủy quyền</strong></label>
+							<el-input placeholder="Tên đơn vị / cá nhân được ủy quyền" v-model="order.contract_authorization_party_name"></el-input>
+						</div>
 					</div>
 				</div>
 
                 <div class="d-flex justify-content-center mb-6">
-                    <h2 class="font-weight-bold">Thông tin khách hàng</h2>
+                    <h2 class="font-weight-bold">Thông tin khách hàng (Bên B)</h2>
                 </div>
                 <div class="row">
                     <div class="col-md-4">
@@ -82,7 +105,29 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Số CMTND/CCCD</strong></label>
+                            <label><strong>Tên khách hàng</strong> <span class="text-danger">(*)</span></label>
+                            <ValidationProvider vid="name" name="Tên khách hàng" rules="required" v-slot="{ errors }">
+                                <el-input placeholder="Tên khách hàng" v-model="order.customer_name"></el-input>
+                                <error-message :errors="errors" field="name"></error-message>
+                            </ValidationProvider>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>SĐT</strong> <span class="text-danger">(*)</span></label>
+                            <ValidationProvider vid="phone" name="Số điện thoại khách hàng" rules="required|numeric"
+                                v-slot="{ errors }">
+                                <el-input clearable placeholder="SĐT khách hàng" v-model="order.customer_phone"
+                                    @blur="onBlurCardId($event, errors)" @change="onChangeCardId($event)"
+                                    name="phone"></el-input>
+                                <error-message :errors="errors" field="phone"></error-message>
+                            </ValidationProvider>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label><strong>Số CMTND/CCCD</strong> <span class="text-danger">(*)</span></label>
                             <ValidationProvider vid="cccd" name="Số CMTND/CCCD" rules="required|numeric"
                                 v-slot="{ errors }">
                                 <el-input clearable placeholder="Số CMTND/CCCD" v-model="order.customer_id_card"
@@ -94,34 +139,59 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>SĐT</strong></label>
-                            <ValidationProvider vid="phone" name="Số điện thoại khách hàng" rules="required|numeric"
-                                v-slot="{ errors }">
-                                <el-input clearable placeholder="SĐT khách hàng" v-model="order.customer_phone"
-                                    @blur="onBlurCardId($event, errors)" @change="onChangeCardId($event)"
-                                    name="phone"></el-input>
-                                <error-message :errors="errors" field="phone"></error-message>
-                            </ValidationProvider>
+                            <label><strong>Ngày cấp CCCD</strong></label>
+                            <el-date-picker class="w-100" v-model="order.customer_id_card_issued_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Ngày cấp CCCD"></el-date-picker>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Tên khách hàng</strong>
-                                <span class="text-danger">(*)</span></label>
-                            <ValidationProvider vid="name" name="Tên khách hàng" rules="required" v-slot="{ errors }">
-                                <el-input placeholder="Tên khách hàng" v-model="order.customer_name"></el-input>
-                                <error-message :errors="errors" field="name"></error-message>
-                            </ValidationProvider>
+                            <label><strong>Nơi cấp CCCD</strong></label>
+                            <el-input placeholder="Ví dụ: Cục CSQLHC về TTXH" v-model="order.customer_id_card_issued_by"></el-input>
                         </div>
                     </div>
-                    <div class="col-md-6">
+
+                    <div class="col-md-12">
                         <div class="form-group">
-                            <label><strong>Địa chỉ</strong></label>
+                            <label><strong>Địa chỉ thường trú / tạm trú</strong></label>
                             <ValidationProvider vid="customer_address" name="Địa chỉ" rules="" v-slot="{ errors }">
-                                <el-input clearable placeholder="Địa chỉ khách hàng"
+                                <el-input clearable placeholder="Địa chỉ nơi cư trú của khách hàng"
                                     v-model="order.customer_address"></el-input>
                                 <error-message :errors="errors" field="customer_address"></error-message>
                             </ValidationProvider>
+                        </div>
+                    </div>
+
+                    <!-- Thông tin người thân (theo mẫu: ... Và ...) -->
+                    <div class="col-md-12" v-if="order.relatives && order.relatives.length">
+                        <div class="p-3 mb-4 rounded" style="background-color: #f7f9fb; border: 1px solid #e1e8ed;">
+                            <label class="font-weight-bold text-dark mb-2">
+                                <i class="fas fa-users text-primary mr-1"></i> Thông tin người thân (theo mẫu HĐ: ... Và ...):
+                            </label>
+                            <div class="row mb-2">
+                                <div class="col-md-4">
+                                    <el-input size="small" placeholder="Người thân 1: Họ tên" v-model="order.relatives[0].name"></el-input>
+                                </div>
+                                <div class="col-md-4">
+                                    <el-input size="small" placeholder="Mối quan hệ (bố, mẹ, vợ, chồng...)" v-model="order.relatives[0].relationship"></el-input>
+                                </div>
+                                <div class="col-md-4">
+                                    <el-input size="small" placeholder="SĐT người thân 1" v-model="order.relatives[0].phone"></el-input>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center my-2 text-muted font-weight-bold" style="font-size: 12px;" v-if="order.relatives.length > 1">
+                                <span class="badge badge-secondary mr-2">Và</span> (Người thân thứ 2):
+                            </div>
+                            <div class="row" v-if="order.relatives.length > 1">
+                                <div class="col-md-4">
+                                    <el-input size="small" placeholder="Người thân 2: Họ tên" v-model="order.relatives[1].name"></el-input>
+                                </div>
+                                <div class="col-md-4">
+                                    <el-input size="small" placeholder="Mối quan hệ" v-model="order.relatives[1].relationship"></el-input>
+                                </div>
+                                <div class="col-md-4">
+                                    <el-input size="small" placeholder="SĐT người thân 2" v-model="order.relatives[1].phone"></el-input>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -162,6 +232,7 @@
                         <items-order :priceVehicles="priceVehicles" :order_item="item" :banks="banks"
 							:is_deposit_contract_mode="is_deposit_contract_mode"
                             :ref="'itemOrder-' + key" :vehicles="vehicles" :index="key" :order_id="id"
+                            :customer_name="order.customer_name"
                             @deleteFee="deleteFee" @deleteVehicle="deleteVehicle" @changeRentAt="changeRentAt" @addFee="addFee" @feeChanged="feeChanged"
                             @changeReturnAt="changeReturnAt" @changeIsAllInOne="changeIsAllInOne"
                             @changeBorrowHats="changeBorrowHats" @changeVehicleId="changeVehicleId"
@@ -170,6 +241,10 @@
 							@other_fee_bank_id="changeOtherFeeBankId" @odometerAfterChanged="odometerAfterChanged" @odometerBeforeChanged="odometerBeforeChanged"
                             @change_substitute_unit_price="change_substitute_unit_price"
                             @change_money_out_date="change_money_out_date"
+                            @changeDriverName="changeDriverName"
+                            @changeDriverLicenseNumber="changeDriverLicenseNumber"
+                            @changeDriverLicenseIssuedOn="changeDriverLicenseIssuedOn"
+                            @changeBorrowRaincoats="changeBorrowRaincoats"
                             @other_fee_payment_method="changeOtherFeePaymentMethod" :order_status="order.order_status"
 							@item_hiring_fee_changed="item_hiring_fee_changed">
                         </items-order>
@@ -310,6 +385,37 @@
 						</div>
 					</div>
 					
+                    <!-- Thông tin ký kết & Tài sản thế chấp theo hợp đồng Himoto -->
+                    <div class="row">
+                        <div class="col-md-12 form-group">
+                            <label for="contract_collateral"><strong>Tài sản thế chấp / Đặt cọc tài sản</strong></label>
+                            <el-input
+                                class="w-100"
+                                placeholder="VD: 01 Đăng ký xe mô tô BKS 29X1-..., 01 CCCD gốc, v.v."
+                                id="contract_collateral"
+                                type="textarea"
+                                :rows="2"
+                                v-model="order.contract_collateral_description">
+                            </el-input>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label><strong>Người đại diện ký Bên A (Himoto)</strong></label>
+                            <el-input
+                                placeholder="Tên nhân viên đại diện Bên A"
+                                v-model="order.contract_signer_a_name">
+                            </el-input>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label><strong>Người ký Bên B (Khách thuê)</strong></label>
+                            <el-input
+                                placeholder="Họ tên người thuê ký hợp đồng"
+                                v-model="order.contract_signer_b_name">
+                            </el-input>
+                        </div>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-12 form-group">
                             <label for="note"><strong>Ghi chú</strong></label>
@@ -364,8 +470,9 @@
 							(order.order_status !== HOAN_THANH ||
 								currentUser.role_id === 1)
 						" native-type="submit" class="btn btn-sm btn-success mr-2" style="color: #fff"
-							:loading="loading">
+							:loading="loading" :disabled="Boolean(order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked)))">
 							<span v-if="start_this_contract">Kích hoạt hợp đồng</span>
+							<span v-else-if="order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))"><i class="fas fa-lock mr-1"></i>Hợp đồng đã chốt</span>
 							<span v-else>Cập nhật</span>
 						</el-button>
 						<ModalAddOnPrice v-if="id && order.order_status == 'renting'" :order="order" :banks="banks" @addOnSuccess="addOnSuccess"></ModalAddOnPrice>
@@ -396,6 +503,7 @@ import { mapGetters } from "vuex";
 import {
     SHOW_ORDER_CAR_RENTAL,
     UPDATE_ORDER_CAR_RENTAL,
+    LOCK_ORDER_CONTRACT,
 } from "../../../../core/services/store/order.module";
 import { HOAN_THANH } from "../../../../option/orderOption";
 import ActivityHistory from "./ActivityHistory";
@@ -429,21 +537,37 @@ export default {
     data() {
         return {
             HOAN_THANH: HOAN_THANH,
+            loadingLock: false,
             banks: [],
 			bank_outs: [], // Bank dùng để trả tiền thừa cho khách.
             hiringFeeAllItems: 0,
 			contract_type: 1,
             otherFeeAllOrderItems: 0,
             totalFeeAllOrderItems: 0,
+            customerSearchSeq: 0,
 
             order: {
 				created_at: new Date(),
+                contract_number: "",
+                contract_signed_on: new Date(),
+                is_authorized_contract: false,
+                contract_authorization_date: null,
+                contract_authorization_party_name: "",
+                contract_collateral_description: "",
+                contract_signer_a_name: "",
+                contract_signer_b_name: "",
                 transaction_ids_to_destroy: [],
                 store_id: "",
                 customer_name: "",
                 customer_phone: "",
                 customer_id_card: "",
+                customer_id_card_issued_on: null,
+                customer_id_card_issued_by: "",
                 customer_address: "",
+                relatives: [
+                    { name: "", relationship: "", phone: "" },
+                    { name: "", relationship: "", phone: "" },
+                ],
                 warning: "",
                 note: "",
 
@@ -1038,17 +1162,44 @@ export default {
                 .dispatch(SHOW_ORDER_CAR_RENTAL, this.id)
                 .then((res) => {
 					console.log('after order before: ', this.order.additional_deposit_amount);
+                    let relatives = [
+                        { name: "", relationship: "", phone: "" },
+                        { name: "", relationship: "", phone: "" },
+                    ];
+                    if (res.data.customer?.relatives && Array.isArray(res.data.customer.relatives) && res.data.customer.relatives.length > 0) {
+                        relatives = [
+                            res.data.customer.relatives[0] || { name: "", relationship: "", phone: "" },
+                            res.data.customer.relatives[1] || { name: "", relationship: "", phone: "" },
+                        ];
+                    }
+
                     this.order = {
                         ...this.order,
                         ...res.data,
-                        customer_name: res.data.customer.name,
-                        warning: res.data.customer.warning,
-                        customer_phone: res.data.customer.phone,
-                        customer_id_card: res.data.customer.id_card,
-                        customer_address: res.data.customer.address,
+                        contract_number: res.data.contract_number || "",
+                        contract_is_locked: !!(res.data.contract_is_locked || (res.data.contract_snapshot && res.data.contract_snapshot.is_locked)),
+                        contract_snapshot: res.data.contract_snapshot || null,
+                        contract_signed_on: res.data.contract_signed_on || res.data.created_at || new Date(),
+                        is_authorized_contract: !!(res.data.contract_authorization_date || res.data.contract_authorization_party_name),
+                        contract_authorization_date: res.data.contract_authorization_date || null,
+                        contract_authorization_party_name: res.data.contract_authorization_party_name || "",
+                        contract_collateral_description: res.data.contract_collateral_description || "",
+                        contract_signer_a_name: res.data.contract_signer_a_name || "",
+                        contract_signer_b_name: res.data.contract_signer_b_name || "",
+                        customer_name: res.data.customer?.name || "",
+                        warning: res.data.customer?.warning || "",
+                        customer_phone: res.data.customer?.phone || "",
+                        customer_id_card: res.data.customer?.id_card || "",
+                        customer_id_card_issued_on: res.data.customer?.id_card_issued_on || null,
+                        customer_id_card_issued_by: res.data.customer?.id_card_issued_by || "",
+                        customer_address: res.data.customer?.address || "",
+                        relatives: relatives,
                         order_items: res.data.order_items.map((item) => ({
                             ...item,
-
+                            driver_name: item.driver_name || "",
+                            driver_license_number: item.driver_license_number || "",
+                            driver_license_issued_on: item.driver_license_issued_on || null,
+                            borrow_raincoats: item.borrow_raincoats || 0,
                             hiringFee: item.total_money,
                             is_all_in_one: item.type == 'total' ? true : false,
 							custom_hiring_fee: item.hiring_fee, // Using this key to set custom rental_fee for exists order.
@@ -1068,6 +1219,34 @@ export default {
                     this.getBankOutByStoreId(this.order.store_id);
                 })
                 .finally(() => (this.loadingComponent = false));
+        },
+        handleLockContract() {
+            Swal.fire({
+                title: "Chốt thông tin hợp đồng?",
+                text: "Sau khi chốt, thông tin hợp đồng đã ký sẽ được cố định và không thể sửa đổi.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Đồng ý chốt",
+                cancelButtonText: "Hủy thao tác"
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.loadingLock = true;
+                    this.$store
+                        .dispatch(LOCK_ORDER_CONTRACT, this.id)
+                        .then(() => {
+                            Swal.fire("Thành công", "Chốt hợp đồng thành công", "success");
+                            this.getOrder();
+                            this.$emit("updateSuccess");
+                        })
+                        .catch((err) => {
+                            const msg = (err && err.data && err.data.message) || "Chốt hợp đồng thất bại";
+                            Swal.fire("Lỗi", msg, "error");
+                        })
+                        .finally(() => {
+                            this.loadingLock = false;
+                        });
+                }
+            });
         },
         async getStore() {
             await this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
@@ -1115,6 +1294,10 @@ export default {
                 hiringFee: 0,
                 price_id: 0,
                 borrow_hats: 0,
+                borrow_raincoats: 0,
+                driver_name: "",
+                driver_license_number: "",
+                driver_license_issued_on: null,
                 rent_at: nowDate,
                 return_at: nowDate,
                 money_out_date: 0,
@@ -1219,7 +1402,21 @@ export default {
                 customer_name: "",
                 customer_phone: "",
                 customer_id_card: "",
+                customer_id_card_issued_on: null,
+                customer_id_card_issued_by: "",
                 customer_address: "",
+                relatives: [
+                    { name: "", relationship: "", phone: "" },
+                    { name: "", relationship: "", phone: "" },
+                ],
+                contract_number: "",
+                contract_signed_on: new Date(),
+                is_authorized_contract: false,
+                contract_authorization_date: null,
+                contract_authorization_party_name: "",
+                contract_collateral_description: "",
+                contract_signer_a_name: "",
+                contract_signer_b_name: "",
                 note_item: "",
                 note: "",
 				order_items: [],
@@ -1249,12 +1446,34 @@ export default {
                 rent_at: moment(item.rent_at).format('DD-MM-YYYY HH:mm:ss'),
                 return_at: moment(item.return_at).format('DD-MM-YYYY HH:mm:ss'),
 				custom_total_money: item.custom_hiring_fee,
-
+                driver_name: item.driver_name || "",
+                driver_license_number: item.driver_license_number || "",
+                driver_license_issued_on: item.driver_license_issued_on ? moment(item.driver_license_issued_on).format('YYYY-MM-DD') : null,
+                borrow_raincoats: item.borrow_raincoats || 0,
             }));
             this.order.order_items = formattedItems;
 
+            const cleanRelatives = (this.order.relatives || [])
+                .filter(r => r && (r.name || r.relationship || r.phone))
+                .map(r => ({
+                    name: (r.name || "").trim(),
+                    relationship: (r.relationship || "").trim(),
+                    phone: (r.phone || "").trim(),
+                }));
+
+            const idCardIssuedOn = this.order.customer_id_card_issued_on ? moment(this.order.customer_id_card_issued_on).format('YYYY-MM-DD') : null;
+            const idCardIssuedBy = (this.order.customer_id_card_issued_by || "").trim();
+
             return {
                 ...this.order,
+                contract_signed_on: this.order.contract_signed_on ? moment(this.order.contract_signed_on).format('YYYY-MM-DD') : null,
+                contract_authorization_date: (this.order.is_authorized_contract && this.order.contract_authorization_date) ? moment(this.order.contract_authorization_date).format('YYYY-MM-DD') : null,
+                contract_authorization_party_name: this.order.is_authorized_contract ? (this.order.contract_authorization_party_name || "") : "",
+                customer_id_card_issued_on: idCardIssuedOn,
+                customer_id_card_issued_by: idCardIssuedBy,
+                id_card_issued_on: idCardIssuedOn,
+                id_card_issued_by: idCardIssuedBy,
+                relatives: cleanRelatives,
                 // get lead_ids
                 leads: this.leadIds && this.leadIds.length > 0 ? this.leadIds : undefined,
 				contract_type: this.contract_type,
@@ -1350,32 +1569,69 @@ export default {
             }
         },
         resetCustomerInfo() {
+            this.customerSearchSeq++;
             this.order.customer_address = "";
             this.order.customer_name = "";
             this.order.customer_phone = "";
             this.order.customer_id_card = "";
+            this.order.customer_id_card_issued_on = null;
+            this.order.customer_id_card_issued_by = "";
+            this.order.relatives = [
+                { name: "", relationship: "", phone: "" },
+                { name: "", relationship: "", phone: "" },
+            ];
             this.warningTemp = "";
         },
         getCustomerByCardId(val, name) {
+            if (!val) {
+                this.resetCustomerInfo();
+                return;
+            }
+            const querySeq = ++this.customerSearchSeq;
             const params = {
                 [name]: val,
             };
             this.$store.dispatch(CUSTOMER_INDEX, params).then((data) => {
+                if (this.customerSearchSeq !== querySeq) {
+                    return;
+                }
+                if (name === 'id_card' && this.order.customer_id_card !== val) {
+                    return;
+                }
+                if (name === 'phone' && this.order.customer_phone !== val) {
+                    return;
+                }
                 const arr = data?.data?.data || [];
+                // Luôn reset danh sách người thân để tránh lẫn thông tin giữa các khách hàng
+                this.order.relatives = [
+                    { name: "", relationship: "", phone: "" },
+                    { name: "", relationship: "", phone: "" },
+                ];
                 if (Array.isArray(arr) && arr.length > 0) {
-                    const { address, name, phone, warning, id_card } =
+                    const { address, name, phone, warning, id_card, id_card_issued_on, id_card_issued_by, relatives } =
                         arr[0] || {};
-                    this.order.customer_address = address;
-                    this.order.customer_name = name;
-                    this.order.customer_id_card = id_card;
-                    this.order.customer_phone = phone;
-                    this.warningTemp = warning;
+                    this.order.customer_address = address || "";
+                    this.order.customer_name = name || "";
+                    this.order.customer_id_card = id_card || "";
+                    this.order.customer_id_card_issued_on = id_card_issued_on || null;
+                    this.order.customer_id_card_issued_by = id_card_issued_by || "";
+                    if (relatives && Array.isArray(relatives) && relatives.length > 0) {
+                        this.order.relatives = [
+                            relatives[0] || { name: "", relationship: "", phone: "" },
+                            relatives[1] || { name: "", relationship: "", phone: "" },
+                        ];
+                    }
+                    this.order.customer_phone = phone || "";
+                    this.warningTemp = warning || "";
                 } else {
                     this.warningTemp = "";
                 }
+            }).catch(() => {
+                if (this.customerSearchSeq !== querySeq) {
+                    return;
+                }
+                this.warningTemp = "";
             });
-
-
         },
 
         getLeads() {
@@ -1420,6 +1676,30 @@ export default {
 		additional_deposit_amount_changed(val) {
 			this.order.additional_deposit_payment_method = val;
 		},
+        changeDriverName({ index, data }) {
+            this.$set(this.order.order_items, index, {
+                ...this.order.order_items[index],
+                driver_name: data,
+            });
+        },
+        changeDriverLicenseNumber({ index, data }) {
+            this.$set(this.order.order_items, index, {
+                ...this.order.order_items[index],
+                driver_license_number: data,
+            });
+        },
+        changeDriverLicenseIssuedOn({ index, data }) {
+            this.$set(this.order.order_items, index, {
+                ...this.order.order_items[index],
+                driver_license_issued_on: data,
+            });
+        },
+        changeBorrowRaincoats({ index, data }) {
+            this.$set(this.order.order_items, index, {
+                ...this.order.order_items[index],
+                borrow_raincoats: data,
+            });
+        },
     },
 };
 </script>

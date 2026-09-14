@@ -19,8 +19,8 @@
                     <label><strong>Chọn xe</strong> <span class="text-danger">(*)</span></label>
                     <ValidationProvider vid="vehicle_id" name="Xe thuê" rules="required" v-slot="{ errors }">
                         <el-select v-model="order_item.vehicle_id" clearable filterable class="w-100"
-                            placeholder="Chọn xe thuê">
-                            <el-option @change="changeVehicleId" v-for="item in vehicles" :key="item.id"
+                            placeholder="Chọn xe thuê" @change="changeVehicleId">
+                            <el-option v-for="item in vehicles" :key="item.id"
                                 :label="`${item.name}(${item.license})`" :value="item.id">
                                 <span style="float: left">{{ item.name }}</span>
                                 <span style="
@@ -59,13 +59,57 @@
                     </ValidationProvider>
                 </div>
             </div>
-			<div class="col-md-4" v-if="!is_deposit_contract_mode">
+
+            <!-- Thông số xe tự động lấy từ danh mục để đối chiếu mẫu hợp đồng -->
+            <div v-if="selectedVehicleDetails" class="col-12 mb-3">
+                <div class="p-2 px-3 rounded bg-light d-flex flex-wrap align-items-center text-muted" style="font-size: 12px; border: 1px dashed #c0c4cc;">
+                    <span class="mr-4"><i class="fas fa-tag mr-1 text-primary"></i> <strong>Nhãn hiệu:</strong> {{ selectedVehicleDetails.brand || '—' }}</span>
+                    <span class="mr-4"><i class="fas fa-motorcycle mr-1 text-primary"></i> <strong>Loại xe:</strong> {{ selectedVehicleDetails.type || '—' }}</span>
+                    <span class="mr-4"><i class="fas fa-palette mr-1 text-primary"></i> <strong>Màu sắc:</strong> {{ selectedVehicleDetails.color || '—' }}</span>
+                    <span><i class="fas fa-calendar-alt mr-1 text-primary"></i> <strong>Năm SX:</strong> {{ selectedVehicleDetails.year || '—' }}</span>
+                </div>
+            </div>
+
+            <!-- Thông tin người lái xe theo mẫu hợp đồng -->
+            <div class="col-md-4" v-if="!is_deposit_contract_mode">
+                <div class="form-group">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="mb-0"><strong>Tên người lái</strong></label>
+                        <a href="javascript:void(0)" class="text-primary font-size-xs" @click="copyCustomerAsDriver">Khách là người lái</a>
+                    </div>
+                    <el-input placeholder="Họ và tên người lái xe" v-model="local_order_item.driver_name" @change="changeDriverName"></el-input>
+                </div>
+            </div>
+            <div class="col-md-4" v-if="!is_deposit_contract_mode">
+                <div class="form-group">
+                    <label><strong>Số GP lái xe</strong></label>
+                    <el-input placeholder="Số GPLX" v-model="local_order_item.driver_license_number" @change="changeDriverLicenseNumber"></el-input>
+                </div>
+            </div>
+            <div class="col-md-4" v-if="!is_deposit_contract_mode">
+                <div class="form-group">
+                    <label><strong>Ngày cấp GPLX</strong></label>
+                    <el-date-picker class="w-100" v-model="local_order_item.driver_license_issued_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Ngày cấp GPLX" @change="changeDriverLicenseIssuedOn"></el-date-picker>
+                </div>
+            </div>
+
+			<div class="col-md-2" v-if="!is_deposit_contract_mode">
                 <div class="form-group">
                     <label><strong>Số mũ mượn</strong></label>
                     <ValidationProvider vid="borrow_hats" name="Số mũ mượn" rules="numeric" v-slot="{ errors }">
-                        <el-input placeholder="Số mũ mượn" @change="changeBorrowHats"
+                        <el-input placeholder="Số mũ" @change="changeBorrowHats"
                             v-model="local_order_item.borrow_hats"></el-input>
                         <error-message :errors="errors" field="borrow_hats"></error-message>
+                    </ValidationProvider>
+                </div>
+            </div>
+			<div class="col-md-2" v-if="!is_deposit_contract_mode">
+                <div class="form-group">
+                    <label><strong>Số áo mưa</strong></label>
+                    <ValidationProvider vid="borrow_raincoats" name="Số áo mưa" rules="numeric" v-slot="{ errors }">
+                        <el-input placeholder="Số áo mưa" @change="changeBorrowRaincoats"
+                            v-model="local_order_item.borrow_raincoats"></el-input>
+                        <error-message :errors="errors" field="borrow_raincoats"></error-message>
                     </ValidationProvider>
                 </div>
             </div>
@@ -301,6 +345,10 @@ export default {
 			default: () => {
 				return false;
 			}
+		},
+		customer_name: {
+			type: String,
+			default: '',
 		}
     },
     components: {
@@ -324,6 +372,10 @@ export default {
         };
     },
     computed: {
+        selectedVehicleDetails() {
+            if (!this.order_item || !this.order_item.vehicle_id || !this.vehicles) return null;
+            return this.vehicles.find(v => v.id == this.order_item.vehicle_id) || null;
+        },
 		isNomalOrderCompleted() {
 			if (!this.is_deposit_contract_mode && this.order_id != 0 && this.order_status === 'completed') {
 				return true;
@@ -548,7 +600,25 @@ export default {
 				this.custom_hiring_fee = this.local_order_item.hiringFee;
 			}
 			
-		}
+		},
+        copyCustomerAsDriver() {
+            if (this.customer_name) {
+                this.$set(this.local_order_item, 'driver_name', this.customer_name);
+                this.$emit("changeDriverName", { index: this.index, data: this.customer_name });
+            }
+        },
+        changeDriverName(data) {
+            this.$emit("changeDriverName", { index: this.index, data });
+        },
+        changeDriverLicenseNumber(data) {
+            this.$emit("changeDriverLicenseNumber", { index: this.index, data });
+        },
+        changeDriverLicenseIssuedOn(data) {
+            this.$emit("changeDriverLicenseIssuedOn", { index: this.index, data });
+        },
+        changeBorrowRaincoats(data) {
+            this.$emit("changeBorrowRaincoats", { index: this.index, data: parseInt(data) || 0 });
+        }
     },
 
 };
