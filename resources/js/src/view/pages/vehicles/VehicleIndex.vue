@@ -1,13 +1,21 @@
 <template>
     <div>
         <div class="card card-custom gutter-b">
-            <div class="card-header">
+            <div class="card-header align-items-center">
                 <div class="card-title">
                     <h3 class="card-label">Danh sách xe</h3>
                 </div>
-                <div class="card-title">
+                <div class="card-toolbar d-flex align-items-center">
+                    <div class="btn-group btn-group-sm mr-3" role="group" aria-label="Chế độ hiển thị">
+                        <button type="button" class="btn" :class="viewMode === 'table' ? 'btn-primary' : 'btn-secondary'" @click="switchView('table')">
+                            <i class="fa fa-list mr-1"></i> Bảng
+                        </button>
+                        <button type="button" class="btn" :class="viewMode === 'grid' ? 'btn-primary' : 'btn-secondary'" @click="switchView('grid')">
+                            <i class="fa fa-th-large mr-1"></i> Lưới thẻ
+                        </button>
+                    </div>
                     <ModalVehicleCreate @storeSuccess="getList"></ModalVehicleCreate>
-                    <button class="btn btn-success" @click="exportFile">Export</button>
+                    <button class="btn btn-success ml-2" @click="exportFile">Export</button>
                 </div>
 
             </div>
@@ -173,9 +181,25 @@
                     </div>
                 </div>
 
-                <div class="example mb-10">
-                    <div class="example-preview table-responsive">
-                        <table class="table">
+                <!-- Skeleton Loading -->
+                <div v-if="loading && (!vehicles.data || vehicles.data.length === 0)" class="mt-4">
+                    <HimotoTableSkeleton v-if="viewMode === 'table'" :rows="6" :cols="10" />
+                    <HimotoCardSkeleton v-else :count="6" />
+                </div>
+
+                <!-- Empty State -->
+                <div v-else-if="!loading && (!vehicles.data || vehicles.data.length === 0)">
+                    <HimotoEmptyState
+                        title="Không tìm thấy phương tiện"
+                        description="Không có xe nào phù hợp với điều kiện tìm kiếm và bộ lọc hiện tại."
+                    />
+                </div>
+
+                <!-- Content Area -->
+                <div v-else class="example mb-10 mt-4">
+                    <!-- Table View -->
+                    <div v-if="viewMode === 'table'" class="example-preview table-responsive">
+                        <table class="table table-hover">
                             <thead>
                                 <tr>
                                     <th scope="col">#</th>
@@ -209,22 +233,22 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="(item, index) in vehicles.data" :key="index">
+                                <tr v-for="(item, index) in vehicles.data" :key="item.id || index">
                                     <th scope="row">{{ index + 1 }}</th>
                                     <th scope="row">
 										<el-image
 											v-if="getFirstImage(item)"
-											style="width: 100px; height: 100px"
+											style="width: 80px; height: 80px; border-radius: 8px;"
 											:src="getFirstImage(item)" 
 											:preview-src-list="getItemImages(item)">
 										</el-image>
 									</th>
                                     <td>{{ item.created_at | formatDate }}</td>
                                     <td>
-                                        <span>{{ item.name }}<br /></span>
+                                        <span class="font-weight-bold">{{ item.name }}<br /></span>
                                     </td>
-                                    <td><span class="badge badge-primary">{{ item.license }}</span></td>
-                                    <td>{{ type_define[item.type] }} - {{ item.year }}</td>
+                                    <td><span class="badge badge-primary font-weight-bold">{{ item.license || item.license_plate }}</span></td>
+                                    <td>{{ type_define[item.type] || item.type }} - {{ item.year }}</td>
                                     <td>{{ item.cost_price | formatPrice }}</td>
                                     <td>{{ item.sale_price | formatPrice }}</td>
                                     <td>
@@ -238,36 +262,76 @@
                                             }}</span>
                                     </td>
 									<td>
-                                        <span>{{ item.odometer }}</span>
+                                        <span class="font-weight-bold">{{ item.odometer != null ? item.odometer + ' km' : '-' }}</span>
                                     </td>
                                     <td>
-                                        <span v-if="item.store" class="label label-info label-inline mr-2">{{
-                                            item.store.store_name }}</span>
+                                        <span v-if="item.store || item.store_name" class="label label-info label-inline mr-2">{{
+                                            item.store ? item.store.store_name : item.store_name }}</span>
                                     </td>
                                     <td>
-                                        <span :class="status_define_css[item.status]
-                                            ">
-                                            {{ status_define[item.status] }}
+                                        <span class="status-badge" :class="item.status_css || item.status">
+                                            {{ item.status_label || status_define[item.status] || item.status }}
                                         </span>
                                     </td>
 
                                     <td>
-                                        <button v-b-modal.modal-show-car-rental
-                                            class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
-                                            @click="showPopup(item)">
-                                            <i class="far fa-eye"></i>
-                                        </button>
-                                        <button v-b-modal.modal-vehicle-edit @click="item_current = item"
-                                            class="btn btn-xs btn-icon btn-outline-info">
-                                            <i class="far fa-edit"> </i>
-                                        </button>
-                                        <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteVehicle(item.id)" href="javascript:"
-                                            class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
-                                        </a>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <button v-b-modal.modal-show-car-rental
+                                                class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
+                                                @click="showPopup(item)">
+                                                <i class="far fa-eye"></i>
+                                            </button>
+                                            <button v-b-modal.modal-vehicle-edit @click="item_current = item"
+                                                class="btn btn-xs btn-icon btn-outline-info" title="Sửa">
+                                                <i class="far fa-edit"> </i>
+                                            </button>
+                                            <button class="btn btn-xs btn-icon btn-outline-primary" title="Tạo đơn thuê"
+                                                @click="$router.push('/car-rental?vehicle_id=' + item.id)">
+                                                <i class="fa fa-file-contract"></i>
+                                            </button>
+                                            <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteVehicle(item.id)" href="javascript:"
+                                                class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Grid View -->
+                    <div v-else class="himoto-vehicle-grid">
+                        <div v-for="(item, index) in vehicles.data" :key="item.id || index" class="vehicle-card-item">
+                            <div class="vehicle-card-thumb">
+                                <img :src="getFirstImage(item) || '/media/vehicles/default-moto.png'" alt="Vehicle Image" class="vehicle-img" />
+                                <span class="status-badge" :class="item.status_css || item.status">
+                                    {{ item.status_label || status_define[item.status] || item.status }}
+                                </span>
+                            </div>
+                            <div class="vehicle-card-content">
+                                <div class="vehicle-license-pill">{{ item.license || item.license_plate }}</div>
+                                <h4 class="vehicle-card-name">{{ item.name }}</h4>
+                                <div class="vehicle-meta-row">
+                                    <span class="meta-label">Chi nhánh:</span>
+                                    <span class="meta-val font-weight-bold">{{ item.store ? item.store.store_name : (item.store_name || '-') }}</span>
+                                </div>
+                                <div class="vehicle-meta-row" v-if="item.odometer != null">
+                                    <span class="meta-label">Số km (ODO):</span>
+                                    <span class="meta-val font-weight-bold text-primary">{{ item.odometer }} km</span>
+                                </div>
+                                <div class="vehicle-card-actions">
+                                    <button class="btn btn-sm btn-secondary" @click="showPopup(item)" v-b-modal.modal-show-car-rental>
+                                        <i class="far fa-eye mr-1"></i> Chi tiết
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" @click="item_current = item" v-b-modal.modal-vehicle-edit>
+                                        <i class="far fa-edit mr-1"></i> Sửa
+                                    </button>
+                                    <button class="btn btn-sm btn-primary ml-auto" @click="$router.push('/car-rental?vehicle_id=' + item.id)">
+                                        <i class="fa fa-file-contract mr-1"></i> Thuê
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -311,11 +375,23 @@ import ModalVehicleEdit from "./ModalVehicleEdit";
 import queryMixin from '@/utils/queryMixin.js';
 import ModalView from "./ModalView";
 import Swal from "sweetalert2";
+import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";
+import HimotoCardSkeleton from "@/view/components/himoto/HimotoCardSkeleton.vue";
+import HimotoEmptyState from "@/view/components/himoto/HimotoEmptyState.vue";
+import { adaptVehicle, normalizePaginator } from "@/utils/paginatorAdapter";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 
 export default {
     mixins: [queryMixin],
     name: "VehicleIndex",
-    components: { ModalVehicleEdit, ModalVehicleCreate, ModalView },
+    components: {
+        ModalVehicleEdit,
+        ModalVehicleCreate,
+        ModalView,
+        HimotoTableSkeleton,
+        HimotoCardSkeleton,
+        HimotoEmptyState
+    },
     data() {
         const { page, store_id, type_of_service_id, ...restQuery } =
             this.$route?.query || {};
@@ -349,6 +425,8 @@ export default {
             status_define_css: status_define_css,
             status_define: status_define,
             loading: false,
+            viewMode: this.$route?.query?.view || 'table',
+            errorMessage: null,
             item_current: null,
             maintenance_status: [
                 {
@@ -363,7 +441,8 @@ export default {
                     id: 3,
                     name: "Còn 1 tuần"
                 }
-            ]
+            ],
+            lastFetchedAt: 0,
         };
     },
     computed: {
@@ -375,6 +454,25 @@ export default {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Quản lý xe" }]);
         this.getList();
         this.getReport();
+    },
+    activated() {
+        const queryPage = +this.$route?.query?.page || 1;
+        const queryName = this.$route?.query?.name || this.$route?.query?.keyword || '';
+        const currentName = this.query.name || this.query.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryName !== currentName;
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
+
+        if (paramsChanged) {
+            this.page = queryPage;
+            if (this.$route?.query?.name !== undefined) {
+                this.query.name = this.$route.query.name;
+            }
+            this.getList();
+            this.getReport();
+        } else if (isTtlExpired) {
+            this.getList();
+            this.getReport();
+        }
     },
     methods: {
 		getFirstImage(item) {
@@ -389,8 +487,12 @@ export default {
             this.vehicle_show = item;
 
         },
+        switchView(mode) {
+            this.viewMode = mode;
+            this.pushParamsUrl();
+        },
         search() {
-            // this.pushParamsUrl();
+            this.pushParamsUrl();
             this.getList();
             this.getReport();
         },
@@ -399,9 +501,10 @@ export default {
                 path: "",
                 query: {
                     page: this.page,
+                    view: this.viewMode,
                     ...this.query,
                 },
-            });
+            }).catch(() => {});
         },
         getList() {
             this.loading = true;
@@ -411,20 +514,28 @@ export default {
                     ...this.query,
                 })
                 .then((data) => {
-                    this.vehicles = data.data;
-                    this.last_page = data.data.last_page;
+                    const paginated = normalizePaginator(data);
+                    this.vehicles = {
+                        ...paginated,
+                        data: (paginated.items || []).map(adaptVehicle)
+                    };
+                    this.last_page = paginated.lastPage || 1;
+                    this.lastFetchedAt = Date.now();
+                })
+                .catch((err) => {
+                    this.errorMessage = getApiMessage(err);
                 })
                 .finally(() => {
                     this.loading = false;
                 });
         },
         getReport() {
-            this.loading = true;
             this.$store
                 .dispatch(VEHICLE_GET_ALL_REPORT, this.query)
                 .then((data) => {
-                    this.reports = data.data;
-                });
+                    this.reports = data?.data || {};
+                })
+                .catch(() => {});
         },
         clickCallback(obj) {
             this.page = obj;
@@ -433,8 +544,8 @@ export default {
         },
         getStore() {
             this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
-                this.stores = data.data;
-            });
+                this.stores = data?.data || [];
+            }).catch(() => {});
         },
         deleteVehicle(id) {
             Swal.fire({
@@ -512,5 +623,104 @@ export default {
 	height: 130px;
 	object-fit: cover;
 	border: 1px solid #E9EDF3;
+}
+.himoto-vehicle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 16px;
+}
+.vehicle-card-item {
+    background: #ffffff;
+    border: 1px solid #eaedf1;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 18px rgba(23, 32, 42, 0.05);
+    display: flex;
+    flex-direction: column;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.vehicle-card-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(23, 32, 42, 0.09);
+}
+.vehicle-card-thumb {
+    position: relative;
+    width: 100%;
+    height: 170px;
+    background: #f1f3f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.vehicle-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.vehicle-card-thumb .status-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+}
+.vehicle-card-content {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+.vehicle-license-pill {
+    display: inline-block;
+    align-self: flex-start;
+    padding: 3px 8px;
+    background: #e2e8f0;
+    color: #1a202c;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+}
+.vehicle-card-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #17202a;
+    margin: 0;
+}
+.vehicle-meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #687386;
+}
+.vehicle-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid #eaedf1;
+}
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1;
+}
+.status-badge.ready, .status-badge.success {
+    background: rgba(24, 166, 107, 0.12);
+    color: #18a66b;
+}
+.status-badge.repairing, .status-badge.renting, .status-badge.warning {
+    background: rgba(245, 158, 11, 0.14);
+    color: #d97706;
+}
+.status-badge.broken, .status-badge.danger {
+    background: rgba(237, 28, 36, 0.12);
+    color: #ed1c24;
 }
 </style>

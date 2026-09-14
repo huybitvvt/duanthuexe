@@ -127,7 +127,9 @@
 
 
 
-                    <div class="table-responsive">
+                    <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách hợp đồng" :message="errorMessage" @retry="getList" />
+                    <HimotoTableSkeleton v-else-if="loading" :rows="6" :columns="10" />
+                    <div v-else-if="orders.length" class="table-responsive">
                         <table class="table table-vertical-center table-hover table-bordered">
                             <thead>
                                 <tr>
@@ -155,8 +157,8 @@
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody v-if="orders.length">
-                                <tr v-for="(item, index) in orders" :key="index">
+                            <tbody>
+                                <tr v-for="(item, index) in orders" :key="item.id || index">
                                     <th scope="row">{{ item.id }}</th>
                                     <td>{{ item.created_at }}</td>
                                     <td style="width: 150px;">
@@ -236,9 +238,6 @@
 												@click="openUpdateModal(item)">
 												<i class="fas fa-pen-nib"></i>
 											</button>
-											<!--                                    <button class="btn btn-sm btn-primary" title="Thanh toán hợp đồng" @click="openPaymentModal(item)">-->
-											<!--                                        <i class="fas fa-hand-holding-usd"></i>-->
-											<!--                                    </button>-->
 											<button class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
 												@click="openShowOrder(item)">
 												<i class="far fa-eye"></i>
@@ -246,23 +245,17 @@
 											<button class="btn btn-xs btn-icon  btn-danger" title="Xóa hợp đồng"
 												@click="deleteOrder(item.id)"><i class="fas fa-trash"></i></button>
 
-											<!-- <el-checkbox v-model="checkedItems[item.id]"></el-checkbox> -->
 											<div class="checkbox-wrapper">
 												<input type="checkbox" :id="'checkbox_' + item.id" class="checkbox-input"
 													v-model="checkedItems[item.id]">
-
 											</div>
 										</div>
                                     </td>
                                 </tr>
                             </tbody>
-                            <tbody v-else>
-                                <tr>
-                                    <td scope="row" colspan="9">Không tìm thấy hợp đồng phù hợp</td>
-                                </tr>
-                            </tbody>
                         </table>
                     </div>
+                    <HimotoEmptyState v-else icon="far fa-file-alt" title="Không tìm thấy hợp đồng nào" description="Thử thay đổi bộ lọc hoặc thêm mới hợp đồng vào hệ thống." actionText="Thêm mới hợp đồng" @action="openModalCreate()" />
                 </div>
             </div>
 
@@ -312,6 +305,11 @@ import { ORDER_STATUS_DEFINE, ORDER_STATUS_DEFINE_CSS, STATUS_COMPLETED, ORDER_O
 import { DELETE_ORDER } from "../../../core/services/store/order.module";
 import { getTextShort } from '../../../utils';
 import queryMixin from '@/utils/queryMixin.js';
+import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";
+import HimotoEmptyState from "@/view/components/himoto/HimotoEmptyState.vue";
+import HimotoErrorState from "@/view/components/himoto/HimotoErrorState.vue";
+import { normalizePaginator } from "@/utils/paginatorAdapter";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 
 export default {
     name: "OrderCarRental",
@@ -334,6 +332,7 @@ export default {
             last_page: 1,
             showModalCreate: false,
             loading: false,
+            errorMessage: null,
             order_stats: [],
             money_stats: {},
             ORDER_STATUS,
@@ -354,11 +353,16 @@ export default {
             },
             orderId: 0,
             order_status_prop: '',
+            lastFetchedAt: 0,
         }
     },
     components: {
         OrderShow,
-        OrderUpdate, OrderPayment
+        OrderUpdate,
+        OrderPayment,
+        HimotoTableSkeleton,
+        HimotoEmptyState,
+        HimotoErrorState
     },
 
     computed: {
@@ -396,6 +400,22 @@ export default {
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Đơn hàng" }]);
     },
+    activated() {
+        const queryPage = +this.$route?.query?.page || 1;
+        const queryKeyword = this.$route?.query?.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
+
+        if (paramsChanged) {
+            this.page = queryPage;
+            this.query.keyword = queryKeyword;
+            this.getList();
+            this.getReport();
+        } else if (isTtlExpired) {
+            this.getList();
+            this.getReport();
+        }
+    },
     methods: {
 		calcTotalDeposit(item) {
 			if (item?.created_without_collect_deposit && item.created_without_collect_deposit) {
@@ -415,7 +435,7 @@ export default {
         listSources() {
             this.$store.dispatch(LEAD_UNIQUE_USERS, {}).then((data) => {
                 this.sources = data?.data || [];
-            });
+            }).catch(() => {});
         },
         toggleSelectAll() {
             const shouldSelectAll = Object.values(this.checkedItems).every(value => !value);
@@ -430,45 +450,57 @@ export default {
         },
         getList() {
             this.loading = true;
-            this.$store.dispatch(GET_ORDER_CAR_RENTAL, { page: this.page, ...this.query }).then((data) => {
-                this.orders = data.data;
-                this.last_page = data.pagination.last_page
-            }).finally(() => this.loading = false)
+            this.errorMessage = null;
+            this.$store.dispatch(GET_ORDER_CAR_RENTAL, { page: this.page, ...this.query })
+                .then((data) => {
+                    const paginated = normalizePaginator(data);
+                    this.orders = paginated.items || [];
+                    this.last_page = paginated.lastPage || 1;
+                    this.lastFetchedAt = Date.now();
+                })
+                .catch((err) => {
+                    this.errorMessage = getApiMessage(err);
+                })
+                .finally(() => {
+                    this.loading = false;
+                });
         },
         getReport() {
             this.is_loading_search = true;
-            this.$store.dispatch(GET_ORDER_CAR_RENTAL_REPORT, this.query).then(data => {
-                this.order_stats = data.data;
+            const p1 = this.$store.dispatch(GET_ORDER_CAR_RENTAL_REPORT, this.query).then(data => {
+                this.order_stats = data?.data || {};
+            }).catch(() => {});
+            const p2 = this.$store.dispatch(REPORT_CAR_RENTAL_NEW, this.query).then((data) => {
+                this.money_stats = data?.data || {};
+            }).catch(() => {});
+            Promise.all([p1, p2]).finally(() => {
+                this.is_loading_search = false;
             });
-            this.$store.dispatch(REPORT_CAR_RENTAL_NEW, this.query).then((data) => {
-                this.money_stats = data.data;
-            });
-
         },
         getStore() {
             this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
-                this.stores = data.data;
-            });
+                this.stores = data?.data || [];
+            }).catch(() => {});
         },
         clickCallback(obj) {
             this.page = obj;
+            this.pushParamsUrl();
             this.getList();
         },
         search() {
-
-            // this.pushParamsUrl(this.query);
+            this.page = 1;
+            this.pushParamsUrl();
             this.getList();
             this.getReport();
-
         },
         pushParamsUrl() {
-            if (this.$route.path !== '')
-                this.$router.push({
-                    path: '', query: {
-                        page: this.page,
-                        ...this.query
-                    }
-                })
+            this.$router.push({
+                path: '',
+                query: {
+                    page: this.page,
+                    ...this.query
+                }
+            }).catch(() => {});
         },
         openModalCreate() {
             this.showModalCreate = true;
@@ -480,9 +512,6 @@ export default {
             this.$refs['modal-contract-update'].show();
         },
         openShowOrder(item) {
-
-
-
             this.$store
                 .dispatch(SHOW_ORDER_CAR_RENTAL, item.id)
                 .then((res) => {
@@ -491,7 +520,9 @@ export default {
                     };
                     this.orderId = this.order_show.id;
                 })
-                .finally();
+                .catch((err) => {
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(err));
+                });
 
             this.$refs['modal-contract-show'].show();
         },
@@ -573,6 +604,8 @@ export default {
                         this.noticeMessage('success', 'Thành công', 'Xóa hợp đồng thành công');
                         this.getList();
                         this.getReport();
+                    }).catch((err) => {
+                        this.noticeMessage('error', 'Thất bại', getApiMessage(err));
                     });
                 }
             })
@@ -590,6 +623,8 @@ export default {
                         this.noticeMessage('success', 'Thành công', 'Xóa nhiều hợp đồng thành công');
                         this.getList();
                         this.getReport();
+                    }).catch((err) => {
+                        this.noticeMessage('error', 'Thất bại', getApiMessage(err));
                     });
                     this.checkedItems = []
                 }

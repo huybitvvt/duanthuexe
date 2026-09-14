@@ -1,0 +1,127 @@
+{
+  "suite_completed": true,
+  "spa_no_reload": {
+    "transitions": [
+      {
+        "menu": "Orders",
+        "target_path": "/car-rental",
+        "current_url": "http://localhost:8091/car-rental",
+        "shell_intact": true,
+        "zero_document_reloads": true,
+        "status": "PASS"
+      },
+      {
+        "menu": "Vehicles",
+        "target_path": "/vehicles",
+        "current_url": "http://localhost:8091/vehicles",
+        "shell_intact": true,
+        "zero_document_reloads": true,
+        "status": "PASS"
+      },
+      {
+        "menu": "Customers",
+        "target_path": "/customers",
+        "current_url": "http://localhost:8091/customers",
+        "shell_intact": true,
+        "zero_document_reloads": true,
+        "status": "PASS"
+      },
+      {
+        "menu": "Leads",
+        "target_path": "/leads",
+        "current_url": "http://localhost:8091/leads",
+        "shell_intact": true,
+        "zero_document_reloads": true,
+        "status": "PASS"
+      },
+      {
+        "menu": "Maintenance",
+        "target_path": "/maintenance-schedule",
+        "current_url": "http://localhost:8091/maintenance-schedule",
+        "shell_intact": true,
+        "zero_document_reloads": true,
+        "status": "PASS"
+      },
+      {
+        "menu": "Cash",
+        "target_path": "/cash",
+        "current_url": "http://localhost:8091/cash",
+        "shell_intact": true,
+        "zero_document_reloads": true,
+        "status": "PASS"
+      },
+      {
+        "menu": "Banks",
+        "target_path": "/banks",
+        "current_url": "http://localhost:8091/banks",
+        "shell_intact": true,
+        "zero_document_reloads": true,
+        "status": "PASS"
+      }
+    ],
+    "all_transitions_passed": true,
+    "back_forward_verified": true,
+    "total_document_requests_during_all_menu_switching": 0
+  },
+  "api_endpoints_verified": {
+    "/api/auth/stores/all": true,
+    "/api/auth/leads": true,
+    "/api/auth/leads/unique-users": true,
+    "/api/auth/customers": true,
+    "/api/auth/order/car-rental": true,
+    "/api/auth/vehicle/vehicles": true,
+    "/api/auth/maintenance-schedules": true,
+    "no_wrong_store_endpoint": true,
+    "no_wrong_lead_endpoint": true,
+    "all_endpoints_valid": true
+  },
+  "module_workflows": {
+    "customer_renders_correctly": true,
+    "order_renders_correctly": true,
+    "lead_renders_correctly": true,
+    "maintenance_renders_correctly": true,
+    "cash_renders_correctly": true,
+    "bank_renders_correctly": true,
+    "all_modules_functional": true
+  },
+  "cache_ttl_and_request_counts": {
+    "order_requests_before_switch": 2,
+    "order_requests_after_switch_back_within_ttl": 2,
+    "cache_preserved_no_redundant_request": true
+  },
+  "error_state_handling": {
+    "error_state_rendered_on_500": true,
+    "retry_button_available": true,
+    "recovered_after_retry": true,
+    "unhandled_page_errors_count": 0,
+    "resilient": true
+  },
+  "responsive_viewports": {
+    "360px": {
+      "overflow": false,
+      "scroll_width": 360,
+      "inner_width": 360
+    },
+    "390px": {
+      "overflow": false,
+      "scroll_width": 390,
+      "inner_width": 390
+    },
+    "768px": {
+      "overflow": false,
+      "scroll_width": 768,
+      "inner_width": 768
+    },
+    "1024px": {
+      "overflow": false,
+      "scroll_width": 1024,
+      "inner_width": 1024
+    },
+    "1440px": {
+      "overflow": false,
+      "scroll_width": 1440,
+      "inner_width": 1440
+    }
+  },
+  "page_errors": []
+}

@@ -43,7 +43,9 @@
 
                             </div>
                         </div>
-                        <div class="example-preview table-responsive">
+                        <HimotoErrorState v-if="errorMessage" title="Không thể tải lịch hẹn bảo dưỡng" :message="errorMessage" @retry="getList" />
+                        <HimotoTableSkeleton v-else-if="loading" :rows="5" :columns="7" />
+                        <div v-else-if="schedules.length" class="example-preview table-responsive">
                             <table class="table">
                                 <thead>
                                     <tr>
@@ -57,8 +59,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-if="schedules.length" v-for="(item, index) in schedules"
-                                        :key="`log-${index}`">
+                                    <tr v-for="(item, index) in schedules" :key="`log-${item.id || index}`">
                                         <td>{{ item.id }}</td>
                                         <td>{{ item.vehicle ? item.vehicle.name : '' }} {{ item.vehicle ?
                                             item.vehicle.license : '' }}</td>
@@ -80,29 +81,24 @@
                                                 convertToGMTPlus7(item.created_at) | formatDateTime
                                             }}
                                         </td>
-
-
-
                                         <td>
-
                                             <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteItem(item.id)"
                                                 href="javascript:" class="btn btn-xs btn-icon btn-outline-danger"><i
-                                                    class="fas fa-trash"></i>
+                                                class="fas fa-trash"></i>
                                             </a>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
+                        <HimotoEmptyState v-else icon="fas fa-tools" title="Không có lịch hẹn bảo dưỡng nào" description="Thử thay đổi bộ lọc tìm kiếm hoặc tạo lịch hẹn bảo dưỡng mới." actionText="Tạo mới lịch hẹn" @action="openModalCreate()" />
                     </div>
                 </div>
                 <b-modal title="Tạo mới" size="xl" ref="modal-create" :centered="true" :scrollable="true" hide-footer>
                     <maintenance-schedule-create @createSuccess="createSuccess"></maintenance-schedule-create>
                 </b-modal>
 
-
-
-                <div class="edu-paginate mx-auto text-center">
+                <div class="edu-paginate mx-auto text-center" v-if="!loading && schedules.length">
                     <paginate v-model="page" :page-count="last_page" :page-range="3" :margin-pages="1"
                         :click-handler="clickCallback" :prev-text="'Trước'" :next-text="'Sau'"
                         :container-class="'pagination b-pagination'" :pageLinkClass="'page-link'"
@@ -124,12 +120,20 @@ import { getTextShort } from "../../../utils";
 import Swal from "sweetalert2";
 import moment from "moment-timezone";
 import queryMixin from '@/utils/queryMixin.js';
+import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";
+import HimotoEmptyState from "@/view/components/himoto/HimotoEmptyState.vue";
+import HimotoErrorState from "@/view/components/himoto/HimotoErrorState.vue";
+import { normalizePaginator } from "@/utils/paginatorAdapter";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 
 export default {
     name: "MaintenanceSchedule",
     mixins: [queryMixin],
     components: {
         MaintenanceScheduleCreate,
+        HimotoTableSkeleton,
+        HimotoEmptyState,
+        HimotoErrorState
     },
     data() {
         const { page, store_id, ...restQuery } = this.$route?.query || {};
@@ -137,14 +141,15 @@ export default {
             showModalCreate: false,
             moment: moment,
 
-            page: +restQuery?.page || 1,
+            page: +page || +restQuery?.page || 1,
             last_page: 1,
             schedules: [],
             stats: null,
             loading: false,
+            errorMessage: null,
+            lastFetchedAt: 0,
             showDetail: "",
 
-            loading: false,
             query: {
                 keyword: "",
                 start_date: "",
@@ -165,6 +170,20 @@ export default {
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Lịch hẹn bảo dưỡng" }]);
     },
+    activated() {
+        const queryPage = +this.$route?.query?.page || 1;
+        const queryKeyword = this.$route?.query?.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
+
+        if (paramsChanged) {
+            this.page = queryPage;
+            this.query.keyword = queryKeyword;
+            this.getList();
+        } else if (isTtlExpired) {
+            this.getList();
+        }
+    },
     methods: {
         openModalCreate() {
             this.showModalCreate = true;
@@ -173,7 +192,8 @@ export default {
         },
 
         search() {
-            // this.pushParamsUrl();
+            this.page = 1;
+            this.pushParamsUrl();
             this.getList();
 
         },
@@ -184,7 +204,7 @@ export default {
                     page: this.page,
                     ...this.query,
                 },
-            });
+            }).catch(() => {});
         },
         formatValue(...values) {
             let res = values.reduce((acc, item) => {
@@ -200,16 +220,20 @@ export default {
         },
         getList() {
             this.loading = true;
+            this.errorMessage = null;
             this.$store
                 .dispatch(MAINTENANCE_SCHEDULE_INDEX, {
                     page: this.page,
                     ...this.query,
                 })
                 .then((data) => {
-
-                    this.schedules = data.data.data;
-                    console.log(this.schedules)
-                    this.last_page = data.data.last_page;
+                    const paginated = normalizePaginator(data);
+                    this.schedules = paginated.items || [];
+                    this.last_page = paginated.lastPage || 1;
+                    this.lastFetchedAt = Date.now();
+                })
+                .catch((err) => {
+                    this.errorMessage = getApiMessage(err);
                 })
                 .finally(() => {
                     this.loading = false;
@@ -217,10 +241,7 @@ export default {
         },
         clickCallback(obj) {
             this.page = obj;
-            this.$router.push({
-                path: "",
-                query: { page: this.page },
-            });
+            this.pushParamsUrl();
             this.getList();
         },
 

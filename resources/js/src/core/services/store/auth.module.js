@@ -23,11 +23,15 @@ export const SET_PASSWORD = "setPassword";
 export const SET_ERROR = "setError";
 export const SET_REFERENCING_TREE = "setReferencingTree";
 
+let sessionCounter = 0;
+export const generateSessionId = () => `sess_${Date.now()}_${++sessionCounter}_${Math.random().toString(36).substring(2, 8)}`;
+
 const state = {
     user: {
         tree: null
     },
-    isAuthenticated: !!JwtService.getToken()
+    isAuthenticated: !!JwtService.getToken(),
+    authSessionId: generateSessionId()
 };
 
 const getters = {
@@ -36,6 +40,9 @@ const getters = {
     },
     isAuthenticated(state) {
         return state.isAuthenticated;
+    },
+    authSessionId(state) {
+        return state.authSessionId;
     }
 };
 
@@ -187,10 +194,14 @@ const mutations = {
         state.errors = error;
     },
     [SET_AUTH](state, user) {
-        state.user = user.user;
+        state.user = user ? (user.user || user.data || user) : {};
         state.errors = {};
         state.isAuthenticated = true;
-        JwtService.saveToken(user.access_token);
+        state.authSessionId = generateSessionId();
+        if (user && user.access_token) {
+            JwtService.saveToken(user.access_token);
+        }
+        ApiService.setHeader();
     },
     [SET_PASSWORD](state, password) {
         state.user.password = password;
@@ -199,13 +210,9 @@ const mutations = {
         state.isAuthenticated = false;
         state.user = {};
         state.errors = {};
+        state.authSessionId = generateSessionId();
         JwtService.destroyToken();
-    },
-    [SET_AUTH](state, user) {
-        state.user = user.user;
-        state.errors = {};
-        state.isAuthenticated = true;
-        JwtService.saveToken(user.access_token);
+        ApiService.setHeader();
     },
     [SET_REFERENCING_TREE](state, tree) {
         state.user.tree = tree;

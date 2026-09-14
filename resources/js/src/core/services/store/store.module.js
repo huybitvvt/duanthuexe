@@ -8,22 +8,41 @@ export const STORE_SHOW = "store_show";
 export const STORE_UPDATE = "store_update";
 // export const CUSTOMER_SHOW = "customers-show";
 export const STORE_DELETE = "store_delete";
+export const SET_SELECTED_STORE_ID = "setSelectedStoreId";
 
 // set
 
-const state = {};
+const state = {
+    selectedStoreId: localStorage.getItem("himoto_store_id") || "all",
+    storeList: [],
+    storesLoaded: false,
+    storesLastFetchedAt: 0,
+};
 
-const getters = {};
+const getters = {
+    selectedStoreId: (state) => state.selectedStoreId,
+    allStores: (state) => state.storeList,
+    isStoresFresh: (state) => state.storesLoaded && (Date.now() - state.storesLastFetchedAt < 60000)
+};
 
 const actions = {
     [STORE_GET_ALL](context, credentials) {
+        // Cache-first: If requesting all stores with no specific filters and data is fresh (< 60s)
+        const isDefaultQuery = !credentials || Object.keys(credentials).length === 0;
+        if (isDefaultQuery && context.state.storesLoaded && (Date.now() - context.state.storesLastFetchedAt < 60000)) {
+            return Promise.resolve({ data: context.state.storeList });
+        }
+
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/stores/all", credentials)
                 .then(({data}) => {
+                    if (isDefaultQuery) {
+                        context.commit("SET_CACHED_STORES", data.data || data);
+                    }
                     resolve(data);
                 })
-                .catch(({response}) => {
-                    reject(response);
+                .catch((err) => {
+                    reject(err?.response || err);
                 });
         });
     },
@@ -96,9 +115,26 @@ const actions = {
     //             });
     //     });
     // },
+    [SET_SELECTED_STORE_ID](context, storeId) {
+        context.commit(SET_SELECTED_STORE_ID, storeId);
+    },
 };
 
-const mutations = {};
+const mutations = {
+    [SET_SELECTED_STORE_ID](state, storeId) {
+        state.selectedStoreId = storeId;
+        localStorage.setItem("himoto_store_id", storeId);
+    },
+    SET_CACHED_STORES(state, stores) {
+        state.storeList = stores;
+        state.storesLoaded = true;
+        state.storesLastFetchedAt = Date.now();
+    },
+    INVALIDATE_CACHED_STORES(state) {
+        state.storesLoaded = false;
+        state.storesLastFetchedAt = 0;
+    }
+};
 
 export default {
     state,

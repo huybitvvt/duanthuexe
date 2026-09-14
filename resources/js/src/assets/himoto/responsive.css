@@ -1,0 +1,228 @@
+/* ==========================================================================
+   HIMOTO Fleet Dashboard - Responsive Adaptations
+   ========================================================================== */
+
+/* ==========================================================================
+   Tablet Breakpoint (<= 1024px)
+   ========================================================================== */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 72px;
+  }
+
+  /* Automatically collapse sidebar labels */
+  .sidebar {
+    width: var(--sidebar-collapsed-width);
+    min-width: var(--sidebar-collapsed-width);
+  }
+
+  .sidebar .brand-logo-full,
+  .sidebar .brand-subtext,
+  .sidebar .nav-group-title,
+  .sidebar .nav-label,
+  .sidebar .nav-badge,
+  .sidebar .operator-meta {
+    display: none !important;
+  }
+
+  .sidebar .brand-logo-mark {
+    display: block !important;
+  }
+
+  .sidebar .sidebar-brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .sidebar .nav-link-btn {
+    justify-content: center;
+    padding: 12px 0;
+  }
+
+  .sidebar .sidebar-footer {
+    justify-content: center;
+    padding: 12px 0;
+  }
+
+  .main-shell {
+    margin-left: var(--sidebar-collapsed-width);
+  }
+
+  /* KPI Grid adjusts to 3 columns */
+  .kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .kpi-grid.kpi-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-charts-grid,
+  .dashboard-ops-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Kanban board wraps into 2x2 */
+  .kanban-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ==========================================================================
+   Mobile Breakpoint (<= 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Sidebar becomes offcanvas slide-over drawer */
+  .sidebar {
+    width: 260px !important;
+    min-width: 260px !important;
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Mobile backdrop */
+  .mobile-sidebar-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(23, 32, 42, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: calc(var(--z-sidebar) - 1);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-normal);
+  }
+
+  .mobile-sidebar-backdrop.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Restore labels inside mobile slide-out menu */
+  .sidebar .brand-logo-full,
+  .sidebar .brand-subtext,
+  .sidebar .nav-group-title,
+  .sidebar .nav-label,
+  .sidebar .nav-badge,
+  .sidebar .operator-meta {
+    display: block !important;
+  }
+
+  .sidebar .brand-logo-mark {
+    display: none !important;
+  }
+
+  .sidebar .sidebar-brand {
+    justify-content: space-between !important;
+    padding: 0 16px !important;
+  }
+
+  .sidebar .nav-link-btn {
+    justify-content: flex-start !important;
+    padding: 10px 14px !important;
+  }
+
+  .sidebar .sidebar-footer {
+    justify-content: flex-start !important;
+    padding: 12px 14px !important;
+  }
+
+  /* Main Shell has no left margin */
+  .main-shell {
+    margin-left: 0 !important;
+  }
+
+  /* Topbar adjusts */
+  .topbar {
+    padding: 0 14px;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .breadcrumbs {
+    display: none;
+  }
+
+  .topbar-center {
+    display: none; /* Accessible via mobile search button */
+  }
+
+  .store-select-wrapper {
+    display: none;
+  }
+
+  .mobile-search-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .user-info-text {
+    display: none;
+  }
+
+  /* Page Content */
+  .page-content {
+    padding: 16px 12px;
+  }
+
+  .page-header-row {
+    margin-bottom: 16px;
+  }
+
+  .page-title-block h1 {
+    font-size: var(--font-size-lg);
+  }
+
+  /* KPI Grid adjusts to 2 columns */
+  .kpi-grid,
+  .kpi-grid.kpi-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .kpi-value {
+    font-size: 1.45rem;
+  }
+
+  /* Dashboard Charts & Ops grids 1 column */
+  .dashboard-charts-grid,
+  .dashboard-ops-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .store-cards-grid,
+  .bank-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Kanban board 1 column */
+  .kanban-board {
+    grid-template-columns: 1fr;
+  }
+
+  /* Drawer & Modal on Mobile */
+  .drawer-panel {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  .modal-dialog {
+    width: 100% !important;
+    margin: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid,
+  .kpi-grid.kpi-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}

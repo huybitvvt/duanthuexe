@@ -16,14 +16,6 @@ export default new Router({
                     name: "dashboard",
                     component: () => import("@/view/pages/Dashboard.vue"),
                 },
-            ],
-        },
-        // Quản lý xe
-        {
-            path: "/",
-            redirect: "/dashboard",
-            component: () => import("@/view/layout/Layout"),
-            children: [
                 {
                     path: "/vehicles",
                     name: "vehicle",
@@ -200,6 +192,14 @@ export default new Router({
                     name: "report-vehicle-revenue",
                     component: () =>
                         import("@/view/pages/report/ReportVehicleRevenue.vue"),
+                },
+                {
+                    path: "/orders",
+                    redirect: "/car-rental",
+                },
+                {
+                    path: "/roles",
+                    redirect: "/user",
                 },
             ],
         },

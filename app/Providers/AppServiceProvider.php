@@ -32,6 +32,7 @@ use App\Repositories\VehicleRepository;
 use App\Repositories\VehicleRepositoryEloquent;
 use App\Repositories\BankRepository;
 use App\Repositories\BankRepositoryEloquent;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
@@ -58,6 +59,12 @@ class AppServiceProvider extends ServiceProvider
     {
         date_default_timezone_set('Asia/Ho_Chi_Minh');
         Schema::defaultStringLength(191);
+
+        if (!Blueprint::hasMacro('id')) {
+            Blueprint::macro('id', function ($column = 'id') {
+                return $this->bigIncrements($column);
+            });
+        }
     }
 
     public function registerRepository()

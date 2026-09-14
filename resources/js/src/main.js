@@ -93,6 +93,8 @@ Object.keys(filters).forEach(key => {
     Vue.filter(key, filters[key]);
 });
 Vue.mixin(mixin);
+window.__HIMOTO_ROUTER__ = router;
+window.__HIMOTO_STORE__ = store;
 new Vue({
     router,
     store,
@@ -100,3 +102,4 @@ new Vue({
     vuetify,
     render: (h) => h(App),
 }).$mount("#app");
+

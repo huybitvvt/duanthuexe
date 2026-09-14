@@ -21,75 +21,65 @@
                 </div>
             </div>
             <div class="card-body">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th scope="col">#</th>
-                            <th scope="col">Ngân hàng</th>
-                            <th scope="col">STK</th>
-                            <th scope="col">Loại tài khoản</th>
-                            <th scope="col">Người thụ hưởng</th>
-                            <th scope="col">Cửa hàng</th>
-                            <th scope="col">Số dư ban đầu</th>
-                            <th scope="col">Số dư hiện tại</th>
-                            
-                            <th scope="col">Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody v-if="banks.length">
-                        <tr v-for="(item, index) in banks" :key="index">
-                            <th scope="row">{{ index + 1 }}</th>
-                            <td>{{ item.bank_name }}</td>
-                            <td>{{ item.account_number }}</td>
-                            <td>
-								<el-tag v-if="item.account_type === 0" type="" size="small">Thu & Chi</el-tag>
-								<el-tag v-if="item.account_type === 1" type="success" size="small">Thu</el-tag>
-								<el-tag v-if="item.account_type === 2" type="info" size="small">Chi</el-tag>
-							</td>
-                            <td>{{ item.owner_name }}</td>
-                            <td>      
-                                <span
-                                    
-                                    class="label label-info label-inline mr-2"
-                                >{{ item.store_name }}</span
-                                >
-                            </td>
-
-                            
-                            <td>{{ item.opening_balance | formatPrice }}</td>
-                            <td>{{ item.current_balance | formatPrice }}</td>
-                        
-                            <td>
-                                <router-link v-if="currentUser.role_id === 1" :to="{name: 'banks-update', params: {id: item.id}}" title="Sửa"
-                                             class="btn btn-xs btn-icon mr-2 btn-outline-info"><i
-                                    class="fas fa-pen-nib"></i>
-                                </router-link>
-
-
-                                <button
-                                        v-b-modal.modal-show-car-rental
-                                        class="btn btn-xs btn-icon btn-outline-info"
-                                        title="Xem chi tiết"
-                                        data-target="#rentalPopup"
-                                        @click="showBankPopup(item)"
-                                    >
-                                        <i class="far fa-eye"></i>
-                                    </button>
-                                <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteBank(item.id)" href="javascript:"
-                                   class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
-                                </a>
-                            </td>
-                        </tr>
-                    </tbody>
-                    <tbody v-else>
-                        <tr>
-                            <td colspan="6" class="text-center">Chưa có ngân hàng</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách tài khoản ngân hàng" :message="errorMessage" @retry="getList" />
+                <HimotoTableSkeleton v-else-if="loading" :rows="5" :columns="9" />
+                <div v-else-if="banks.length" class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Ngân hàng</th>
+                                <th scope="col">STK</th>
+                                <th scope="col">Loại tài khoản</th>
+                                <th scope="col">Người thụ hưởng</th>
+                                <th scope="col">Cửa hàng</th>
+                                <th scope="col">Số dư ban đầu</th>
+                                <th scope="col">Số dư hiện tại</th>
+                                <th scope="col">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, index) in banks" :key="item.id || index">
+                                <th scope="row">{{ (page - 1) * 10 + index + 1 }}</th>
+                                <td>{{ item.bank_name }}</td>
+                                <td>{{ item.account_number }}</td>
+                                <td>
+                                    <el-tag v-if="item.account_type === 0" type="" size="small">Thu & Chi</el-tag>
+                                    <el-tag v-if="item.account_type === 1" type="success" size="small">Thu</el-tag>
+                                    <el-tag v-if="item.account_type === 2" type="info" size="small">Chi</el-tag>
+                                </td>
+                                <td>{{ item.owner_name }}</td>
+                                <td>
+                                    <span class="label label-info label-inline mr-2">{{ item.store_name }}</span>
+                                </td>
+                                <td>{{ item.opening_balance | formatPrice }}</td>
+                                <td>{{ item.current_balance | formatPrice }}</td>
+                                <td>
+                                    <router-link v-if="currentUser.role_id === 1" :to="{name: 'banks-update', params: {id: item.id}}" title="Sửa"
+                                                 class="btn btn-xs btn-icon mr-2 btn-outline-info"><i
+                                        class="fas fa-pen-nib"></i>
+                                    </router-link>
+                                    <button
+                                            v-b-modal.modal-show-car-rental
+                                            class="btn btn-xs btn-icon btn-outline-info"
+                                            title="Xem chi tiết"
+                                            data-target="#rentalPopup"
+                                            @click="showBankPopup(item)"
+                                        >
+                                            <i class="far fa-eye"></i>
+                                        </button>
+                                    <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteBank(item.id)" href="javascript:"
+                                       class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <HimotoEmptyState v-else icon="fas fa-university" title="Chưa có tài khoản ngân hàng" description="Thử thay đổi bộ lọc hoặc thêm mới tài khoản ngân hàng." actionText="Thêm mới tài khoản" @action="$router.push({ name: 'banks-create' })" />
             </div>
             <ModalShowBank :transactions="transactions" :bank="bank_show"></ModalShowBank>
-            <div class="edu-paginate mx-auto text-center" v-if="banks.length">
+            <div class="edu-paginate mx-auto text-center" v-if="!loading && banks.length">
                 <paginate
                     v-model="page"
                     :page-count="last_page"
@@ -118,9 +108,13 @@ import {EXPORT_BANK} from "@/core/services/store/exports.module";
 import {SET_BREADCRUMB} from "@/core/services/store/breadcrumbs.module";
 import Swal from "sweetalert2";
 import {BANK_DELETE,BANK_INDEX} from "@/core/services/store/banks.module";
-import ModalShowBank from "./ModalShowBank"
+import ModalShowBank from "./ModalShowBank";
 import queryMixin from '@/utils/queryMixin.js';
-
+import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";
+import HimotoEmptyState from "@/view/components/himoto/HimotoEmptyState.vue";
+import HimotoErrorState from "@/view/components/himoto/HimotoErrorState.vue";
+import { normalizePaginator } from "@/utils/paginatorAdapter";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 
 export default {
     mixins: [queryMixin],
@@ -133,13 +127,20 @@ export default {
             page: +this.$route?.query?.page || 1,
             last_page: 1,
             loading: false,
+            errorMessage: null,
+            lastFetchedAt: 0,
             query: {
                 keyword: '',
                 ...(this.$route?.query || {})
             }
         }
     },
-    components:{ModalShowBank},
+    components:{
+        ModalShowBank,
+        HimotoTableSkeleton,
+        HimotoEmptyState,
+        HimotoErrorState
+    },
     computed: {
         ...mapGetters(["currentUser"])
     },
@@ -148,6 +149,20 @@ export default {
         this.$store.dispatch(SET_BREADCRUMB, [{title: "Tài khoản ngân hàng"}]);
         this.getList();
     },
+    activated() {
+        const queryPage = +this.$route?.query?.page || 1;
+        const queryKeyword = this.$route?.query?.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
+
+        if (paramsChanged) {
+            this.page = queryPage;
+            this.query.keyword = queryKeyword;
+            this.getList();
+        } else if (isTtlExpired) {
+            this.getList();
+        }
+    },
     methods: {
         showBankPopup(item){
             this.bank_show = item;
@@ -155,12 +170,17 @@ export default {
         },
         getList() {
             this.loading = true;
+            this.errorMessage = null;
             this.$store.dispatch(BANK_INDEX, {page: this.page, ...this.query}).then((data) => {
-                this.banks = data.data.data;
-                this.last_page = data.data.last_page
+                const paginated = normalizePaginator(data);
+                this.banks = paginated.items || [];
+                this.last_page = paginated.lastPage || 1;
+                this.lastFetchedAt = Date.now();
+            }).catch((err) => {
+                this.errorMessage = getApiMessage(err);
             }).finally(() => {
                 this.loading = false;
-            })
+            });
         },
 
         deleteBank(id) {
@@ -184,23 +204,25 @@ export default {
         },
         clickCallback(obj) {
             this.page = obj;
+            this.pushParamsUrl();
             this.getList();
         },
 
         search() {
-            // this.pushParamsUrl(this.query);
+            this.page = 1;
+            this.pushParamsUrl();
             this.getList();
         },
         pushParamsUrl() {
             this.$router.push({
-                path: '', query: {
+                path: '',
+                query: {
                     page: this.page,
                     ...this.query
                 }
-            })
+            }).catch(() => {});
         },
         handleKeywordChange(value) {
-            // case click remove
             if (!value) {
                 this.search();
             }

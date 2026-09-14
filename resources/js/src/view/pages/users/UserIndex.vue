@@ -297,12 +297,11 @@ export default {
         getRole() {
             this.$store.dispatch(ROLE_GET_ALL, {}).then((data) => {
                 this.roles = data?.data || [];
-            });
+            }).catch(() => {});
         },
         search() {
             // this.pushParamsUrl();
             this.getList();
-            this.getReport();
         },
         pushParamsUrl() {
             this.$router.push({
@@ -311,29 +310,30 @@ export default {
                     page: this.page,
                     ...this.query,
                 },
-            });
+            }).catch(() => {});
         },
         getList() {
             this.is_loading_search = true;
             this.$store
                 .dispatch(USER_GET_ALL, { page: this.page, ...this.query })
                 .then((data) => {
-                    this.users = data.data;
-                    this.last_page = data.data.last_page;
+                    this.users = data?.data || [];
+                    this.last_page = data?.data?.last_page || 1;
                 })
+                .catch(() => {})
                 .finally(() => {
                     this.is_loading_search = false;
                 });
         },
         clickCallback(obj) {
             this.page = obj;
-            this.$router.push({ path: "", query: { page: this.page } });
+            this.$router.push({ path: "", query: { page: this.page } }).catch(() => {});
             this.getList();
         },
         getStore() {
             this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
-                this.stores = data.data;
-            });
+                this.stores = data?.data || [];
+            }).catch(() => {});
         },
         deleteUser(id) {
             Swal.fire({

@@ -98,7 +98,9 @@
 
 
 
-                            <div class="example-preview table-responsive">
+                            <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách Lead" :message="errorMessage" @retry="getLeads" />
+                            <HimotoTableSkeleton v-else-if="loading" :rows="6" :columns="11" />
+                            <div v-else-if="leads.length" class="example-preview table-responsive">
                                 <table class="table">
                                     <thead>
                                         <tr>
@@ -142,7 +144,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr v-for="(item, index) in leads" :key="index">
+                                        <tr v-for="(item, index) in leads" :key="item.id || index">
                                             <th scope="row">{{ item.id }}</th>
                                             <td>
                                                 <span>{{
@@ -223,6 +225,7 @@
                                     </tbody>
                                 </table>
                             </div>
+                            <HimotoEmptyState v-else icon="far fa-comments" title="Không tìm thấy Lead nào" description="Thử thay đổi bộ lọc hoặc thêm mới Lead vào hệ thống." actionText="Thêm mới Lead" @action="item_current = null" v-b-modal.modal-lead-update />
                         </div>
                     </div>
                 </div>
@@ -236,7 +239,7 @@
                 <order-show :order="order_show" :stores="stores"></order-show>
             </b-modal>
 
-            <div class="edu-paginate mx-auto text-center">
+            <div class="edu-paginate mx-auto text-center" v-if="!loading && leads.length">
                 <paginate v-model="page" :page-count="last_page" :page-range="3" :margin-pages="1"
                     :click-handler="clickCallback" :prev-text="'Trước'" :next-text="'Sau'"
                     :container-class="'pagination b-pagination'" :pageLinkClass="'page-link'"
@@ -261,7 +264,11 @@ import { mapGetters } from "vuex";
 import Swal from "sweetalert2";
 import { SHOW_ORDER_CAR_RENTAL } from "@/core/services/store/order.module";
 import queryMixin from '@/utils/queryMixin.js';
-
+import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";
+import HimotoEmptyState from "@/view/components/himoto/HimotoEmptyState.vue";
+import HimotoErrorState from "@/view/components/himoto/HimotoErrorState.vue";
+import { normalizePaginator } from "@/utils/paginatorAdapter";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 
 export default {
     mixins: [queryMixin],
@@ -272,6 +279,8 @@ export default {
         return {
             order_show: null,
             loading: false,
+            errorMessage: null,
+            lastFetchedAt: 0,
             query: {
                 store_id: store_id ? +store_id : "",
                 keyword: "",
@@ -301,28 +310,41 @@ export default {
     },
     computed: {
         ...mapGetters(["currentUser"]),
-
     },
-
-
-    components: { OrderShow, LeadModalUpdate, LeadView, LeadModalDelete },
+    components: {
+        OrderShow,
+        LeadModalUpdate,
+        LeadView,
+        LeadModalDelete,
+        HimotoTableSkeleton,
+        HimotoEmptyState,
+        HimotoErrorState
+    },
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Lead" }]);
         this.getLeads();
         this.getStore();
         this.listSources();
+    },
+    activated() {
+        const queryPage = +this.$route?.query?.page || 1;
+        const queryKeyword = this.$route?.query?.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
 
+        if (paramsChanged) {
+            this.page = queryPage;
+            this.query.keyword = queryKeyword;
+            this.getLeads();
+        } else if (isTtlExpired) {
+            this.getLeads();
+        }
     },
     methods: {
         listSources() {
-
-
-
             this.$store.dispatch(LEAD_UNIQUE_USERS, {}).then((data) => {
                 this.sources = data?.data || [];
-            });
-
-
+            }).catch(() => {});
         },
 
         location(item) {
@@ -337,8 +359,8 @@ export default {
             return '';
         },
         search() {
-          
-            // this.pushParamsUrl();
+            this.page = 1;
+            this.pushParamsUrl();
             this.getLeads();
             this.listSources();
         },
@@ -349,37 +371,38 @@ export default {
                     page: this.page,
                     ...this.query,
                 },
-            }).catch(err => {
-                if (err.name !== 'NavigationDuplicated') {
-                    throw err;
-                }
-            });
+            }).catch(() => {});
         },
 
         getStore() {
             this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
                 this.stores = data?.data || [];
-            });
+            }).catch(() => {});
         },
         getLeads() {
             this.loading = true;
+            this.errorMessage = null;
             this.$store
                 .dispatch(LEAD_INDEX, {
                     page: this.page,
                     ...this.query,
                 })
-                .then(({ data }) => {
-                    this.leads = data?.data || [];
-                    this.last_page = data?.last_page || 1;
+                .then((res) => {
+                    const paginated = normalizePaginator(res);
+                    this.leads = paginated.items || [];
+                    this.last_page = paginated.lastPage || 1;
+                    this.lastFetchedAt = Date.now();
+                })
+                .catch((err) => {
+                    this.errorMessage = getApiMessage(err);
                 })
                 .finally(() => {
                     this.loading = false;
-
                 });
         },
         clickCallback(obj) {
             this.page = obj;
-            this.$router.push({ path: "", query: { page: this.page } });
+            this.pushParamsUrl();
             this.getLeads();
         },
         mapBrand(id) {
@@ -409,7 +432,9 @@ export default {
                         ...res.data,
                     };
                 })
-                .finally();
+                .catch((err) => {
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(err));
+                });
         },
         deleteLead(id) {
             this.leadIdToDelete = id;

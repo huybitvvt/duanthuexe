@@ -1,0 +1,84 @@
+/* ==========================================================================
+   HIMOTO Fleet Dashboard - Design Tokens & Variables
+   ========================================================================== */
+
+:root {
+  /* Brand Palette */
+  --brand-red: #ed1c24;
+  --brand-red-dark: #c81018;
+  --brand-red-subtle: rgba(237, 28, 36, 0.08);
+  --brand-yellow: #fff200;
+  --brand-yellow-dark: #d4a800;
+  --brand-yellow-subtle: rgba(255, 242, 0, 0.15);
+
+  /* Typography Colors */
+  --text-primary: #17202a;
+  --text-secondary: #687386;
+  --text-muted: #9aa4b2;
+  --text-white: #ffffff;
+  --text-white-dim: rgba(255, 255, 255, 0.72);
+
+  /* Backgrounds & Surfaces */
+  --page-bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-hover: #f9fafb;
+  --surface-alt: #f0f3f7;
+  --border: #e7ebf0;
+  --border-light: #f1f3f6;
+
+  /* Functional Status Colors */
+  --success: #18a66b;
+  --success-bg: rgba(24, 166, 107, 0.1);
+  --warning: #f5a623;
+  --warning-bg: rgba(245, 166, 35, 0.1);
+  --danger: #ed1c24;
+  --danger-bg: rgba(237, 28, 36, 0.1);
+  --info: #2779e8;
+  --info-bg: rgba(39, 121, 232, 0.1);
+  --purple: #8e44ad;
+  --purple-bg: rgba(142, 68, 173, 0.1);
+
+  /* Typography */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-size-xs: 0.75rem;    /* 10.5px */
+  --font-size-sm: 0.857rem;   /* 12px */
+  --font-size-base: 1rem;     /* 14px */
+  --font-size-md: 1.143rem;   /* 16px */
+  --font-size-lg: 1.286rem;   /* 18px */
+  --font-size-xl: 1.571rem;   /* 22px */
+  --font-size-2xl: 2rem;      /* 28px */
+  --font-size-3xl: 2.428rem;  /* 34px */
+
+  /* Borders & Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 6px rgba(23, 32, 42, 0.04);
+  --shadow-card: 0 4px 18px rgba(23, 32, 42, 0.06);
+  --shadow-hover: 0 8px 24px rgba(23, 32, 42, 0.09);
+  --shadow-dropdown: 0 12px 32px rgba(23, 32, 42, 0.12);
+  --shadow-drawer: -6px 0 30px rgba(23, 32, 42, 0.15);
+  --shadow-modal: 0 24px 60px rgba(23, 32, 42, 0.22);
+
+  /* Dimensions */
+  --sidebar-width: 248px;
+  --sidebar-collapsed-width: 72px;
+  --header-height: 64px;
+  --drawer-width: 480px;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-indices */
+  --z-sidebar: 100;
+  --z-header: 90;
+  --z-dropdown: 120;
+  --z-drawer: 200;
+  --z-modal: 300;
+  --z-toast: 400;
+}
