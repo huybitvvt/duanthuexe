@@ -353,6 +353,7 @@ export default {
             },
             orderId: 0,
             order_status_prop: '',
+            lastFetchedAt: 0,
         }
     },
     components: {
@@ -401,9 +402,16 @@ export default {
     },
     activated() {
         const queryPage = +this.$route?.query?.page || 1;
-        if (queryPage !== this.page || this.$route?.query?.keyword !== this.query.keyword) {
+        const queryKeyword = this.$route?.query?.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
+
+        if (paramsChanged) {
             this.page = queryPage;
-            this.query.keyword = this.$route?.query?.keyword || '';
+            this.query.keyword = queryKeyword;
+            this.getList();
+            this.getReport();
+        } else if (isTtlExpired) {
             this.getList();
             this.getReport();
         }
@@ -427,7 +435,7 @@ export default {
         listSources() {
             this.$store.dispatch(LEAD_UNIQUE_USERS, {}).then((data) => {
                 this.sources = data?.data || [];
-            });
+            }).catch(() => {});
         },
         toggleSelectAll() {
             const shouldSelectAll = Object.values(this.checkedItems).every(value => !value);
@@ -448,6 +456,7 @@ export default {
                     const paginated = normalizePaginator(data);
                     this.orders = paginated.items || [];
                     this.last_page = paginated.lastPage || 1;
+                    this.lastFetchedAt = Date.now();
                 })
                 .catch((err) => {
                     this.errorMessage = getApiMessage(err);
@@ -458,18 +467,20 @@ export default {
         },
         getReport() {
             this.is_loading_search = true;
-            this.$store.dispatch(GET_ORDER_CAR_RENTAL_REPORT, this.query).then(data => {
-                this.order_stats = data.data;
+            const p1 = this.$store.dispatch(GET_ORDER_CAR_RENTAL_REPORT, this.query).then(data => {
+                this.order_stats = data?.data || {};
+            }).catch(() => {});
+            const p2 = this.$store.dispatch(REPORT_CAR_RENTAL_NEW, this.query).then((data) => {
+                this.money_stats = data?.data || {};
+            }).catch(() => {});
+            Promise.all([p1, p2]).finally(() => {
+                this.is_loading_search = false;
             });
-            this.$store.dispatch(REPORT_CAR_RENTAL_NEW, this.query).then((data) => {
-                this.money_stats = data.data;
-            });
-
         },
         getStore() {
             this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
-                this.stores = data.data;
-            });
+                this.stores = data?.data || [];
+            }).catch(() => {});
         },
         clickCallback(obj) {
             this.page = obj;
@@ -501,9 +512,6 @@ export default {
             this.$refs['modal-contract-update'].show();
         },
         openShowOrder(item) {
-
-
-
             this.$store
                 .dispatch(SHOW_ORDER_CAR_RENTAL, item.id)
                 .then((res) => {
@@ -512,7 +520,9 @@ export default {
                     };
                     this.orderId = this.order_show.id;
                 })
-                .finally();
+                .catch((err) => {
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(err));
+                });
 
             this.$refs['modal-contract-show'].show();
         },
@@ -594,6 +604,8 @@ export default {
                         this.noticeMessage('success', 'Thành công', 'Xóa hợp đồng thành công');
                         this.getList();
                         this.getReport();
+                    }).catch((err) => {
+                        this.noticeMessage('error', 'Thất bại', getApiMessage(err));
                     });
                 }
             })
@@ -611,6 +623,8 @@ export default {
                         this.noticeMessage('success', 'Thành công', 'Xóa nhiều hợp đồng thành công');
                         this.getList();
                         this.getReport();
+                    }).catch((err) => {
+                        this.noticeMessage('error', 'Thất bại', getApiMessage(err));
                     });
                     this.checkedItems = []
                 }

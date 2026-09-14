@@ -107,6 +107,7 @@ export default {
             last_page: 1,
             loading: false,
             errorMessage: null,
+            lastFetchedAt: 0,
             query: {
                 keyword: '',
                 ...(this.$route?.query || {})
@@ -129,9 +130,15 @@ export default {
     },
     activated() {
         const queryPage = +this.$route?.query?.page || 1;
-        if (queryPage !== this.page || this.$route?.query?.keyword !== this.query.keyword) {
+        const queryKeyword = this.$route?.query?.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
+
+        if (paramsChanged) {
             this.page = queryPage;
-            this.query.keyword = this.$route?.query?.keyword || '';
+            this.query.keyword = queryKeyword;
+            this.getList();
+        } else if (isTtlExpired) {
             this.getList();
         }
     },
@@ -154,6 +161,7 @@ export default {
                 const paginated = normalizePaginator(data);
                 this.cash = paginated.items || [];
                 this.last_page = paginated.lastPage || 1;
+                this.lastFetchedAt = Date.now();
             }).catch((err) => {
                 this.errorMessage = getApiMessage(err);
             }).finally(() => {

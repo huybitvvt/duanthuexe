@@ -441,7 +441,8 @@ export default {
                     id: 3,
                     name: "Còn 1 tuần"
                 }
-            ]
+            ],
+            lastFetchedAt: 0,
         };
     },
     computed: {
@@ -453,6 +454,25 @@ export default {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Quản lý xe" }]);
         this.getList();
         this.getReport();
+    },
+    activated() {
+        const queryPage = +this.$route?.query?.page || 1;
+        const queryName = this.$route?.query?.name || this.$route?.query?.keyword || '';
+        const currentName = this.query.name || this.query.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryName !== currentName;
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
+
+        if (paramsChanged) {
+            this.page = queryPage;
+            if (this.$route?.query?.name !== undefined) {
+                this.query.name = this.$route.query.name;
+            }
+            this.getList();
+            this.getReport();
+        } else if (isTtlExpired) {
+            this.getList();
+            this.getReport();
+        }
     },
     methods: {
 		getFirstImage(item) {
@@ -500,6 +520,7 @@ export default {
                         data: (paginated.items || []).map(adaptVehicle)
                     };
                     this.last_page = paginated.lastPage || 1;
+                    this.lastFetchedAt = Date.now();
                 })
                 .catch((err) => {
                     this.errorMessage = getApiMessage(err);
@@ -509,12 +530,12 @@ export default {
                 });
         },
         getReport() {
-            this.loading = true;
             this.$store
                 .dispatch(VEHICLE_GET_ALL_REPORT, this.query)
                 .then((data) => {
-                    this.reports = data.data;
-                });
+                    this.reports = data?.data || {};
+                })
+                .catch(() => {});
         },
         clickCallback(obj) {
             this.page = obj;
@@ -523,8 +544,8 @@ export default {
         },
         getStore() {
             this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
-                this.stores = data.data;
-            });
+                this.stores = data?.data || [];
+            }).catch(() => {});
         },
         deleteVehicle(id) {
             Swal.fire({

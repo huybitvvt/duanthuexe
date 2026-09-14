@@ -138,20 +138,16 @@ export default {
         },
         async getMaintenanceTypes() {
             this.$store.dispatch(MAINTENANCE_TYPE_GET_ALL, { 'is_all': true }).then((data) => {
-                console.log(data.data)
-                this.maintenance_types = data.data;
-
-            })
+                this.maintenance_types = data?.data || [];
+            }).catch(() => {});
         },
         async getListVehicles() {
             let params = {
-
                 is_all: true,
-
             };
             await this.$store.dispatch(VEHICLE_GET_ALL, params).then((data) => {
                 this.vehicles = data?.data || [];
-            });
+            }).catch(() => {});
         },
         prepareParams() {
 

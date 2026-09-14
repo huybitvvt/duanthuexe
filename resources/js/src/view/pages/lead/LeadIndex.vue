@@ -280,6 +280,7 @@ export default {
             order_show: null,
             loading: false,
             errorMessage: null,
+            lastFetchedAt: 0,
             query: {
                 store_id: store_id ? +store_id : "",
                 keyword: "",
@@ -327,22 +328,23 @@ export default {
     },
     activated() {
         const queryPage = +this.$route?.query?.page || 1;
-        if (queryPage !== this.page || this.$route?.query?.keyword !== this.query.keyword) {
+        const queryKeyword = this.$route?.query?.keyword || '';
+        const paramsChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
+        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
+
+        if (paramsChanged) {
             this.page = queryPage;
-            this.query.keyword = this.$route?.query?.keyword || '';
+            this.query.keyword = queryKeyword;
+            this.getLeads();
+        } else if (isTtlExpired) {
             this.getLeads();
         }
     },
     methods: {
         listSources() {
-
-
-
             this.$store.dispatch(LEAD_UNIQUE_USERS, {}).then((data) => {
                 this.sources = data?.data || [];
-            });
-
-
+            }).catch(() => {});
         },
 
         location(item) {
@@ -375,7 +377,7 @@ export default {
         getStore() {
             this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
                 this.stores = data?.data || [];
-            });
+            }).catch(() => {});
         },
         getLeads() {
             this.loading = true;
@@ -389,6 +391,7 @@ export default {
                     const paginated = normalizePaginator(res);
                     this.leads = paginated.items || [];
                     this.last_page = paginated.lastPage || 1;
+                    this.lastFetchedAt = Date.now();
                 })
                 .catch((err) => {
                     this.errorMessage = getApiMessage(err);
@@ -429,7 +432,9 @@ export default {
                         ...res.data,
                     };
                 })
-                .finally();
+                .catch((err) => {
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(err));
+                });
         },
         deleteLead(id) {
             this.leadIdToDelete = id;
