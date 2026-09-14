@@ -7,18 +7,48 @@
 - **PHP CLI & Database Cục bộ**: Máy trạm Windows phát triển hiện **chưa cài đặt PHP CLI trên biến môi trường PATH** (`where.exe php` không tìm thấy và Docker service đang dừng).
 - **Phạm vi kiểm thử tự động cục bộ**: Toàn bộ kiểm thử được thực thi tự động qua Playwright trên gói bundle Production thực tế (`public/` và `static-dist/`), kiểm tra tính toàn vẹn của Single Page Application (SPA), Vue Router HTML5 History, API Contract Adapters, Cache TTL, Resilience khi gặp lỗi mạng/500, và Responsive viewports.
 
-### 1.2. Hướng Dẫn Nghiệm Thu Backend / Staging Server
-Khi triển khai lên máy chủ Staging có PHP và MySQL:
+### 1.2. Hướng Dẫn Nghiệm Thu Backend / Staging Server (Production Acceptance Gate)
+
+Để hoàn tất nghiệm thu toàn diện từ mức **Staging** sang **Production Ready**, cần thực hiện kiểm tra backend, database và API trực tiếp theo các kịch bản dưới đây:
+
+#### Kịch bản A: Thực thi trực tiếp trên máy chủ Staging / Render Shell (Khuyến nghị)
+Khi container backend `himoto-api` đã khởi chạy trên Render hoặc máy chủ Staging:
 ```bash
-# 1. Kiểm tra danh sách route API đã đăng ký
+# 1. Kiểm tra danh sách route API đã đăng ký đầy đủ
 php artisan route:list --path=api
 
-# 2. Chạy bộ unit/feature tests của Laravel
+# 2. Chạy bộ unit / feature test của Laravel
 php artisan test
 
-# 3. Kiểm tra kết nối cơ sở dữ liệu thật
+# 3. Kiểm tra trạng thái cơ sở dữ liệu PostgreSQL / Supabase
 php artisan migrate:status
 ```
+
+#### Kịch bản B: Thực thi cục bộ qua Docker CLI (Nếu khởi động Docker Desktop)
+Nếu máy trạm Windows khởi động Docker Desktop:
+```powershell
+# Chạy route list qua container PHP 7.4
+docker run --rm -v "E:\duanthuexe\happyride-1.1:/var/www/html" -w /var/www/html php:7.4-cli php artisan route:list --path=api
+
+# Chạy test qua container
+docker run --rm -v "E:\duanthuexe\happyride-1.1:/var/www/html" -w /var/www/html php:7.4-cli php artisan test
+
+# Chạy migrate status (khi kết nối database Supabase / Docker MySQL)
+docker run --rm --env-file .env -v "E:\duanthuexe\happyride-1.1:/var/www/html" -w /var/www/html php:7.4-cli php artisan migrate:status
+```
+
+#### Kịch bản C: Kiểm thử Tự Động Toàn Diện Live Staging API (Smoke Test Suite)
+Sau khi backend staging hoạt động, chạy script kiểm thử tự động trực tiếp từ repo:
+```bash
+python tests/test_staging_smoke.py --base-url https://<backend-staging-url> --email admin@himoto.vn --password <password>
+```
+Kịch bản này tự động:
+1. Kiểm tra `/api/health` và kết nối database thực tế (`status: ok, database: ok`).
+2. Gửi request `POST /api/auth/login`, nhận JWT Bearer Token.
+3. Xác minh `/api/verify-token` và quyền tài khoản.
+4. Kiểm tra dữ liệu thực tế và hình dạng paginator trên 8 endpoint chính: `/api/auth/stores/all`, `/api/auth/vehicle/vehicles`, `/api/auth/customers`, `/api/auth/order/car-rental`, `/api/auth/leads`, `/api/auth/maintenance-schedules`, `/api/auth/banks/all`, `/api/auth/cash/all`, `/api/auth/dashboard/report`.
+5. Đánh giá thời gian phản hồi (latency ms) và đảm bảo 0 lỗi runtime.
+
 
 ---
 
