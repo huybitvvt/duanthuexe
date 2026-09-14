@@ -2,11 +2,9 @@ import os
 import sys
 import time
 import json
-import shutil
 import argparse
 from playwright.sync_api import sync_playwright
 
-ARTIFACT_DIR = r"C:\Users\admin\.gemini\antigravity-ide\brain\8842cd63-0170-4db6-a65b-7629b93019a1"
 
 def parse_args():
     parser = argparse.ArgumentParser(description="HIMOTO Login UI Verification Suite")
@@ -20,16 +18,11 @@ def save_screenshot(page, output_dir, filename):
     page.screenshot(path=target_path, full_page=False)
     print(f"    [SCREENSHOT] Saved: {target_path}")
 
-    # Also copy to brain artifact dir for immediate inspection
-    if os.path.isdir(ARTIFACT_DIR):
-        artifact_path = os.path.join(ARTIFACT_DIR, filename)
-        shutil.copy2(target_path, artifact_path)
-        print(f"    [ARTIFACT] Copied to: {artifact_path}")
 
 def run_tests():
     args = parse_args()
     base_url = args.base_url.rstrip("/")
-    login_url = f"{base_url}/#/login"
+    login_url = f"{base_url}/login"
     output_dir = os.path.abspath(args.output_dir)
 
     print("=" * 80)
@@ -48,6 +41,10 @@ def run_tests():
 
         context = browser.new_context(viewport={"width": 1440, "height": 900})
         page = context.new_page()
+        # Keep fixture runs isolated from the configured API, including dashboard GETs.
+        page.route("**/api/**", lambda route: route.fulfill(
+            status=200, content_type="application/json", body=json.dumps({"data": []})
+        ))
 
         # Helper to reset to login
         def goto_clean_login():
@@ -110,6 +107,8 @@ def run_tests():
 
         assert brand_display == "none", f"Brand panel should have display: none on mobile, got {brand_display}"
         assert mobile_logo_visible, "Mobile logo header should be visible on < 1024px"
+        assert page.locator('.himoto-mobile-logo').get_attribute('src').endswith('logo-himoto-dark.svg')
+        assert page.locator('.himoto-mobile-logo').evaluate('(img) => img.complete && img.naturalWidth > 0')
         assert card_visible, "Auth card should be visible on mobile"
         assert not has_h_scroll, "Mobile view has horizontal overflow!"
 
@@ -390,6 +389,26 @@ def run_tests():
 
         print("  -> [PASS] Role-based routing verified without page reload.")
         results.append({"test": "Successful Login & Role Routing", "status": "PASS"})
+
+        # Registration is a pre-existing route; preserve its required confirmation payload.
+        goto_clean_login()
+        page.goto(f"{base_url}/ref/123")
+        page.locator('#himoto-register-confirmation').wait_for()
+        signup_requests = []
+        def capture_signup(route):
+            signup_requests.append(route.request.post_data_json)
+            route.fulfill(status=422, content_type="application/json", body=json.dumps({"error": "fixture"}))
+        page.route("**/*auth/register*", capture_signup)
+        page.locator('input[type=text]').fill('Test User')
+        page.locator('input[type=email]').fill('test@example.com')
+        page.locator('input[type=password]').nth(0).fill('fixture-password')
+        page.locator('#himoto-register-confirmation').fill('fixture-password')
+        page.get_by_role('button', name='Đăng ký', exact=True).click()
+        page.wait_for_timeout(500)
+        assert len(signup_requests) == 1
+        assert signup_requests[0]['password_confirmation'] == signup_requests[0]['password']
+        assert signup_requests[0]['referral_code'] == '123'
+        results.append({"test": "Legacy registration confirmation payload", "status": "PASS"})
 
         browser.close()
 

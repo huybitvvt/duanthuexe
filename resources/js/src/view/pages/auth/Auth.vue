@@ -41,9 +41,9 @@
         <!--begin::Main Form Panel-->
         <div class="himoto-auth-main">
             <!-- Mobile compact logo header (< 1024px) -->
-            <div class="himoto-mobile-header" aria-hidden="true">
+            <div class="himoto-mobile-header">
                 <img
-                    src="/images/branding/logo-himoto.svg"
+                    src="/images/branding/logo-himoto-dark.svg"
                     alt="HIMOTO Logo"
                     class="himoto-mobile-logo"
                 />
@@ -94,7 +94,6 @@
                                 @input="clearEmailError"
                                 :aria-invalid="emailError ? 'true' : 'false'"
                                 :aria-describedby="emailError ? 'himoto-email-error' : null"
-                                tabindex="1"
                             />
                         </div>
                         <div
@@ -130,7 +129,6 @@
                                 @input="clearPasswordError"
                                 :aria-invalid="passwordError ? 'true' : 'false'"
                                 :aria-describedby="passwordError ? 'himoto-password-error' : null"
-                                tabindex="2"
                             />
                             <button
                                 type="button"
@@ -138,7 +136,6 @@
                                 :aria-label="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
                                 :title="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
                                 @click="togglePassword"
-                                tabindex="3"
                             >
                                 <!-- Eye Icon (when hidden) -->
                                 <svg v-if="!showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -173,7 +170,6 @@
                         class="himoto-btn-submit"
                         :disabled="isSubmitting"
                         id="himoto_btn_submit"
-                        tabindex="4"
                     >
                         <span v-if="isSubmitting" class="himoto-spinner" aria-hidden="true"></span>
                         <span>{{ isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span>
@@ -267,6 +263,10 @@
                         <div class="himoto-field-group">
                             <label class="himoto-field-label">Mật khẩu</label>
                             <input type="password" class="himoto-input" v-model="register.password" required />
+                        </div>
+                        <div class="himoto-field-group">
+                            <label for="himoto-register-confirmation" class="himoto-field-label">Xác nhận mật khẩu</label>
+                            <input id="himoto-register-confirmation" type="password" class="himoto-input" v-model="register.password_confirmation" autocomplete="new-password" required />
                         </div>
                         <button type="submit" class="himoto-btn-submit">Đăng ký</button>
                         <div class="himoto-form-footer">

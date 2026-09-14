@@ -342,6 +342,17 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .himoto-auth .himoto-btn-submit,
+  .himoto-auth .himoto-input,
+  .himoto-auth .himoto-toggle-pwd {
+    transition: none !important;
+  }
+  .himoto-auth .himoto-spinner {
+    animation: none !important;
+  }
+}
+
 /* Tablet & Mobile Responsiveness (< 1024px) */
 @media (max-width: 1023px) {
   .himoto-auth {
