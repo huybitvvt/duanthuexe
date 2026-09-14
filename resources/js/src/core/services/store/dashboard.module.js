@@ -26,7 +26,11 @@ const actions = {
     },
 
     [DASHBOARD_REPORT](context, credentials) {
-        const cacheKey = getScopedCacheKey(context, credentials);
+        const userAtStart = context.rootGetters?.currentUser || context.rootState?.auth?.user;
+        const userIdAtStart = userAtStart?.id ? String(userAtStart.id) : "guest";
+        const storeKey = credentials?.store_id ? String(credentials.store_id) : "all";
+        const cacheKey = `${userIdAtStart}:${storeKey}`;
+
         const cached = context.state.reportCache[cacheKey];
         if (cached && (Date.now() - cached.timestamp < 30000)) {
             return Promise.resolve(cached.data);
@@ -35,7 +39,14 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/dashboard/report", credentials)
                 .then(({data}) => {
-                    context.commit("SET_DASHBOARD_REPORT_CACHE", { key: cacheKey, data });
+                    // Guard against race conditions: only commit if user has not changed or logged out
+                    const currentUser = context.rootGetters?.currentUser || context.rootState?.auth?.user;
+                    const currentUserId = currentUser?.id ? String(currentUser.id) : "guest";
+                    const isAuth = context.rootGetters?.isAuthenticated;
+
+                    if (currentUserId === userIdAtStart && isAuth) {
+                        context.commit("SET_DASHBOARD_REPORT_CACHE", { key: cacheKey, data });
+                    }
                     resolve(data);
                 })
                 .catch((error) => {
@@ -45,7 +56,11 @@ const actions = {
     },
 
     [DASHBOARD_REPORT_CHART](context, credentials) {
-        const cacheKey = getScopedCacheKey(context, credentials);
+        const userAtStart = context.rootGetters?.currentUser || context.rootState?.auth?.user;
+        const userIdAtStart = userAtStart?.id ? String(userAtStart.id) : "guest";
+        const storeKey = credentials?.store_id ? String(credentials.store_id) : "all";
+        const cacheKey = `${userIdAtStart}:${storeKey}`;
+
         const cached = context.state.chartCache[cacheKey];
         if (cached && (Date.now() - cached.timestamp < 30000)) {
             return Promise.resolve(cached.data);
@@ -54,7 +69,14 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/dashboard/report-chart", credentials)
                 .then(({data}) => {
-                    context.commit("SET_DASHBOARD_CHART_CACHE", { key: cacheKey, data });
+                    // Guard against race conditions
+                    const currentUser = context.rootGetters?.currentUser || context.rootState?.auth?.user;
+                    const currentUserId = currentUser?.id ? String(currentUser.id) : "guest";
+                    const isAuth = context.rootGetters?.isAuthenticated;
+
+                    if (currentUserId === userIdAtStart && isAuth) {
+                        context.commit("SET_DASHBOARD_CHART_CACHE", { key: cacheKey, data });
+                    }
                     resolve(data);
                 })
                 .catch((error) => {

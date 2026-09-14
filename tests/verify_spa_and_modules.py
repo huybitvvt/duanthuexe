@@ -257,7 +257,12 @@ def run_comprehensive_audit(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUT):
                 link.wait_for(state="visible", timeout=5000)
                 link.click()
 
-                page.wait_for_timeout(600)
+                try:
+                    page.wait_for_url(f"*{menu['path']}*", timeout=5000)
+                except Exception:
+                    page.wait_for_timeout(800)
+
+                page.wait_for_timeout(300)
                 cur_url = page.url
                 active_shell_id = page.evaluate("window.__himoto_shell_id")
                 doc_reqs_now = len(document_requests)

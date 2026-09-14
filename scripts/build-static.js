@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
 
 const projectRoot = path.resolve(__dirname, "..");
 const publicDir = path.join(projectRoot, "public");
@@ -48,8 +49,35 @@ function copyDirectory(source, destination) {
     });
 }
 
+// Generate version metadata dynamically from git
+let commit = "fce6a60";
+let shortCommit = "fce6a60";
+let branch = "feature/himoto-complete-integration";
+try {
+    commit = execSync("git rev-parse HEAD", { cwd: projectRoot }).toString().trim();
+    shortCommit = execSync("git rev-parse --short HEAD", { cwd: projectRoot }).toString().trim();
+    branch = execSync("git branch --show-current", { cwd: projectRoot }).toString().trim();
+} catch (e) {}
+
+const versionData = {
+    name: "himoto-fleet-dashboard",
+    version: "1.1.0",
+    commit: commit,
+    short_commit: shortCommit,
+    branch: branch,
+    build_time: new Date().toISOString(),
+    environment: "production"
+};
+
+const versionJson = JSON.stringify(versionData, null, 2);
+fs.writeFileSync(path.join(projectRoot, "resources", "js", "src", "version.json"), versionJson, "utf8");
+
 emptyDirectory(outputDir);
 copyDirectory(publicDir, outputDir);
 fs.copyFileSync(indexTemplate, path.join(outputDir, "index.html"));
 
-console.log(`Static frontend created at ${outputDir}`);
+// Write public and static-dist version.json artifacts
+fs.writeFileSync(path.join(publicDir, "version.json"), versionJson, "utf8");
+fs.writeFileSync(path.join(outputDir, "version.json"), versionJson, "utf8");
+
+console.log(`Static frontend created at ${outputDir} (Commit: ${shortCommit})`);
