@@ -33,3 +33,5 @@ env.supabase
 env.cloudinary
 notes.txt
 crontab
+__pycache__/
+*.py[cod]
