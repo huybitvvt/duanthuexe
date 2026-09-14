@@ -29,13 +29,15 @@ const ApiService = {
         }
     },
 
-    /**
-     * Set the default HTTP request headers
-     */
     setHeader() {
-        Vue.axios.defaults.headers.common[
-            "Authorization"
-            ] = `Bearer ${JwtService.getToken()}`;
+        const token = JwtService.getToken();
+        if (token) {
+            Vue.axios.defaults.headers.common[
+                "Authorization"
+            ] = `Bearer ${token}`;
+        } else {
+            delete Vue.axios.defaults.headers.common["Authorization"];
+        }
     },
 
     query(resource, params) {

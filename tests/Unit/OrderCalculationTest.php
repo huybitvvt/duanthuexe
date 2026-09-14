@@ -151,4 +151,445 @@ class OrderCalculationTest extends TestCase
         $assignedStoreId = ($branchStaff->role_id !== 1) ? $branchStaff->store_id : 1;
         $this->assertEquals(2, $assignedStoreId, "Branch staff action must be scoped strictly to store_id = 2");
     }
+
+    /**
+     * Test OrderController validation rejects mismatched deposit and rental payment sums.
+     */
+    public function testOrderControllerPaymentValidationMismatch()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        // Mismatched payment: total specified is 1,000,000 but sum of cash + transfer is 800,000
+        $paymentMethod = [
+            'payment_method' => 3,
+            'cash_amount' => 500000,
+            'bank_transfer_amount' => 300000,
+            'bank_id' => 1
+        ];
+
+        $response = $controller->validate_input_payment(
+            'Tổng số tiền đặt cọc không khớp',
+            $paymentMethod,
+            1000000
+        );
+
+        $this->assertNotNull($response, "validate_input_payment must return error on mismatch");
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Tổng số tiền đặt cọc không khớp', $responseData['message']);
+    }
+
+    /**
+     * Test OrderController validation requires bank selection when bank transfer amount > 0.
+     */
+    public function testOrderControllerBankRequiredWhenBankTransferUsed()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        $paymentMethod = [
+            'payment_method' => 2,
+            'bank_transfer_amount' => 500000,
+            'cash_amount' => 0,
+            'bank_id' => null
+        ];
+
+        $response = $controller->validate_input_payment(
+            'Tổng số tiền đặt cọc không khớp',
+            $paymentMethod,
+            500000
+        );
+
+        $this->assertNotNull($response);
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Vui lòng chọn tài khoản ngân hàng', $responseData['message']);
+    }
+
+    /**
+     * Test OrderController validation succeeds (returns null) when payments match cleanly.
+     */
+    public function testOrderControllerPaymentMatchesCleanly()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        $paymentMethod = [
+            'payment_method' => 3,
+            'bank_transfer_amount' => 600000,
+            'cash_amount' => 400000,
+            'bank_id' => 1
+        ];
+
+        $response = $controller->validate_input_payment(
+            'Tổng số tiền đặt cọc không khớp',
+            $paymentMethod,
+            1000000
+        );
+
+        $this->assertNull($response, "validate_input_payment must return null when payment sums match perfectly");
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        if (!\Illuminate\Support\Facades\Schema::hasTable('transactions')) {
+            \Illuminate\Support\Facades\Schema::create('transactions', function ($table) {
+                $table->increments('id');
+                $table->integer('user_id')->nullable();
+                $table->integer('store_id')->nullable();
+                $table->string('name')->nullable();
+                $table->string('type')->nullable();
+                $table->integer('value')->default(0);
+                $table->integer('payment_method')->nullable();
+                $table->integer('bank_id')->nullable();
+                $table->integer('cash_id')->nullable();
+                $table->text('note')->nullable();
+                $table->timestamps();
+            });
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('orders')) {
+            \Illuminate\Support\Facades\Schema::create('orders', function ($table) {
+                $table->increments('id');
+                $table->integer('store_id')->nullable();
+                $table->string('order_status')->nullable();
+                $table->boolean('deposit_closed')->default(false);
+                $table->integer('total')->default(0);
+                $table->integer('out_dated_at')->default(0);
+                $table->integer('outdate_or_early_amount')->default(0);
+                $table->softDeletes();
+                $table->timestamps();
+            });
+        }
+
+        if (!\Illuminate\Support\Facades\Schema::hasTable('order_vehicle_details')) {
+            \Illuminate\Support\Facades\Schema::create('order_vehicle_details', function ($table) {
+                $table->increments('id');
+                $table->integer('order_id')->nullable();
+                $table->integer('vehicle_id')->nullable();
+                $table->string('type')->nullable();
+                $table->dateTime('rent_at')->nullable();
+                $table->dateTime('return_at')->nullable();
+                $table->integer('substitute_unit_price')->default(0);
+                $table->integer('total_money')->default(0);
+                $table->integer('total_renewal_amount')->default(0);
+                $table->integer('minute_out_date')->default(0);
+                $table->integer('money_out_date')->default(0);
+                $table->softDeletes();
+                $table->timestamps();
+            });
+        }
+    }
+
+    /**
+     * Test OrderController transaction rollback when OrderService throws an exception.
+     */
+    public function testOrderControllerDatabaseTransactionRollbackOnException()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $order = new Order(['id' => 101, 'order_status' => 'pending']);
+
+        $orderServiceMock->expects($this->once())
+            ->method('deposit')
+            ->willThrowException(new \Exception("Simulated Database Deadlock or Constraint Violation"));
+
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+        $request = new \Illuminate\Http\Request(['amount' => 500000]);
+
+        $response = $controller->deposit($request, $order);
+
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertStringContainsString("Simulated Database Deadlock or Constraint Violation", $responseData['message']);
+    }
+
+    /**
+     * Test ReceiptController validation rejects transaction when total amount is 0.
+     */
+    public function testReceiptControllerZeroAmountValidation()
+    {
+        $transactionServiceMock = $this->createMock(\App\Http\Services\TransactionService::class);
+        $controller = new \App\Http\Controllers\ReceiptController($transactionServiceMock);
+
+        $request = new \Illuminate\Http\Request([
+            'cash_amount' => 0,
+            'bank_transfer_amount' => 0
+        ]);
+
+        $response = $controller->putOrPost($request);
+
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Số tiền thanh toán phải lớn hơn 0', $responseData['message']);
+    }
+
+    /**
+     * Test ReceiptController role store boundary enforcement:
+     * Staff with role_id != 1 (Store 2) cannot create receipts for another store_id (e.g. 999).
+     * Verifies that the inserted transaction in the database is strictly store_id = 2.
+     */
+    public function testReceiptControllerRoleStoreBoundaryEnforcement()
+    {
+        $branchStaff = new User(['role_id' => 2, 'store_id' => 2]);
+        $branchStaff->id = 5;
+        $this->actingAs($branchStaff);
+        \Illuminate\Support\Facades\Auth::setUser($branchStaff);
+
+        $transactionServiceMock = $this->createMock(\App\Http\Services\TransactionService::class);
+        // Expect that processPaymentMethod receives store_id = 2, overriding store_id = 999
+        $transactionServiceMock->expects($this->once())
+            ->method('processPaymentMethod')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->equalTo(2) // Scoped strictly to branch staff store_id
+            )
+            ->willReturn(['bank_id' => null, 'cash_id' => 1]);
+
+        $controller = new \App\Http\Controllers\ReceiptController($transactionServiceMock);
+        $request = new \Illuminate\Http\Request([
+            'cash_amount' => 100000,
+            'bank_transfer_amount' => 0,
+            'payment_method' => 1,
+            'bank_id' => null,
+            'store_id' => 999 // Attempt to inject foreign store ID
+        ]);
+
+        $response = $controller->putOrPost($request);
+        $this->assertEquals(200, $response->getStatusCode());
+
+        // Verify database persistence respects branch isolation
+        $this->assertDatabaseHas('transactions', [
+            'store_id' => 2,
+            'user_id' => 5,
+            'value' => 100000
+        ]);
+        $this->assertDatabaseMissing('transactions', [
+            'store_id' => 999
+        ]);
+    }
+
+    /**
+     * Test OrderController store rejects order when return_at is earlier than rent_at.
+     */
+    public function testOrderControllerStoreRejectsInvalidReturnDateBeforeRentDate()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        $request = new \Illuminate\Http\Request([
+            'store_id' => 1,
+            'total' => 500000,
+            'customer_name' => 'Nguyen Van A',
+            'customer_id_card' => 123456789,
+            'first_deposit_amount' => 0,
+            'total_rental_fees' => 0,
+            'additional_deposit_amount' => 0,
+            'order_items' => [
+                [
+                    'vehicle_id' => 1,
+                    'rent_at' => '2026-09-15 10:00:00',
+                    'return_at' => '2026-09-14 10:00:00' // Return is before Rent!
+                ]
+            ]
+        ]);
+
+        $response = $controller->store($request);
+
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Thời gian trả xe phải muộn hơn thời gian thuê xe', $responseData['message']);
+    }
+
+    /**
+     * Test OrderController update rejects modifying already liquidated and deposit-closed contracts.
+     */
+    public function testOrderControllerUpdateRejectsLiquidatedOrder()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        $liquidatedOrder = new Order([
+            'id' => 200,
+            'order_status' => 'completed',
+            'deposit_closed' => 1
+        ]);
+
+        $request = new \Illuminate\Http\Request([
+            'first_deposit_amount' => 0,
+            'total_rental_fees' => 0,
+            'additional_deposit_amount' => 0,
+        ]);
+
+        $response = $controller->update($request, $liquidatedOrder);
+
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Không thể cập nhật trên hợp đồng đã thanh lý', $responseData['message']);
+    }
+
+    /**
+     * Test OrderController complete (vehicle return & refund) requires bank account when refunding via bank transfer.
+     */
+    public function testOrderControllerCompleteValidationRequiresBankWhenRefundViaBank()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        $order = new Order(['id' => 300, 'order_status' => 'renting']);
+
+        $request = new \Illuminate\Http\Request([
+            'total_refund_amount' => 500000,
+            'refund_payment_method' => 2, // Bank transfer
+            'bank_transfer_amount' => 500000,
+            'cash_amount' => 0,
+            'refund_bank_id' => null // Missing required bank ID
+        ]);
+
+        $response = $controller->complete($request, $order);
+
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Vui lòng chọn một tài khoản ngân hàng', $responseData['message']);
+    }
+
+    /**
+     * Test OrderController complete (vehicle return & refund) rejects split refund when cash + bank amount does not match total refund.
+     */
+    public function testOrderControllerCompleteValidationMismatchCashAndBank()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        $order = new Order(['id' => 301, 'order_status' => 'renting']);
+
+        $request = new \Illuminate\Http\Request([
+            'total_refund_amount' => 1000000,
+            'refund_payment_method' => 3, // Combined
+            'bank_transfer_amount' => 400000,
+            'cash_amount' => 400000, // Sum is 800k, not 1,000,000!
+            'refund_bank_id' => 1
+        ]);
+
+        $response = $controller->complete($request, $order);
+
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Tổng số tiền mặt và chuyển khoản bạn nhập vào không khớp với tổng tiền cần thanh toán', $responseData['message']);
+    }
+
+    /**
+     * Test OrderController complete database transaction rollback when OrderService throws an exception during vehicle return.
+     */
+    public function testOrderControllerCompleteDatabaseTransactionRollbackOnException()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $order = new Order(['id' => 302, 'order_status' => 'renting']);
+
+        $orderServiceMock->expects($this->once())
+            ->method('complete')
+            ->willThrowException(new \Exception("Vehicle Return Inventory Deadlock"));
+
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        $request = new \Illuminate\Http\Request([
+            'total_refund_amount' => 200000,
+            'refund_payment_method' => 1, // Cash
+            'cash_amount' => 200000,
+            'bank_transfer_amount' => 0
+        ]);
+
+        $response = $controller->complete($request, $order);
+
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertStringContainsString("Vehicle Return Inventory Deadlock", $responseData['message']);
+    }
+
+    /**
+     * Test OrderController addOnPrice (rental extension / gia hạn thuê) succeeds when authorized.
+     */
+    public function testOrderControllerAddOnPriceSuccess()
+    {
+        $user = new User(['name' => 'Staff Tester']);
+        $user->id = 1;
+        $this->actingAs($user);
+        \Illuminate\Support\Facades\Auth::setUser($user);
+
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $orderServiceMock->expects($this->once())
+            ->method('addOnPrice')
+            ->willReturn(new \App\Entities\AddOnOrder(['id' => 1, 'price' => 150000]));
+
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        \Illuminate\Support\Facades\DB::table('orders')->insert([
+            'id' => 10,
+            'store_id' => 1,
+            'order_status' => 'renting',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('order_vehicle_details')->insert([
+            'id' => 1,
+            'order_id' => 10,
+            'total_renewal_amount' => 0,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $request = new \Illuminate\Http\Request([
+            'order_id' => 10,
+            'line_item_id' => 1,
+            'price' => 150000,
+            'return_at' => '2026-09-20 18:00:00',
+            'return_at_formatted' => '2026-09-20 18:00:00'
+        ]);
+
+        $response = $controller->addOnPrice($request);
+
+        $this->assertEquals(200, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Nạp tiền gia hạn thành công', $responseData['message']);
+
+        // Assert database persistence of renewal update
+        $this->assertDatabaseHas('order_vehicle_details', [
+            'id' => 1,
+            'total_renewal_amount' => 150000
+        ]);
+    }
+
+    /**
+     * Test OrderController calc_return_early_amount handles error cleanly when calculation fails.
+     */
+    public function testOrderControllerCalcReturnEarlyAmountRollbackOnError()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $orderServiceMock->expects($this->once())
+            ->method('calcOrderReturnEarlyAmount')
+            ->willThrowException(new \Exception("Cannot calculate early return for unstarted order"));
+
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        \Illuminate\Support\Facades\DB::table('orders')->insert([
+            'id' => 55,
+            'store_id' => 1,
+            'order_status' => 'renting',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $request = new \Illuminate\Http\Request(['order_id' => 55]);
+
+        $response = $controller->calc_return_early_amount($request);
+
+        $this->assertEquals(422, $response->getStatusCode());
+        $responseData = json_decode($response->getContent(), true);
+        $this->assertEquals('Cannot calculate early return for unstarted order', $responseData['message']);
+    }
 }
+
+

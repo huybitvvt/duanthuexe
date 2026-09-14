@@ -28,6 +28,7 @@ const actions = {
     [DASHBOARD_REPORT](context, credentials) {
         const userAtStart = context.rootGetters?.currentUser || context.rootState?.auth?.user;
         const userIdAtStart = userAtStart?.id ? String(userAtStart.id) : "guest";
+        const sessionIdAtStart = context.rootGetters?.authSessionId || context.rootState?.auth?.authSessionId;
         const storeKey = credentials?.store_id ? String(credentials.store_id) : "all";
         const cacheKey = `${userIdAtStart}:${storeKey}`;
 
@@ -39,12 +40,14 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/dashboard/report", credentials)
                 .then(({data}) => {
-                    // Guard against race conditions: only commit if user has not changed or logged out
-                    const currentUser = context.rootGetters?.currentUser || context.rootState?.auth?.user;
-                    const currentUserId = currentUser?.id ? String(currentUser.id) : "guest";
+                    // Strict Session Generation & Auth Guard:
+                    // Only commit if the exact same session is still active and authenticated.
+                    // If user logged out or re-logged in (even with same user_id), sessionIdAtStart !== currentSessionId,
+                    // and this late response is safely discarded.
+                    const currentSessionId = context.rootGetters?.authSessionId || context.rootState?.auth?.authSessionId;
                     const isAuth = context.rootGetters?.isAuthenticated;
 
-                    if (currentUserId === userIdAtStart && isAuth) {
+                    if (currentSessionId && currentSessionId === sessionIdAtStart && isAuth) {
                         context.commit("SET_DASHBOARD_REPORT_CACHE", { key: cacheKey, data });
                     }
                     resolve(data);
@@ -58,6 +61,7 @@ const actions = {
     [DASHBOARD_REPORT_CHART](context, credentials) {
         const userAtStart = context.rootGetters?.currentUser || context.rootState?.auth?.user;
         const userIdAtStart = userAtStart?.id ? String(userAtStart.id) : "guest";
+        const sessionIdAtStart = context.rootGetters?.authSessionId || context.rootState?.auth?.authSessionId;
         const storeKey = credentials?.store_id ? String(credentials.store_id) : "all";
         const cacheKey = `${userIdAtStart}:${storeKey}`;
 
@@ -69,12 +73,11 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/dashboard/report-chart", credentials)
                 .then(({data}) => {
-                    // Guard against race conditions
-                    const currentUser = context.rootGetters?.currentUser || context.rootState?.auth?.user;
-                    const currentUserId = currentUser?.id ? String(currentUser.id) : "guest";
+                    // Strict Session Generation & Auth Guard
+                    const currentSessionId = context.rootGetters?.authSessionId || context.rootState?.auth?.authSessionId;
                     const isAuth = context.rootGetters?.isAuthenticated;
 
-                    if (currentUserId === userIdAtStart && isAuth) {
+                    if (currentSessionId && currentSessionId === sessionIdAtStart && isAuth) {
                         context.commit("SET_DASHBOARD_CHART_CACHE", { key: cacheKey, data });
                     }
                     resolve(data);

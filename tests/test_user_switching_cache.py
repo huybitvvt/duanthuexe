@@ -1,42 +1,37 @@
-"""Automated verification for Dashboard Cache Isolation & Real User Switching.
-Strictly verifies:
-1. Store existence assertion: Must fail (exit 1) if window.__HIMOTO_STORE__ is missing.
-2. User A (Admin) logs in -> fetches A's data -> cache key '1:all' populated with A's metrics.
-3. User A logs out (PURGE_AUTH) -> cache completely wiped to empty.
-4. User B (Staff B, Store 2) logs in in the same browser context -> fresh request issued.
-5. User B receives distinct B's metrics (45 vehicles instead of 165) and cache key '2:2' is created.
-6. User B's cache does NOT leak or contain User A's data.
-7. Race Condition Check: Late response from User A after logout/switch does not overwrite cache.
-"""
+import os
 import sys
-import json
 import time
+import json
 from playwright.sync_api import sync_playwright
 
 BASE_URL = "http://localhost:8091/"
 
 def test_full_user_switching_lifecycle():
+    print("\n" + "="*80)
+    print("HIMOTO VERIFICATION: User Switching Cache Isolation & Pending Race Test")
+    print("="*80)
+
     dashboard_requests = []
-    current_user_token = {"token": "token-user-a"}
+    delayed_routes = []
 
     mock_user_a = {
         "id": 1,
-        "name": "Admin User A",
-        "email": "admin_a@himoto.vn",
+        "name": "Super Admin A",
+        "email": "admin@himoto.vn",
         "role_id": 1,
         "store_id": "all"
     }
 
     mock_user_b = {
         "id": 2,
-        "name": "Staff User B",
+        "name": "Staff B",
         "email": "staff_b@himoto.vn",
-        "role_id": 3,
+        "role_id": 2,
         "store_id": 2
     }
 
     report_user_a = {
-        "total_vehicle": 165,
+        "total_vehicle": 160,
         "total_vehicle_using": 112,
         "total_vehicle_ready": 43
     }
@@ -55,6 +50,11 @@ def test_full_user_switching_lifecycle():
         def handle_api(route):
             u = route.request.url
             auth_header = route.request.headers.get("authorization", "")
+
+            # Intercept race test request and hold it pending
+            if "store_id=race_test" in u:
+                delayed_routes.append(route)
+                return
 
             if "dashboard/report" in u:
                 dashboard_requests.append({
@@ -88,8 +88,8 @@ def test_full_user_switching_lifecycle():
             }
         """)
 
-        # --- STEP 1: USER A LOGS IN & VIEWS DASHBOARD ---
-        print("\n[Step 1] User A (Admin) logs in and accesses /dashboard...")
+        # --- STEP 1: USER A (ADMIN) LOGS IN & VIEWS DASHBOARD ---
+        print("\n[Step 1] User A (Admin) accesses /dashboard...")
         page.goto(f"{BASE_URL}dashboard", wait_until="domcontentloaded")
         page.locator("#globalSearchInput").wait_for(timeout=10000)
         page.wait_for_timeout(800)
@@ -98,94 +98,126 @@ def test_full_user_switching_lifecycle():
         store_exists = page.evaluate("() => typeof window.__HIMOTO_STORE__ !== 'undefined' && window.__HIMOTO_STORE__ !== null")
         assert store_exists, "CRITICAL ERROR: window.__HIMOTO_STORE__ is missing or not exposed!"
 
+        # Mark SPA Shell to verify zero-reload across user switching
+        page.evaluate("window.__test_spa_shell_token = 'shell-session-' + Date.now();")
+
         cache_user_a = page.evaluate("""() => {
             const store = window.__HIMOTO_STORE__;
             return {
                 reportCacheKeys: Object.keys(store.state.dashboard.reportCache || {}),
                 chartCacheKeys: Object.keys(store.state.dashboard.chartCache || {}),
-                hasKey1All: Boolean(store.state.dashboard.reportCache && store.state.dashboard.reportCache['1:all'])
+                hasKey1All: Boolean(store.state.dashboard.reportCache && store.state.dashboard.reportCache['1:all']),
+                sessionId: store.getters.authSessionId
             };
         }""")
         print(f"    User A cache state: {cache_user_a}")
         assert cache_user_a["hasKey1All"], f"Expected cache key '1:all' for User A, found: {cache_user_a['reportCacheKeys']}"
-        assert len(dashboard_requests) >= 1, "Expected at least 1 dashboard request for User A"
-        req_count_user_a = len(dashboard_requests)
+        assert cache_user_a["sessionId"], "authSessionId must be present in Vuex store"
+        session_id_a = cache_user_a["sessionId"]
 
-        # --- STEP 2: USER A LOGS OUT (PURGE_AUTH) ---
-        print("\n[Step 2] User A logs out...")
-        cache_after_logout = page.evaluate("""() => {
+        # --- STEP 2: USER A LOGS OUT IN SPA (PURGE_AUTH) ---
+        print("\n[Step 2] User A logs out in SPA...")
+        logout_state = page.evaluate("""() => {
             const store = window.__HIMOTO_STORE__;
-            store.commit('logOut'); // Triggers PURGE_AUTH
+            store.commit('logOut'); // PURGE_AUTH
             return {
                 reportCacheKeys: Object.keys(store.state.dashboard.reportCache || {}),
                 chartCacheKeys: Object.keys(store.state.dashboard.chartCache || {}),
-                isAuth: store.getters.isAuthenticated
+                isAuth: store.getters.isAuthenticated,
+                newSessionId: store.getters.authSessionId
             };
         }""")
-        print(f"    Cache state after PURGE_AUTH: {cache_after_logout}")
-        assert len(cache_after_logout["reportCacheKeys"]) == 0, f"Cache reportCache must be empty after logout, got: {cache_after_logout['reportCacheKeys']}"
-        assert len(cache_after_logout["chartCacheKeys"]) == 0, f"Cache chartCache must be empty after logout, got: {cache_after_logout['chartCacheKeys']}"
-        assert not cache_after_logout["isAuth"], "Auth state must be false after logout"
+        print(f"    State after PURGE_AUTH: {logout_state}")
+        assert len(logout_state["reportCacheKeys"]) == 0, "reportCache must be emptied after logout"
+        assert len(logout_state["chartCacheKeys"]) == 0, "chartCache must be emptied after logout"
+        assert not logout_state["isAuth"], "User must be unauthenticated"
+        assert logout_state["newSessionId"] != session_id_a, "Session ID must change upon logout"
 
-        # --- STEP 3: USER B (STAFF B, STORE 2) LOGS IN IN SAME BROWSER ---
-        print("\n[Step 3] User B (Staff B, Store 2) logs in in the same browser context...")
-        # Update token in localStorage and Vuex store
-        current_user_token["token"] = "token-user-b"
+        # --- STEP 3: USER B LOGS IN WITHIN SAME SPA (NO RELOAD) ---
+        print("\n[Step 3] User B (Staff B, Store 2) logs in in-place (no page reload)...")
+        shell_check_before = page.evaluate("window.__test_spa_shell_token")
+
+        # In-SPA switch: update auth state and load dashboard data without page.goto
         page.evaluate("""(userB) => {
             localStorage.setItem('id_token', 'token-user-b');
             const store = window.__HIMOTO_STORE__;
             store.commit('setUser', { user: userB, access_token: 'token-user-b' });
+            return store.dispatch('dashboard_report', { store_id: 2 });
         }""", mock_user_b)
+        page.wait_for_timeout(600)
 
-        # User B navigates to Dashboard
-        page.goto(f"{BASE_URL}dashboard", wait_until="domcontentloaded")
-        page.locator("#globalSearchInput").wait_for(timeout=10000)
-        page.wait_for_timeout(1000)
+        shell_check_after = page.evaluate("window.__test_spa_shell_token")
+        assert shell_check_before == shell_check_after, "SPA Shell was destroyed! User switching must remain in SPA."
 
-        # Verify fresh network request was made for User B with User B's token
+        # Verify network request sent with User B token
         reqs_with_token_b = [r for r in dashboard_requests if "token-user-b" in r["auth"]]
         print(f"    Dashboard requests with User B token: {len(reqs_with_token_b)}")
-        assert len(reqs_with_token_b) >= 1, "Expected fresh network request for User B with User B token"
+        assert len(reqs_with_token_b) >= 1, "Expected fresh network request with User B token"
 
-        # Check User B's cache
         cache_user_b = page.evaluate("""() => {
             const store = window.__HIMOTO_STORE__;
             const reportKeys = Object.keys(store.state.dashboard.reportCache || {});
             return {
                 reportCacheKeys: reportKeys,
-                chartCacheKeys: Object.keys(store.state.dashboard.chartCache || {}),
-                hasKey2All: reportKeys.includes('2:all') || reportKeys.includes('2:2'),
+                hasKey2_2: reportKeys.includes('2:2'),
                 hasLeakedKey1All: reportKeys.includes('1:all')
             };
         }""")
         print(f"    User B cache state: {cache_user_b}")
-        assert cache_user_b["hasKey2All"], f"Expected User B scoped cache key '2:all' or '2:2', got {cache_user_b['reportCacheKeys']}"
-        assert not cache_user_b["hasLeakedKey1All"], "SECURITY BREACH: User B's cache contains User A's cache key '1:all'!"
+        assert cache_user_b["hasKey2_2"], f"Expected User B scoped key '2:2', got {cache_user_b['reportCacheKeys']}"
+        assert not cache_user_b["hasLeakedKey1All"], "SECURITY VIOLATION: User A key '1:all' leaked into User B cache!"
 
-        # --- STEP 4: RACE CONDITION TEST (LATE RESPONSE FROM USER A DISCARDED) ---
-        print("\n[Step 4] Testing Race Condition: Late response from logged-out user...")
-        race_test_result = page.evaluate("""() => {
+        # --- STEP 4: REAL PENDING IN-FLIGHT PROMISE RACE TEST (SAME USER ID) ---
+        print("\n[Step 4] Real Pending In-Flight Request Race Test (User A Session 1 -> Session 2)...")
+        # Log in as User A Session 1
+        page.evaluate("""(userA) => {
             const store = window.__HIMOTO_STORE__;
-            // Clear current cache
-            store.commit('RESET_DASHBOARD_CACHE');
+            store.commit('setUser', { user: userA, access_token: 'token-user-a' });
+        }""", mock_user_a)
 
-            // Simulate dispatching as a user with id 99
-            store.commit('setUser', { user: { id: 99, name: 'Temporary User 99' }, access_token: 'token-99' });
+        # Dispatch a request with store_id=race_test, held pending by Playwright router
+        page.evaluate("""() => {
+            const store = window.__HIMOTO_STORE__;
+            window.__pending_promise = store.dispatch('dashboard_report', { store_id: 'race_test' });
+        }""")
+        page.wait_for_timeout(300)
 
-            // Now immediately logout user 99 before any response arrives
-            store.commit('logOut');
+        assert len(delayed_routes) == 1, "Expected exactly 1 pending in-flight route captured"
+        print("    In-flight request captured and held pending by network mock.")
 
-            // Now simulate a late mutation attempting to set user 99's cache
-            // Our store guard checks currentUser.id === userIdAtStart && isAuth
-            // If we manually try to run DASHBOARD_REPORT when not auth, or late resolution:
+        # User A logs out while request is still pending
+        page.evaluate("window.__HIMOTO_STORE__.commit('logOut');")
+
+        # User A logs back in (same user ID: 1, but new session ID)
+        page.evaluate("""(userA) => {
+            window.__HIMOTO_STORE__.commit('setUser', { user: userA, access_token: 'token-user-a' });
+        }""", mock_user_a)
+
+        # Now fulfill the old pending route from Session 1
+        print("    Fulfilling delayed response from Session 1...")
+        delayed_routes[0].fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"data": {"leak_status": "STALE_SESSION_DATA_LEAKED"}})
+        )
+        page.wait_for_timeout(500)
+
+        # Assert that the late response was DISCARDED and NOT written to reportCache
+        cache_after_delayed = page.evaluate("""() => {
+            const store = window.__HIMOTO_STORE__;
+            const keys = Object.keys(store.state.dashboard.reportCache || {});
             return {
-                reportKeysAfterLateCheck: Object.keys(store.state.dashboard.reportCache || {})
+                keys: keys,
+                hasStaleKey: keys.includes('1:race_test')
             };
         }""")
-        print(f"    Race test cache state: {race_test_result}")
-        assert len(race_test_result["reportKeysAfterLateCheck"]) == 0, "Late response wrote to unauthenticated cache!"
+        print(f"    Cache state after delayed fulfillment: {cache_after_delayed}")
+        assert not cache_after_delayed["hasStaleKey"], "RACE CONDITION VULNERABILITY: Stale late response from previous session wrote to cache!"
+        print("    [PASS] Late pending response from previous session was safely discarded!")
 
-        print("\n[All Checks Passed] User switching cache isolation strictly verified.")
+        print("\n" + "="*80)
+        print("[SUCCESS] All user switching and race condition tests PASSED cleanly.")
+        print("="*80)
         browser.close()
 
     return True
@@ -194,7 +226,6 @@ if __name__ == "__main__":
     try:
         success = test_full_user_switching_lifecycle()
         if success:
-            print("\n[SUCCESS] test_user_switching_cache.py PASSED with code 0.")
             sys.exit(0)
     except AssertionError as err:
         print(f"\n[ASSERTION FAILED] {err}")
