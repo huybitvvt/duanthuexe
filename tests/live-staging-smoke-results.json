@@ -1,0 +1,116 @@
+{
+  "target": "https://himoto-api.onrender.com",
+  "executed_at": "2026-09-14T11:57:00+07:00",
+  "auth_user": "vubathuc@gmail.com",
+  "summary": {
+    "all_passed": true,
+    "total_checks": 13,
+    "passed_checks": 13,
+    "failed_checks": 0
+  },
+  "results": [
+    {
+      "name": "Health Check",
+      "endpoint": "/api/health",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 2048.21,
+      "service": "himoto-api",
+      "database": "ok"
+    },
+    {
+      "name": "Login",
+      "endpoint": "/api/auth/login",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 2189.35,
+      "token_acquired": true
+    },
+    {
+      "name": "Verify Token",
+      "endpoint": "/api/verify-token",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 2342.65
+    },
+    {
+      "name": "Stores List",
+      "endpoint": "/api/auth/stores/all",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 1959.84
+    },
+    {
+      "name": "Vehicles List",
+      "endpoint": "/api/auth/vehicle/vehicles?page=1",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 3217.93,
+      "paginator": true,
+      "records_page": 20
+    },
+    {
+      "name": "Customers List",
+      "endpoint": "/api/auth/customers?page=1",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 3273.21,
+      "paginator": true,
+      "records_page": 20
+    },
+    {
+      "name": "Orders List",
+      "endpoint": "/api/auth/order/car-rental?page=1",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 7704.06,
+      "paginator": true,
+      "records_page": 20
+    },
+    {
+      "name": "Leads List",
+      "endpoint": "/api/auth/leads?page=1",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 4198.43,
+      "paginator": true,
+      "records_page": 20
+    },
+    {
+      "name": "Leads Unique Users",
+      "endpoint": "/api/auth/leads/unique-users",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 1882.11
+    },
+    {
+      "name": "Maintenance Schedules",
+      "endpoint": "/api/auth/maintenance-schedules?page=1",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 1984.59,
+      "paginator": true
+    },
+    {
+      "name": "Banks List",
+      "endpoint": "/api/auth/banks/all",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 2191.21
+    },
+    {
+      "name": "Cash List",
+      "endpoint": "/api/auth/cash/all",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 2313.14
+    },
+    {
+      "name": "Dashboard Report",
+      "endpoint": "/api/auth/dashboard/report",
+      "status": 200,
+      "pass": true,
+      "elapsed_ms": 9935.58
+    }
+  ]
+}
