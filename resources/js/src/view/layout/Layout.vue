@@ -191,6 +191,9 @@ export default {
         "CustomerIndex",
         "OrderCarRental",
         "LeadIndex",
+        "MaintenanceSchedule",
+        "BankIndex",
+        "CashIndex",
         "ReportCardRental",
         "ReportVehicleRevenue"
       ]

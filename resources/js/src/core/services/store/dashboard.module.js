@@ -1,8 +1,10 @@
 import ApiService from "@/core/services/api.service";
+import { PURGE_AUTH } from "./auth.module";
 
 // action types
 export const DASHBOARD_REPORT = "dashboard_report";
 export const DASHBOARD_REPORT_CHART = "dashboard_report_chart";
+export const CLEAR_DASHBOARD_CACHE = "clear_dashboard_cache";
 
 const state = {
     reportCache: {},
@@ -11,10 +13,21 @@ const state = {
 
 const getters = {};
 
+function getScopedCacheKey(context, credentials) {
+    const user = context.rootGetters?.currentUser || context.rootState?.auth?.user;
+    const userId = user?.id ? String(user.id) : "guest";
+    const storeKey = credentials?.store_id ? String(credentials.store_id) : "all";
+    return `${userId}:${storeKey}`;
+}
+
 const actions = {
+    [CLEAR_DASHBOARD_CACHE](context) {
+        context.commit("RESET_DASHBOARD_CACHE");
+    },
+
     [DASHBOARD_REPORT](context, credentials) {
-        const storeKey = credentials?.store_id ? String(credentials.store_id) : "all";
-        const cached = context.state.reportCache[storeKey];
+        const cacheKey = getScopedCacheKey(context, credentials);
+        const cached = context.state.reportCache[cacheKey];
         if (cached && (Date.now() - cached.timestamp < 30000)) {
             return Promise.resolve(cached.data);
         }
@@ -22,7 +35,7 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/dashboard/report", credentials)
                 .then(({data}) => {
-                    context.commit("SET_DASHBOARD_REPORT_CACHE", { key: storeKey, data });
+                    context.commit("SET_DASHBOARD_REPORT_CACHE", { key: cacheKey, data });
                     resolve(data);
                 })
                 .catch((error) => {
@@ -32,8 +45,8 @@ const actions = {
     },
 
     [DASHBOARD_REPORT_CHART](context, credentials) {
-        const storeKey = credentials?.store_id ? String(credentials.store_id) : "all";
-        const cached = context.state.chartCache[storeKey];
+        const cacheKey = getScopedCacheKey(context, credentials);
+        const cached = context.state.chartCache[cacheKey];
         if (cached && (Date.now() - cached.timestamp < 30000)) {
             return Promise.resolve(cached.data);
         }
@@ -41,7 +54,7 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/dashboard/report-chart", credentials)
                 .then(({data}) => {
-                    context.commit("SET_DASHBOARD_CHART_CACHE", { key: storeKey, data });
+                    context.commit("SET_DASHBOARD_CHART_CACHE", { key: cacheKey, data });
                     resolve(data);
                 })
                 .catch((error) => {
@@ -52,6 +65,14 @@ const actions = {
 };
 
 const mutations = {
+    [PURGE_AUTH](state) {
+        state.reportCache = {};
+        state.chartCache = {};
+    },
+    RESET_DASHBOARD_CACHE(state) {
+        state.reportCache = {};
+        state.chartCache = {};
+    },
     SET_DASHBOARD_REPORT_CACHE(state, { key, data }) {
         state.reportCache[key] = { data, timestamp: Date.now() };
     },
@@ -66,4 +87,3 @@ export default {
     mutations,
     getters
 };
-

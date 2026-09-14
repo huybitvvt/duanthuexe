@@ -94,6 +94,7 @@ Object.keys(filters).forEach(key => {
 });
 Vue.mixin(mixin);
 window.__HIMOTO_ROUTER__ = router;
+window.__HIMOTO_STORE__ = store;
 new Vue({
     router,
     store,

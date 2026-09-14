@@ -5,11 +5,11 @@ Verifies live Laravel backend, database connection, JWT authentication,
 and JSON contract compliance for all primary business endpoints.
 
 Usage:
-    python tests/test_staging_smoke.py --base-url https://himoto-api.onrender.com --email admin@himoto.vn --password your_password
-    python tests/test_staging_smoke.py --base-url http://localhost:8000 --email admin@himoto.vn --password your_password
+    python tests/test_staging_smoke.py --base-url https://himoto-api.onrender.com --email vubathuc@gmail.com --password [PASSWORD]
 """
 
 import argparse
+import getpass
 import json
 import os
 import sys
@@ -17,13 +17,15 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 
 class StagingClient:
-    def __init__(self, base_url, email, password):
+    def __init__(self, base_url, email, password, output_file=None):
         self.base_url = base_url.rstrip("/")
         self.email = email
         self.password = password
+        self.output_file = output_file or Path(__file__).parent / "live-staging-smoke-results.json"
         self.token = None
         self.results = []
 
@@ -41,7 +43,7 @@ class StagingClient:
 
         start_time = time.time()
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=20) as resp:
                 elapsed = round((time.time() - start_time) * 1000, 2)
                 resp_body = resp.read().decode("utf-8")
                 try:
@@ -69,9 +71,17 @@ class StagingClient:
             print(f"    Service: {data.get('service')}, Database: {data.get('database')}")
             pass_test = data.get("database") == "ok"
         else:
-            print(f"    Failed: {data}")
+            print(f"    Health check failed (HTTP {status})")
             pass_test = False
-        self.results.append({"name": "Health Check", "status": status, "pass": pass_test, "elapsed_ms": elapsed})
+        self.results.append({
+            "name": "Health Check",
+            "endpoint": "/api/health",
+            "status": status,
+            "pass": pass_test,
+            "elapsed_ms": elapsed,
+            "service": data.get("service") if isinstance(data, dict) else "unknown",
+            "database": data.get("database") if isinstance(data, dict) else "unknown"
+        })
         return pass_test
 
     def login(self):
@@ -84,15 +94,29 @@ class StagingClient:
         )
         print(f"    Status: {status} ({elapsed}ms)")
         if status == 200 and isinstance(data, dict):
-            # Try finding token
             token = data.get("access_token") or data.get("token") or (data.get("data", {}).get("token") if isinstance(data.get("data"), dict) else None)
             if token:
                 self.token = token
                 print("    JWT token acquired successfully.")
-                self.results.append({"name": "Login", "status": status, "pass": True, "elapsed_ms": elapsed})
+                self.results.append({
+                    "name": "Login",
+                    "endpoint": "/api/auth/login",
+                    "status": status,
+                    "pass": True,
+                    "elapsed_ms": elapsed,
+                    "token_acquired": True
+                })
                 return True
-        print(f"    Login failed: {data}")
-        self.results.append({"name": "Login", "status": status, "pass": False, "elapsed_ms": elapsed})
+
+        msg = data.get("error", "Authentication failed") if isinstance(data, dict) else "Login error"
+        print(f"    Login failed: {msg} (HTTP {status})")
+        self.results.append({
+            "name": "Login",
+            "endpoint": "/api/auth/login",
+            "status": status,
+            "pass": False,
+            "elapsed_ms": elapsed
+        })
         return False
 
     def verify_token(self):
@@ -100,7 +124,13 @@ class StagingClient:
         status, data, elapsed = self.request("GET", "/api/verify-token")
         print(f"    Status: {status} ({elapsed}ms)")
         pass_test = status == 200 and isinstance(data, dict)
-        self.results.append({"name": "Verify Token", "status": status, "pass": pass_test, "elapsed_ms": elapsed})
+        self.results.append({
+            "name": "Verify Token",
+            "endpoint": "/api/verify-token",
+            "status": status,
+            "pass": pass_test,
+            "elapsed_ms": elapsed
+        })
         return pass_test
 
     def check_endpoint(self, name, path, check_paginator=False):
@@ -108,27 +138,42 @@ class StagingClient:
         status, data, elapsed = self.request("GET", path)
         print(f"    Status: {status} ({elapsed}ms)")
         pass_test = status == 200
+        paginator_records = None
         if pass_test and check_paginator:
-            # Check if paginator shape matches { current_page, data: [...] } or data: { data: [...] }
             target = data.get("data") if isinstance(data, dict) else None
             is_paginator = False
             if isinstance(target, dict) and "data" in target and isinstance(target["data"], list):
                 is_paginator = True
-                print(f"    Paginator detected: {len(target['data'])} records on current page.")
+                paginator_records = len(target["data"])
+                print(f"    Paginator detected: {paginator_records} records on current page.")
             elif isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
                 is_paginator = True
-                print(f"    Direct paginator/list detected: {len(data['data'])} records.")
+                paginator_records = len(data["data"])
+                print(f"    Direct paginator/list detected: {paginator_records} records.")
             elif isinstance(data, list):
-                print(f"    List detected: {len(data)} records.")
                 is_paginator = True
+                paginator_records = len(data)
+                print(f"    List detected: {paginator_records} records.")
             pass_test = pass_test and is_paginator
 
-        self.results.append({"name": name, "path": path, "status": status, "pass": pass_test, "elapsed_ms": elapsed})
+        entry = {
+            "name": name,
+            "endpoint": path,
+            "status": status,
+            "pass": pass_test,
+            "elapsed_ms": elapsed
+        }
+        if check_paginator:
+            entry["paginator"] = pass_test
+            if paginator_records is not None:
+                entry["records_page"] = paginator_records
+
+        self.results.append(entry)
         return pass_test
 
     def run_all(self):
         print("=" * 60)
-        print(f"HIMOTO Fleet Dashboard — Staging API Verification")
+        print("HIMOTO Fleet Dashboard — Staging API Verification")
         print(f"Target: {self.base_url}")
         print("=" * 60)
 
@@ -139,6 +184,7 @@ class StagingClient:
         if not self.login():
             print("\n[ERROR] Cannot proceed with authenticated tests without login.")
             self.print_summary()
+            self.save_results()
             return False
 
         self.verify_token()
@@ -154,6 +200,7 @@ class StagingClient:
         self.check_endpoint("Dashboard Report", "/api/auth/dashboard/report")
 
         self.print_summary()
+        self.save_results()
         return all(r.get("pass", False) for r in self.results)
 
     def print_summary(self):
@@ -173,15 +220,46 @@ class StagingClient:
             print("SOME CHECKS FAILED. Please review above logs.")
         print("=" * 60)
 
+    def save_results(self):
+        all_passed = all(r.get("pass", False) for r in self.results)
+        payload = {
+            "target": self.base_url,
+            "executed_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "auth_user": self.email,
+            "summary": {
+                "all_passed": all_passed,
+                "total_checks": len(self.results),
+                "passed_checks": sum(1 for r in self.results if r.get("pass")),
+                "failed_checks": sum(1 for r in self.results if not r.get("pass"))
+            },
+            "results": self.results
+        }
+        try:
+            out_p = Path(self.output_file)
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            out_p.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"\n[Artifact Saved] Test results written to: {out_p}")
+        except Exception as err:
+            print(f"[Warning] Could not save results to file: {err}")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Test HIMOTO staging API endpoints.")
-    parser.add_argument("--base-url", default=os.environ.get("STAGING_API_URL", "http://localhost:8000"), help="Backend URL (e.g. https://himoto-api.onrender.com)")
-    parser.add_argument("--email", default=os.environ.get("STAGING_ADMIN_EMAIL", "admin@himoto.vn"), help="Admin user email")
-    parser.add_argument("--password", default=os.environ.get("STAGING_ADMIN_PASSWORD", "secret"), help="Admin user password")
+    parser.add_argument("--base-url", default=os.environ.get("STAGING_API_URL", "https://himoto-api.onrender.com"), help="Backend URL")
+    parser.add_argument("--email", default=os.environ.get("STAGING_ADMIN_EMAIL", "vubathuc@gmail.com"), help="Admin user email")
+    parser.add_argument("--password", default=os.environ.get("STAGING_ADMIN_PASSWORD"), help="Admin user password")
+    parser.add_argument("--output", default=None, help="Path to save JSON test results")
     args = parser.parse_args()
 
-    client = StagingClient(args.base_url, args.email, args.password)
+    password = args.password
+    if not password:
+        if sys.stdin.isatty():
+            password = getpass.getpass("Enter admin password: ")
+        else:
+            print("ERROR: Password required via --password argument or STAGING_ADMIN_PASSWORD environment variable.")
+            sys.exit(1)
+
+    client = StagingClient(args.base_url, args.email, password, output_file=args.output)
     success = client.run_all()
     sys.exit(0 if success else 1)
 

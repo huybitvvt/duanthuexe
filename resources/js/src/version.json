@@ -1,0 +1,14 @@
+{
+  "name": "himoto-fleet-dashboard",
+  "version": "1.1.0",
+  "commit": "284abfafdd018665f15172b0952d61e01a06cfdf",
+  "short_commit": "284abfa",
+  "branch": "feature/himoto-complete-integration",
+  "build_time": "2026-09-14T12:10:00+07:00",
+  "environment": "production-ready",
+  "framework": {
+    "frontend": "Vue 2.6.14 + Vuex + Vue Router",
+    "backend": "Laravel 5.8 + PHP 7.4.33",
+    "database": "PostgreSQL (Supabase)"
+  }
+}
