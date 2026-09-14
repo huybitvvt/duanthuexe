@@ -185,6 +185,23 @@
                             </div>
                         </div>
                     </div>
+                    <div class="row mt-4 mb-2">
+                        <div class="col-md-12">
+                            <h6 class="font-weight-bold text-primary">Xác nhận bàn giao & trả xe (Theo mẫu hợp đồng Himoto)</h6>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label><strong>Đại diện Bên A nhận xe</strong></label>
+                            <el-input placeholder="Tên nhân viên nhận xe" v-model="return_signer_a_name"></el-input>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label><strong>Đại diện Bên B trả xe</strong></label>
+                            <el-input placeholder="Họ tên người trả xe" v-model="return_signer_b_name"></el-input>
+                        </div>
+                        <div class="col-md-12 form-group">
+                            <label><strong>Ghi chú tình trạng xe lúc trả</strong></label>
+                            <el-input type="textarea" :rows="2" placeholder="Tình trạng xe, xăng xe, vết xước, phụ kiện..." v-model="return_additional_note"></el-input>
+                        </div>
+                    </div>
                     <div class="row d-flex justify-content-end">
                         <el-button native-type="button" class="btn-hoan-thanh-order"
                             style="color: #fff; background: #8950FC" @click="completeOrder" :loading="loadingComplete" :disabled="loadingCalc">
@@ -266,6 +283,10 @@ export default {
 
 			custom_refund_amount: 0,
 			editing_custom_refund: false,
+
+            return_signer_a_name: "",
+            return_signer_b_name: "",
+            return_additional_note: "",
         };
     },
     watch: {
@@ -429,7 +450,11 @@ export default {
                 if (result.isConfirmed) {
 					this.dialogVisible = !this.dialogVisible;
 					this.calcReturnEarlyAmount();
-					
+					if (this.order) {
+						this.return_signer_a_name = this.order.return_signer_a_name || this.order.contract_signer_a_name || "";
+						this.return_signer_b_name = this.order.return_signer_b_name || this.order.contract_signer_b_name || this.order.customer?.name || "";
+						this.return_additional_note = this.order.return_additional_note || "";
+					}
 				}
 			});
 		},
@@ -456,6 +481,9 @@ export default {
 				total_refund_amount: this.tempDebt, // Default refund amount.
 				editing_custom_refund: this.editing_custom_refund, // Is using custom refund amount.
 				custom_refund_amount: this.custom_refund_amount, // Custom refund amount enter by staff.
+				return_signer_a_name: this.return_signer_a_name,
+				return_signer_b_name: this.return_signer_b_name,
+				return_additional_note: this.return_additional_note,
 			};
 			
             this.$store.dispatch(COMPLETE_ORDER, payload)

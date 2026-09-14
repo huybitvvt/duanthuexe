@@ -28,6 +28,9 @@ use App\Models\Cash;
 use App\Helpers\DateTimeHelper;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use App\Http\Services\ContractNumberService;
 
 class OrderService
 {
@@ -73,10 +76,18 @@ class OrderService
             $this->updateLeads($request->get('leads'),$order->id);
         }
 		$this->saveOrderLog($request, $order, true);
+        $this->maybeGenerateContractSnapshot($order);
+        return $order;
     }
 
     public function update(Request $request , Order $order )
     {
+        // Concurrency protection: lock the order row in database
+        $order = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
+        if (data_get($order->contract_snapshot, 'is_locked')) {
+            throw ValidationException::withMessages(['contract' => 'Hợp đồng đã chốt. Không thể ghi đè thông tin đã ký; các thao tác trả xe và gia hạn vẫn dùng luồng riêng.']);
+        }
+
         $customer = $this->storeOrUpdateCustomer($request, $order);
 
         $this->updateOrCreateOrder($request, $order, null);
@@ -85,8 +96,10 @@ class OrderService
         
         $this->updateTransactions($request, $order);
         $transaction_ids_to_destroy = $request->get('transaction_ids_to_destroy');
-        foreach ($transaction_ids_to_destroy as $id){
-            $deleted = Transaction::destroy($id);        
+        if (is_array($transaction_ids_to_destroy)) {
+            foreach ($transaction_ids_to_destroy as $id){
+                $deleted = Transaction::destroy($id);        
+            }
         }
         
 		$this->updateVehicles($request, $order);
@@ -96,6 +109,16 @@ class OrderService
         if ($request->has('leads') && isset($request->leads)){
             $this->updateLeads($request->get('leads'),$order->id);
         }
+
+        $this->maybeGenerateContractSnapshot($order);
+        if ($request->get('lock_contract') || $request->get('is_locked')) {
+            $order->refresh();
+            $snapshot = $order->contract_snapshot ?: [];
+            $snapshot['is_locked'] = true;
+            $order->contract_snapshot = $snapshot;
+            $order->save();
+        }
+        return $order;
     }
 	private function maybeUpdateOdometer( $request ) {
 		$request_items = $request->get('order_items');
@@ -147,6 +170,31 @@ class OrderService
 			'note_payment' => $request->get('note_item'),
 		];
 
+		// Bổ sung các trường thông tin hợp đồng từ request
+		$contractFields = [
+			'contract_signed_on',
+			'contract_responsible_user_id',
+			'contract_authorization_date',
+			'contract_authorization_party_name',
+			'contract_collateral_description',
+			'contract_signer_a_name',
+			'contract_signer_b_name',
+			'return_signer_a_name',
+			'return_signer_b_name',
+			'return_additional_note',
+		];
+
+		foreach ($contractFields as $field) {
+			if ($request->has($field)) {
+				$val = $request->get($field);
+				if (in_array($field, ['contract_signed_on', 'contract_authorization_date']) && $val) {
+					$dataOrder[$field] = DateTimeHelper::parse($val);
+				} else {
+					$dataOrder[$field] = $val;
+				}
+			}
+		}
+
 		// If $order is null, create a new order; otherwise, update the existing order
 		if ($order === null) {
 			$created_at = DateTimeHelper::parse($request->get('created_at'));
@@ -155,7 +203,18 @@ class OrderService
 			$dataOrder['order_type'] = OrderValidator::ORDER_TYPE_RENTING;
 			$dataOrder['order_status'] = OrderValidator::ORDER_RENTING;
 			$dataOrder['data_version'] = 2;
-			$dataOrder['created_at'] = $created_at;
+			$dataOrder['return_adjustment_applied'] = 0;
+			$dataOrder['created_at'] = $created_at ?: Carbon::now('Asia/Ho_Chi_Minh');
+
+			if (empty($dataOrder['contract_signed_on'])) {
+				$dataOrder['contract_signed_on'] = $dataOrder['created_at'] ? Carbon::parse($dataOrder['created_at'])->toDateString() : Carbon::now('Asia/Ho_Chi_Minh')->toDateString();
+			}
+			if (empty($dataOrder['contract_responsible_user_id'])) {
+				$dataOrder['contract_responsible_user_id'] = Auth::id();
+			}
+			if (empty($dataOrder['contract_signer_b_name'])) {
+				$dataOrder['contract_signer_b_name'] = $customer ? $customer->name : $request->get('customer_name');
+			}
 
 			$get_contract_type = $request->get('contract_type');
 			$contract_type = 1;
@@ -167,42 +226,50 @@ class OrderService
 				$dataOrder['deposit_contract_created_at'] = DateTimeHelper::now();
 				$dataOrder['total'] = 0;
 				$dataOrder['pid'] = 0;
+				$dataOrder['contract_number'] = null;
+			} else {
+				// Sinh số HĐ dạng YYYY/MM/DD-0001
+				$dataOrder['contract_number'] = ContractNumberService::generate($dataOrder['contract_signed_on']);
+				$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
 			}
 
 			return $this->orderRepository->store($dataOrder);
 		} else { // update existing order
 			$additional_deposit_amount = $request->get('additional_deposit_amount');
-			// $dataOrder['order_status'] = OrderValidator::ORDER_RENTING; -- Remove because this will update complete order to renting
 
-			// first_deposit_amount
-		
 			if ($request->get('order_status') == 'bad_debt'){ 
-				// if order is marked as bad_debt, change status to bad_debt
-			
 				$dataOrder['order_status'] = OrderValidator::ORDER_BAD_DEBT;
 				$dataOrder['out_dated_at'] = 0;
 				$dataOrder['total'] =  $this->calTotalWithNoOutdate($order);
 			} 
 
-			// Add this case to transactions table
-			// if (is_numeric( $additional_deposit_amount ) && $additional_deposit_amount > 0) {
-			// 	$dataOrder['pid'] = $order->pid + $additional_deposit_amount;
-			// }
-
-			if ($request->get('editing_order_created_at')) { // Allow change created_at for this order before update type from deposit_contract to normal order in (Mock: Data 02)
+			if ($request->get('editing_order_created_at')) { 
 				$created_at = DateTimeHelper::parse($request->get('created_at'));
 				if ($created_at) {
 					$dataOrder['created_at'] = $created_at;
 				}
 			}
 
-			if ($request->get('order_status') == 'deposit_contract' && $request->get('start_this_contract')) { // Mock: Data 02
+			if ($request->get('order_status') == 'deposit_contract' && $request->get('start_this_contract')) { 
 				$dataOrder['created_at'] = DateTimeHelper::now();
 				$dataOrder['updated_at'] = DateTimeHelper::now();
-				$dataOrder['order_status'] = OrderValidator::ORDER_RENTING; // Start contract so change this order status to ORDER_RENTING
+				$dataOrder['order_status'] = OrderValidator::ORDER_RENTING;
+
+				// Kích hoạt hợp đồng cọc -> cấp Số HĐ nếu chưa có
+				if (empty($order->contract_number)) {
+					$signDate = $request->get('contract_signed_on') ? DateTimeHelper::parse($request->get('contract_signed_on')) : Carbon::now('Asia/Ho_Chi_Minh');
+					$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+					$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
+				}
+			} elseif (empty($order->contract_number) && $order->order_status !== OrderValidator::ORDER_DEPOSIT_CONTRACT) {
+				// Đơn thuê cũ chưa có số -> cấp số dựa trên ngày ký hoặc ngày tạo
+				$signDate = $order->contract_signed_on ?: ($order->created_at ?: Carbon::now('Asia/Ho_Chi_Minh'));
+				$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+				$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
 			}
 
-			$res = $order->update($dataOrder);
+			$order->update($dataOrder);
+			return $order;
 		}
 	}
 	protected function updateTransactions(Request $request, Order $order)
@@ -451,11 +518,15 @@ class OrderService
 				'rent_at' => DateTimeHelper::parse($order_item['rent_at']),
 				'return_at' => DateTimeHelper::parse($order_item['return_at']),
 				'total_money' => $total_money,
-				'borrow_hats' => $order_item['borrow_hats'],
+				'borrow_hats' => data_get($order_item, 'borrow_hats', 0),
 				'type' => $order_item['type'] ?? 'total',
 				'handler_price' => $order_item['handler_price'] ?? 0,
 				'substitute_unit_price' => $order_item['substitute_unit_price'],
 				'hiring_fee' => $hiring_fee,
+				'driver_name' => data_get($order_item, 'driver_name') ?: $request->get('customer_name'),
+				'driver_license_number' => data_get($order_item, 'driver_license_number'),
+				'driver_license_issued_on' => data_get($order_item, 'driver_license_issued_on') ? DateTimeHelper::parse($order_item['driver_license_issued_on']) : null,
+				'borrow_raincoats' => (int) data_get($order_item, 'borrow_raincoats', 0),
 			];
 
 			if ( isset( $order_item['odometer_before'] ) && is_numeric( $order_item['odometer_before'] ) ) {
@@ -494,6 +565,19 @@ class OrderService
 			'warning' => $warning,
 			'status' => $warning ? Customer::STATUS_WARNING : Customer::STATUS_ACTIVE,
 		];
+
+		$issuedOn = $request->get('id_card_issued_on') ?: $request->get('customer_id_card_issued_on');
+		if ($issuedOn !== null || $request->has('id_card_issued_on') || $request->has('customer_id_card_issued_on')) {
+			$dataCustomer['id_card_issued_on'] = $issuedOn ? DateTimeHelper::parse($issuedOn) : null;
+		}
+		$issuedBy = $request->get('id_card_issued_by') ?: $request->get('customer_id_card_issued_by');
+		if ($issuedBy !== null || $request->has('id_card_issued_by') || $request->has('customer_id_card_issued_by')) {
+			$dataCustomer['id_card_issued_by'] = $issuedBy;
+		}
+		if ($request->has('relatives') || $request->has('customer_relatives')) {
+			$relatives = $request->get('relatives') ?: $request->get('customer_relatives');
+			$dataCustomer['relatives'] = is_array($relatives) ? $relatives : (is_string($relatives) ? json_decode($relatives, true) : []);
+		}
 	
 		if ($order) {
 			$order->customer()->update($dataCustomer);
@@ -508,6 +592,244 @@ class OrderService
 		}
 	
 		return $customer;
+	}
+
+	public function maybeGenerateContractSnapshot(Order $order, bool $force = false)
+	{
+		// Cố định hợp đồng: Không ghi đè snapshot đã hoàn thành/chốt (ORDER_COMPLETED, ORDER_UNPAID) hoặc đã khóa
+		$isClosed = in_array($order->order_status, [OrderValidator::ORDER_COMPLETED, OrderValidator::ORDER_UNPAID]);
+		$isLocked = !empty($order->contract_snapshot['is_locked']) || $isClosed;
+		if (!$force && $isLocked && !empty($order->contract_snapshot)) {
+			return $order->contract_snapshot;
+		}
+
+		// Không tạo snapshot cho đơn cọc thuần túy chưa lấy xe
+		if ($order->order_status === OrderValidator::ORDER_DEPOSIT_CONTRACT) {
+			return null;
+		}
+
+		$order->refresh();
+		$order->load(['customer', 'store', 'orderItems.vehicle', 'responsibleUser', 'transactions']);
+
+		// Thông tin mặc định Bên A (Đơn vị cho thuê)
+		$companyName = config('contract.company_name', 'CÔNG TY CP THƯƠNG MẠI DỊCH VỤ HIMOTO VIỆT NAM');
+		$taxCode = config('contract.tax_code', '0110863055');
+		$headOffice = config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN');
+		$repName = config('contract.representative_name', 'Bà Nguyễn Thu Thủy');
+		$repTitle = config('contract.representative_title', 'Giám đốc');
+
+		$store = $order->store;
+		$customer = $order->customer;
+
+		$existingSnapshot = is_array($order->contract_snapshot) ? $order->contract_snapshot : [];
+		$contractNumber = !empty($existingSnapshot['contract_number'])
+			? $existingSnapshot['contract_number']
+			: $order->contract_number;
+
+		$issuedAt = !empty($existingSnapshot['issued_at'])
+			? $existingSnapshot['issued_at']
+			: ($order->contract_issued_at ? Carbon::parse($order->contract_issued_at)->format('Y-m-d H:i:s') : null);
+
+		$itemsSnapshot = [];
+		$totalHats = 0;
+		$totalRaincoats = 0;
+
+		foreach ($order->orderItems as $item) {
+			$vehicle = $item->vehicle;
+			$totalHats += (int) $item->borrow_hats;
+			$totalRaincoats += (int) $item->borrow_raincoats;
+
+			$isPackage = ($item->type === 'total' || !empty($item->is_all_in_one) || (float) $item->handler_price > 0);
+			$pricingMode = $isPackage ? 'package' : 'day';
+			$pricingUnit = $isPackage ? 'gói' : 'ngày';
+
+			$unitPrice = 0;
+			if ($isPackage) {
+				if ($item->handler_price > 0) {
+					$unitPrice = (float) $item->handler_price;
+				} elseif ($item->substitute_unit_price > 0) {
+					$unitPrice = (float) $item->substitute_unit_price;
+				} else {
+					$unitPrice = (float) ($item->hiring_fee ?: $item->total_money);
+				}
+			} else {
+				if ($item->substitute_unit_price > 0) {
+					$unitPrice = (float) $item->substitute_unit_price;
+				} else {
+					$catalogPrice = 0;
+					try {
+						$catalogPrice = (float) CarRentalHelper::getUnitPrice($item);
+					} catch (\Throwable $e) {
+						$catalogPrice = 0;
+					}
+
+					if ($catalogPrice > 0) {
+						$unitPrice = $catalogPrice;
+					} elseif ($item->rent_at && $item->return_at) {
+						$rentAt = Carbon::parse($item->rent_at);
+						$returnAt = Carbon::parse($item->return_at);
+						$diffHours = $rentAt->diffInHours($returnAt);
+						$days = max(1, round($diffHours / 24));
+						$totalMoney = (float) ($item->hiring_fee ?: $item->total_money);
+						$unitPrice = $days > 0 ? round($totalMoney / $days, 2) : $totalMoney;
+					} else {
+						$unitPrice = (float) ($item->hiring_fee ?: $item->total_money);
+					}
+				}
+			}
+
+			$itemsSnapshot[] = [
+				'order_item_id' => $item->id,
+				'vehicle_id' => $item->vehicle_id,
+				'vehicle_name' => $vehicle ? $vehicle->name : '',
+				'license' => $vehicle ? $vehicle->license : '',
+				'brand' => $vehicle ? $vehicle->brand : '',
+				'type' => $vehicle ? $vehicle->type : '',
+				'color' => $vehicle ? $vehicle->color : '',
+				'year' => $vehicle ? $vehicle->year : '',
+				'driver_name' => $item->driver_name ?: ($customer ? $customer->name : ''),
+				'driver_license_number' => $item->driver_license_number,
+				'driver_license_issued_on' => $item->driver_license_issued_on ? Carbon::parse($item->driver_license_issued_on)->format('Y-m-d') : null,
+				'borrow_hats' => (int) $item->borrow_hats,
+				'borrow_raincoats' => (int) $item->borrow_raincoats,
+				'rent_at' => $item->rent_at ? Carbon::parse($item->rent_at)->format('Y-m-d H:i:s') : '',
+				'return_at' => $item->return_at ? Carbon::parse($item->return_at)->format('Y-m-d H:i:s') : '',
+				'pricing_mode' => $pricingMode,
+				'pricing_unit' => $pricingUnit,
+				'unit_price' => $unitPrice,
+				'handler_price' => (float) $item->handler_price,
+				'substitute_unit_price' => (float) $item->substitute_unit_price,
+				'hiring_fee' => (float) ($item->hiring_fee ?: $item->total_money),
+				'total_money' => (float) $item->total_money,
+			];
+		}
+
+		$returnConfirmation = !empty($existingSnapshot['return_confirmation']) ? $existingSnapshot['return_confirmation'] : [
+			'signer_a_name' => $order->return_signer_a_name,
+			'signer_b_name' => $order->return_signer_b_name,
+			'additional_note' => $order->return_additional_note,
+			'completed_at' => $order->completed_at ? Carbon::parse($order->completed_at)->format('d/m/Y H:i:s') : null,
+		];
+		if ($order->return_signer_a_name !== null) {
+			$returnConfirmation['signer_a_name'] = $order->return_signer_a_name;
+		}
+		if ($order->return_signer_b_name !== null) {
+			$returnConfirmation['signer_b_name'] = $order->return_signer_b_name;
+		}
+		if ($order->return_additional_note !== null) {
+			$returnConfirmation['additional_note'] = $order->return_additional_note;
+		}
+		if ($order->completed_at) {
+			$returnConfirmation['completed_at'] = Carbon::parse($order->completed_at)->format('d/m/Y H:i:s');
+		}
+
+		$snapshot = [
+			'is_locked' => !empty($existingSnapshot['is_locked']) || $isClosed,
+			'contract_number' => $contractNumber,
+			'issued_at' => $issuedAt,
+			'signed_on' => $order->contract_signed_on ? Carbon::parse($order->contract_signed_on)->format('Y-m-d') : Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d'),
+			'responsible_user' => [
+				'id' => $order->contract_responsible_user_id,
+				'name' => $order->responsibleUser ? $order->responsibleUser->name : (Auth::user() ? Auth::user()->name : ''),
+			],
+			'authorization' => [
+				'date' => $order->contract_authorization_date ? Carbon::parse($order->contract_authorization_date)->format('Y-m-d') : null,
+				'party_name' => $order->contract_authorization_party_name,
+			],
+			'lessor' => [
+				'company_name' => $companyName,
+				'tax_code' => $taxCode,
+				'head_office_address' => $headOffice,
+				'representative_name' => $repName,
+				'representative_title' => $repTitle,
+				'branch_name' => $store ? $store->store_name : '',
+				'branch_address' => $store ? $store->store_address : '',
+				'contact_phone' => $store ? $store->store_phone : '',
+			],
+			'customer' => [
+				'name' => $customer ? $customer->name : '',
+				'phone' => $customer ? $customer->phone : '',
+				'address' => $customer ? $customer->address : '',
+				'id_card' => $customer ? $customer->id_card : '',
+				'id_card_issued_on' => $customer && $customer->id_card_issued_on ? Carbon::parse($customer->id_card_issued_on)->format('Y-m-d') : null,
+				'id_card_issued_by' => $customer ? $customer->id_card_issued_by : '',
+				'relatives' => $customer && is_array($customer->relatives) ? $customer->relatives : [],
+			],
+			'vehicles' => $itemsSnapshot,
+			'accessories' => [
+				'total_hats' => $totalHats,
+				'total_raincoats' => $totalRaincoats,
+			],
+			'payment' => [
+				'rental_fees' => (float) ($order->total_rental_fees ?: $order->total),
+				'deposit_amount' => (float) $order->first_deposit_amount,
+				'additional_deposit_amount' => (float) $order->additional_deposit_amount,
+				'total_deposit' => (float) ($order->first_deposit_amount + $order->additional_deposit_amount),
+				'collateral_description' => $order->contract_collateral_description,
+				'transactions_summary' => $order->transactions ? $order->transactions->map(function ($t) {
+					return [
+						'id' => $t->id,
+						'name' => $t->name,
+						'type' => $t->type,
+						'value' => (float) $t->value,
+						'payment_method' => $t->payment_method,
+						'created_at' => $t->created_at ? Carbon::parse($t->created_at)->format('Y-m-d H:i:s') : '',
+					];
+				})->toArray() : [],
+			],
+			'signers' => [
+				'signer_a_name' => $order->contract_signer_a_name ?: $repName,
+				'signer_b_name' => $order->contract_signer_b_name ?: ($customer ? $customer->name : ''),
+			],
+			'return_confirmation' => $returnConfirmation,
+		];
+
+		$order->contract_snapshot = $snapshot;
+		$order->save();
+		return $snapshot;
+	}
+
+	public function updateReturnConfirmationInSnapshot(Order $order)
+	{
+		$order->refresh();
+		if (empty($order->contract_snapshot)) {
+			$this->maybeGenerateContractSnapshot($order);
+			return;
+		}
+
+		$snapshot = $order->contract_snapshot;
+		$snapshot['return_confirmation'] = [
+			'signer_a_name' => $order->return_signer_a_name,
+			'signer_b_name' => $order->return_signer_b_name,
+			'additional_note' => $order->return_additional_note,
+			'completed_at' => $order->completed_at ? Carbon::parse($order->completed_at)->format('d/m/Y H:i:s') : Carbon::now('Asia/Ho_Chi_Minh')->format('d/m/Y H:i:s'),
+		];
+		$snapshot['is_locked'] = true;
+		$order->contract_snapshot = $snapshot;
+		$order->save();
+	}
+
+	public function lockContract(Order $order)
+	{
+		return DB::transaction(function () use ($order) {
+			$order = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
+			if (empty($order->contract_number)) {
+				$signDate = $order->contract_signed_on ?: Carbon::now('Asia/Ho_Chi_Minh');
+				$order->contract_number = ContractNumberService::generateForOrder($order, $signDate);
+				$order->contract_issued_at = Carbon::now('Asia/Ho_Chi_Minh');
+				$order->save();
+			}
+			$snapshot = $order->contract_snapshot;
+			if (empty($snapshot)) {
+				$snapshot = $this->maybeGenerateContractSnapshot($order);
+			}
+			if (is_array($snapshot)) {
+				$snapshot['is_locked'] = true;
+				$order->contract_snapshot = $snapshot;
+				$order->save();
+			}
+			return $order;
+		});
 	}
 
 	public function maybeCreateOrderRentalFee($request, $order, $is_updating_old_record = false) {
@@ -853,23 +1175,29 @@ class OrderService
 
     public function updateFee($request,$order ){
         $order_items = $request->get('order_items');
+        if (!is_array($order_items)) {
+            return;
+        }
         foreach ($order_items as $key => $order_item) {
+            if (empty($order_item['order_item_fees']) || !is_array($order_item['order_item_fees'])) {
+                continue;
+            }
             foreach ($order_item['order_item_fees'] as $key2=>$fee) {
                 $result = $this->transactionService->processPaymentMethod($request->get('other_fee_payment_method'), $request->get('other_fee_bank_id'),$request->store_id);
-                $transaction_id = $fee['id'];
+                $transaction_id = $fee['id'] ?? null;
                 $data = [
-                    'name'=>$fee['name'],
-                    'note'=>$fee['note'],
-                    'value'=> $fee['value'],
+                    'name'=>$fee['name'] ?? '',
+                    'note'=>$fee['note'] ?? '',
+                    'value'=> $fee['value'] ?? 0,
                     'order_id'=>$order['id'],
                     'type' => 'in',
                     'status' => 'approved',
                     'store_id' => $request->get('store_id'),
                     'user_id' =>Auth::id(),
                     'object_id' => 0,
-                    'order_item_id' => $order_item['id'],
-                    'bank_id' =>    $result['bank_id'],
-                    'cash_id' => $result['cash_id'],
+                    'order_item_id' => $order_item['id'] ?? null,
+                    'bank_id' =>    $result['bank_id'] ?? null,
+                    'cash_id' => $result['cash_id'] ?? null,
                     'payment_method' => $request->get('other_fee_payment_method')
                 ];
                 if ( $transaction_id){
@@ -895,70 +1223,86 @@ class OrderService
 
     public function complete(Request $request, Order $order)
     {   
+        $order = Order::where('id', $order->id)->lockForUpdate()->firstOrFail();
+        if ($order->order_status === OrderValidator::ORDER_COMPLETED) return;
         $this->updateFee( $request, $order );
-		// $completed_at = Carbon::createFromFormat('d-m-Y H:i:s', $request->get('completed_at'));
-		$completed_at = DateTimeHelper::parse($request->get('completed_at'));
+
+        $completed_at_raw = $request->get('completed_at');
+        $completed_at = null;
+        if (!empty($completed_at_raw)) {
+            try {
+                $completed_at = DateTimeHelper::parse($completed_at_raw);
+            } catch (\Throwable $e) {
+                $completed_at = null;
+            }
+        }
+        $actual_return_time = $completed_at ?: DateTimeHelper::now();
 
 		$payment_method = $request->get('refund_payment_method');
 		$bank_transfer_amount = $request->get('bank_transfer_amount');
 		$cash_amount = $request->get('cash_amount');
 
-		/*	
-        $order->orderItems->each(function ($orderItem) use ($completed_at) {
-            $orderItem->completed_at = $completed_at;
-            $orderItem->save(); 
-        }); */
-
 		$outdate_or_early_amount = 0;
 		$items = $request->get('order_items');
-		foreach ($items as $item){
-			$order_vehicle_detail = OrderVehicleDetail::find($item['id']);
-			$item_data = [
-				'completed_at'    => $completed_at,
-				'money_out_date'  => $item['money_out_date'],
-				'minute_out_date' => $item['minute_out_date'],
-			];
+		if (is_array($items)) {
+			foreach ($items as $item){
+				$order_vehicle_detail = OrderVehicleDetail::find($item['id']);
+				if ($order_vehicle_detail) {
+					$item_data = [
+						'completed_at'    => $actual_return_time,
+						'money_out_date'  => $item['money_out_date'] ?? 0,
+						'minute_out_date' => $item['minute_out_date'] ?? 0,
+					];
 
-			if ( isset( $item['odometer_after'] ) && is_numeric( $item['odometer_after'] ) ) {
-				$item_data['odometer_after'] = intval( $item['odometer_after'] );
+					if ( isset( $item['odometer_after'] ) && is_numeric( $item['odometer_after'] ) ) {
+						$item_data['odometer_after'] = intval( $item['odometer_after'] );
+					}
+
+					$order_vehicle_detail->update($item_data);
+				}
+				$outdate_or_early_amount = $outdate_or_early_amount + ($item['money_out_date'] ?? 0);
 			}
-
-			$updated = $order_vehicle_detail->update($item_data);
-			$outdate_or_early_amount = $outdate_or_early_amount + $item['money_out_date'];
 		}
         
-		// Tính tiền quá hạn và total
-		/* Pause because these action are called before process complete action.
-		CarRentalHelper::writeMoneyOutDateAndTotal($order);
-		CarRentalHelper::whenOrderReturnEarly($order);
-		*/
-        
-        // Chỉ Hoàn Thành mà k thanh toán thì return luôn:
-        $order_paid = $request->isPaid ;
-        if (!$order_paid){
-            $order->update([
-                'order_status' => OrderValidator::ORDER_UNPAID,
-            ]);
-            return;
-        }
-
 		$using_custom_refund = $request->get('editing_custom_refund');
 		$total_refund_amount = $request->get('total_refund_amount');
+		$total_refund_amount = is_numeric($total_refund_amount) ? (float) $total_refund_amount : 0.0;
+		$order_paid = $request->has('isPaid') ? filter_var($request->get('isPaid'), FILTER_VALIDATE_BOOLEAN) : true;
+
+		$previous_outdate_or_early = (float) ($order->return_adjustment_applied ?? 0);
+		$adjustment_delta = (float) $outdate_or_early_amount - $previous_outdate_or_early;
+		$new_total = (float) $order->total + $adjustment_delta;
 
 		$update_order_row = [
-            'order_status' => OrderValidator::ORDER_COMPLETED,
+			'order_status' => $order_paid ? OrderValidator::ORDER_COMPLETED : OrderValidator::ORDER_UNPAID,
 			'outdate_or_early_amount' => $outdate_or_early_amount,
-			'total' => $order->total + $outdate_or_early_amount,
-			'completed_at' => DateTimeHelper::now(),
+			'total' => $new_total,
+            'return_adjustment_applied' => $outdate_or_early_amount,
+			'completed_at' => $actual_return_time,
 			'default_refund_amount' => $total_refund_amount,
-        ];
+		];
         
 		if ( $using_custom_refund ) {
 			$custom_refund_amount = $request->get('custom_refund_amount');
+			$custom_refund_amount = is_numeric($custom_refund_amount) ? (float) $custom_refund_amount : 0.0;
 			$update_order_row['custom_refund_amount'] = $custom_refund_amount;
 			$total_refund_amount = $custom_refund_amount;
 		}
+		if ($request->has('return_signer_a_name')) {
+			$update_order_row['return_signer_a_name'] = $request->get('return_signer_a_name');
+		}
+		if ($request->has('return_signer_b_name')) {
+			$update_order_row['return_signer_b_name'] = $request->get('return_signer_b_name');
+		}
+		if ($request->has('return_additional_note')) {
+			$update_order_row['return_additional_note'] = $request->get('return_additional_note');
+		}
 		$order->update($update_order_row);
+		$this->updateReturnConfirmationInSnapshot($order->fresh());
+
+		if ( ! $order_paid ) {
+			return;
+		}
         
         // tính tổng số tiền trả sớm (hoặc muộn) của tất cả order items:
 		/*		

@@ -117,24 +117,43 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
             
         }
         if (isset($params['keyword'])) {
-            $keyword = $params['keyword'];
-            $query->where(function($query) use ($keyword) {
-                $query->where('orders.id', is_numeric( $keyword ) ? intval( $keyword ) : substr($keyword, 1))
-                    ->orWhereHas('customer', function ($query) use ($keyword) {
-                        $query->where('name', 'LIKE', '%' . $keyword . '%')
-                            ->orWhere('phone', 'LIKE', '%' . $keyword . '%');
-                    })
-                    ->orWhereHas('orderItems', function ($items) use ($keyword) {
-                        $items->whereHas('vehicle', function ($vehicle) use ($keyword) {
-                            $vehicle->where('license', 'LIKE', '%' . $keyword . '%');
-                        });
-                    });
-            });
+            $this->applyKeywordFilter($query, (string) $params['keyword']);
         }
      
         return $query;
-
     }
+
+    public function applyKeywordFilter($query, string $keyword)
+    {
+        $keyword = trim($keyword);
+        $orderId = null;
+        if (is_numeric($keyword)) {
+            $orderId = intval($keyword);
+        } elseif (preg_match('/^#(\d+)$/', $keyword, $matches)) {
+            $orderId = intval($matches[1]);
+        }
+
+        $query->where(function($query) use ($keyword, $orderId) {
+            if ($orderId !== null) {
+                $query->where('orders.id', $orderId);
+            } else {
+                $query->whereRaw('1=0');
+            }
+            $query->orWhere('orders.contract_number', 'LIKE', '%' . $keyword . '%')
+                ->orWhereHas('customer', function ($query) use ($keyword) {
+                    $query->where('name', 'LIKE', '%' . $keyword . '%')
+                        ->orWhere('phone', 'LIKE', '%' . $keyword . '%');
+                })
+                ->orWhereHas('orderItems', function ($items) use ($keyword) {
+                    $items->whereHas('vehicle', function ($vehicle) use ($keyword) {
+                        $vehicle->where('license', 'LIKE', '%' . $keyword . '%');
+                    });
+                });
+        });
+
+        return $query;
+    }
+
     public function store(array $params)
     {
         return $this->getModel()->newQuery()->create($params);

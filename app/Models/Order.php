@@ -18,6 +18,18 @@ class Order extends Model implements Transformable
     use TransformableTrait, SoftDeletes;
     protected $guarded = [];
 
+    protected $casts = [
+        'contract_snapshot' => 'array',
+        'contract_signed_on' => 'date',
+        'contract_authorization_date' => 'date',
+        'contract_issued_at' => 'datetime',
+    ];
+
+    public function responsibleUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'contract_responsible_user_id', 'id');
+    }
+
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class, 'store_id', 'id');

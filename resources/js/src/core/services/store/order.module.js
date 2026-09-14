@@ -14,6 +14,7 @@ export const START_ORDER = "start_car_rental";
 export const CALC_ORDER_RETURN_EARLY_AMOUNT = "calc_order_return_early_amount";
 export const CALC_ORDER_BEFORE_COMPLETE = "calc_order_before_complete";
 export const CLOSE_DEPOSIT_ORDER = "destroy_deposit_order";
+export const LOCK_ORDER_CONTRACT = "lock_order_contract";
 
 // set
 
@@ -96,6 +97,18 @@ const actions = {
 	[CLOSE_DEPOSIT_ORDER](context, credentials) {
         return new Promise((resolve, reject) => {
             ApiService.post("/api/auth/order/close-deposit-order", credentials)
+                .then(({data}) => {
+                    resolve(data);
+                })
+                .catch(({response}) => {
+                    reject(response);
+                });
+        });
+    },
+
+    [LOCK_ORDER_CONTRACT](context, orderId) {
+        return new Promise((resolve, reject) => {
+            ApiService.post(`/api/auth/order/car-rental/lock-contract/${orderId}`)
                 .then(({data}) => {
                     resolve(data);
                 })

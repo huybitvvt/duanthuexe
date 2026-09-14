@@ -48,7 +48,7 @@
 
                     <div class="row filter-row-2">
                         <div class="col-md-3 ">
-                            <el-input clearable placeholder="#ID, tên, SĐT, biển số" v-model="query.keyword"></el-input>
+                            <el-input clearable placeholder="#ID, Số HĐ, tên, SĐT, biển số" v-model="query.keyword"></el-input>
                         </div>
                         <div class="col-md-3 ">
                             <el-select v-model="query.store_id" filterable clearable placeholder="Cửa hàng"
@@ -159,7 +159,12 @@
                             </thead>
                             <tbody>
                                 <tr v-for="(item, index) in orders" :key="item.id || index">
-                                    <th scope="row">{{ item.id }}</th>
+                                    <th scope="row">
+                                        <div>#{{ item.id }}</div>
+                                        <div v-if="item.contract_number" class="badge badge-light-primary text-primary font-weight-bolder mt-1" style="font-size: 11px;">
+                                            {{ item.contract_number }}
+                                        </div>
+                                    </th>
                                     <td>{{ item.created_at }}</td>
                                     <td style="width: 150px;">
                                         <span>{{ item.customer_name }}<br></span>

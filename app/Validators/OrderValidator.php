@@ -18,32 +18,64 @@ class OrderValidator extends LaravelValidator
     const ORDER_BAD_DEBT = 'bad_debt';
     const ORDER_DEPOSIT_CONTRACT = 'deposit_contract'; // Loại hợp đồng khách đặt cọc để giữ xe.
 
-    public static function store(): array
+    public static function contractRules(): array
     {
         return [
+            'contract_signed_on' => 'nullable|date',
+            'contract_authorization_date' => 'nullable|date',
+            'contract_authorization_party_name' => 'nullable|string|max:191',
+            'contract_collateral_description' => 'nullable|string|max:1000',
+            'contract_signer_a_name' => 'nullable|string|max:191',
+            'contract_signer_b_name' => 'nullable|string|max:191',
+            'customer_id_card_issued_on' => 'nullable|date',
+            'id_card_issued_on' => 'nullable|date',
+            'customer_id_card_issued_by' => 'nullable|string|max:191',
+            'id_card_issued_by' => 'nullable|string|max:191',
+            'relatives' => 'nullable|array|max:2',
+            'relatives.*.name' => 'nullable|string|max:191',
+            'relatives.*.phone' => 'nullable|string|max:30',
+            'relatives.*.relationship' => 'nullable|string|max:100',
+            'order_items' => 'nullable|array',
+            'order_items.*.borrow_raincoats' => 'nullable|integer|min:0',
+            'order_items.*.driver_name' => 'nullable|string|max:191',
+            'order_items.*.driver_license_number' => 'nullable|string|max:50',
+            'order_items.*.driver_license_issued_on' => 'nullable|date',
+        ];
+    }
+
+    public static function store(): array
+    {
+        return array_merge([
             'store_id' => 'required|numeric',
             'total' => 'required|numeric',
             'customer_name' => 'required',
             'customer_id_card' => ['required','numeric'],
-            // 'items' => 'required|array',
-        ];
+        ], self::contractRules());
     }
 
     public static function update(Request $request, Order $order): array
     {
-        return [
+        return array_merge([
             'store_id' => 'required|numeric',
             'total' => 'required|numeric',
             'customer_name' => 'required',
             'customer_id_card' => ['required','numeric', Rule::unique('customers', 'id_card')->ignore($order->customer_id)],
-            // 'items' => 'required|array',
-        ];
+        ], self::contractRules());
     }
 
     public static function deposit(): array
     {
         return [
             'amount' => 'required|numeric',
+        ];
+    }
+
+    public static function complete(): array
+    {
+        return [
+            'return_signer_a_name' => 'nullable|string|max:191',
+            'return_signer_b_name' => 'nullable|string|max:191',
+            'return_additional_note' => 'nullable|string|max:1000',
         ];
     }
 }
