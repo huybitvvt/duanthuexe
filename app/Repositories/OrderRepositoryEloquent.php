@@ -140,6 +140,7 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
                 $query->whereRaw('1=0');
             }
             $query->orWhere('orders.contract_number', 'LIKE', '%' . $keyword . '%')
+                ->orWhere('orders.contract_snapshot->contract_number', 'LIKE', '%' . $keyword . '%')
                 ->orWhereHas('customer', function ($query) use ($keyword) {
                     $query->where('name', 'LIKE', '%' . $keyword . '%')
                         ->orWhere('phone', 'LIKE', '%' . $keyword . '%');

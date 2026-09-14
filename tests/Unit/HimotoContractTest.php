@@ -971,4 +971,46 @@ class HimotoContractTest extends TestCase
         $this->assertNull($legacy->contract_number, 'orders.contract_number must remain null for legacy order');
         $this->assertNull($legacy->contract_snapshot['contract_number'], 'contract_snapshot.contract_number must remain null');
     }
+
+    /**
+     * Test Round 3 - Issue 5 regression: Searching by contract number finds legacy orders
+     * where contract_number column in orders is null but stored in contract_snapshot JSON.
+     * OrderResource also falls back to contract_snapshot.contract_number so column is not empty.
+     */
+    public function testRound3KeywordSearchFindsLegacyOrderWithContractNumberInSnapshot()
+    {
+        foreach (['add_on_orders', 'leads', 'activity_logs'] as $table) {
+            if (!Schema::hasTable($table)) {
+                Schema::create($table, function ($t) {
+                    $t->increments('id');
+                    $t->integer('order_id')->nullable();
+                    $t->timestamps();
+                });
+            }
+        }
+
+        $customer = Customer::create(['name' => 'Khách M', 'id_card' => '001234567777']);
+        $legacyOrder = Order::create([
+            'customer_id' => $customer->id,
+            'order_status' => OrderValidator::ORDER_RENTING,
+            'total' => 350000,
+            'contract_number' => null, // Empty DB column
+            'contract_snapshot' => [
+                'contract_number' => '2026/09/14-9999',
+                'customer' => ['name' => 'Khách M'],
+            ],
+        ]);
+
+        // Search using repository applyKeywordFilter by the contract number in snapshot
+        $query = Order::query();
+        $this->orderRepository->applyKeywordFilter($query, '2026/09/14-9999');
+        $results = $query->get();
+
+        $this->assertTrue($results->contains('id', $legacyOrder->id), 'Search must find legacy order by contract_number inside contract_snapshot');
+
+        // Verify OrderResource maps contract_number from snapshot so frontend column is not empty
+        $resourceData = (new \App\Http\Resources\OrderResource($legacyOrder))->toArray(request());
+        $this->assertEquals('2026/09/14-9999', $resourceData['contract_number'], 'OrderResource must fall back to contract_number in snapshot');
+    }
 }
+

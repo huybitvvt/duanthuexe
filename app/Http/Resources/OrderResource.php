@@ -22,8 +22,8 @@ class OrderResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'contract_number' => $this->contract_number,
-            'contract_issued_at' => $this->contract_issued_at ? Carbon::parse($this->contract_issued_at)->format('d-m-Y H:i:s') : null,
+            'contract_number' => $this->contract_number ?: data_get($this->contract_snapshot, 'contract_number'),
+            'contract_issued_at' => ($this->contract_issued_at ?: data_get($this->contract_snapshot, 'issued_at')) ? Carbon::parse($this->contract_issued_at ?: data_get($this->contract_snapshot, 'issued_at'))->format('d-m-Y H:i:s') : null,
             'contract_signed_on' => $this->contract_signed_on ? Carbon::parse($this->contract_signed_on)->format('d-m-Y') : null,
             'contract_responsible_user_id' => $this->contract_responsible_user_id,
             'contract_authorization_date' => $this->contract_authorization_date ? Carbon::parse($this->contract_authorization_date)->format('d-m-Y') : null,
