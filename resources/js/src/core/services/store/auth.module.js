@@ -54,9 +54,13 @@ const actions = {
                     context.commit(SET_AUTH, data);
                     resolve(data);
                 })
-                .catch(({response}) => {
-                    reject(response);
-                    context.commit(SET_ERROR, response.data.error);
+                .catch((error) => {
+                    const response = error && error.response ? error.response : null;
+                    const errorMsg = response && response.data && response.data.error
+                        ? response.data.error
+                        : (response && response.data && response.data.message ? response.data.message : (error ? error.message : "Network error"));
+                    context.commit(SET_ERROR, errorMsg);
+                    reject(response || error);
                 });
         });
     },

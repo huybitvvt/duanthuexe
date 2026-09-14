@@ -1,376 +1,275 @@
 <template>
-    <div class="d-flex flex-column flex-root">
-        <div
-            class="login login-1 d-flex flex-column flex-lg-row flex-column-fluid bg-white"
-            :class="{
-                'login-signin-on': this.state == 'signin',
-                'login-signup-on': this.state == 'signup',
-                'login-forgot-on': this.state == 'forgot',
-                'login-reset-on': this.state == 'reset',
-            }"
-            id="kt_login"
-            :style="{
-                backgroundImage: `url(${backgroundImage})`,
-                backgroundSize: 'cover',
-            }"
-        >
-            <!--begin::Content-->
-            <div
-                class="login-content flex-row-fluid d-flex flex-column justify-content-center position-relative overflow-hidden p-7 mx-auto"
-            >
-                <div class="d-flex flex-column-fluid flex-center">
-                    <!--begin::Signin-->
-                    <div class="login-form login-signin">
-                        <form
-                            class="form"
-                            novalidate="novalidate"
-                            id="kt_login_signin_form"
-                            style="background: white; border-radius: 10px"
+    <div class="himoto-auth">
+        <!--begin::Main Form Panel-->
+        <div class="himoto-auth-main">
+            <!-- Original HIMOTO logo from the supplied PDF -->
+            <div class="himoto-mobile-header">
+                <img
+                    src="/images/branding/logo-himoto-original.svg"
+                    alt="HIMOTO Logo"
+                    class="himoto-mobile-logo"
+                />
+            </div>
+
+            <!--begin::Signin Form Card-->
+            <div v-if="state === 'signin'" class="himoto-auth-card">
+                <div class="himoto-form-header">
+                    <span class="himoto-form-badge">HỆ THỐNG QUẢN LÝ HIMOTO</span>
+                    <h2 class="himoto-form-title">Đăng nhập</h2>
+                    <p class="himoto-form-desc">Sử dụng tài khoản được cấp để tiếp tục.</p>
+                </div>
+
+                <!-- Global Alert -->
+                <div
+                    v-if="generalError"
+                    class="himoto-alert"
+                    role="alert"
+                    aria-live="assertive"
+                    id="himoto-general-alert"
+                >
+                    <svg class="himoto-alert-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span>{{ generalError }}</span>
+                </div>
+
+                <form @submit.prevent="handleSignin" novalidate id="himoto_login_form">
+                    <!-- Email field -->
+                    <div class="himoto-field-group">
+                        <label for="himoto-login-email" class="himoto-field-label">Email</label>
+                        <div class="himoto-input-wrapper">
+                            <input
+                                id="himoto-login-email"
+                                type="email"
+                                name="email"
+                                ref="emailInput"
+                                class="himoto-input"
+                                :class="{'is-invalid': emailError}"
+                                v-model="form.email"
+                                autocomplete="username"
+                                autocapitalize="none"
+                                spellcheck="false"
+                                placeholder="name@himoto.vn"
+                                :disabled="isSubmitting"
+                                @input="clearEmailError"
+                                :aria-invalid="emailError ? 'true' : 'false'"
+                                :aria-describedby="emailError ? 'himoto-email-error' : null"
+                            />
+                        </div>
+                        <div
+                            v-if="emailError"
+                            class="himoto-field-error"
+                            id="himoto-email-error"
+                            role="alert"
                         >
-                            <div class="ml-8 mr-8 pt-8 pb-8">
-                                <div class="pb-13 pt-lg-0 pt-5">
-                                    <h3
-                                        class="font-weight-bolder text-dark font-size-h4 font-size-h1-lg"
-                                    >
-                                        Đăng nhập
-                                    </h3>
-                                </div>
-                                <div class="form-group">
-                                    <label
-                                        class="font-size-h6 font-weight-bolder text-dark"
-                                        >Email</label
-                                    >
-                                    <div
-                                        id="example-input-group-1"
-                                        label=""
-                                        label-for="example-input-1"
-                                    >
-                                        <input
-                                            class="form-control form-control-solid h-auto py-7 px-6 rounded-lg"
-                                            type="text"
-                                            name="email"
-                                            ref="email"
-                                            v-model="form.email"
-                                        />
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <div
-                                        class="d-flex justify-content-between mt-n5"
-                                    >
-                                        <label
-                                            class="font-size-h6 font-weight-bolder text-dark pt-5"
-                                            >Password</label
-                                        >
-                                        <!--                                        <a-->
-                                        <!--                                            class="text-primary font-size-h6 font-weight-bolder text-hover-primary pt-5"-->
-                                        <!--                                            id="kt_login_forgot"-->
-                                        <!--                                            @click="showForm('forgot')"-->
-                                        <!--                                        >Forgot Password ?</a-->
-                                        <!--                                        >-->
-                                    </div>
-                                    <div
-                                        id="example-input-group-2"
-                                        label=""
-                                        label-for="example-input-2"
-                                    >
-                                        <input
-                                            class="form-control form-control-solid h-auto py-7 px-6 rounded-lg"
-                                            type="password"
-                                            name="password"
-                                            ref="password"
-                                            v-model="form.password"
-                                            autocomplete="off"
-                                        />
-                                    </div>
-                                </div>
-                                <div class="pb-lg-0 pb-5">
-                                    <button
-                                        ref="kt_login_signin_submit"
-                                        class="btn btn-primary font-weight-bolder font-size-h6 px-15 py-4 my-3 mr-3"
-                                    >
-                                        Đăng nhập
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                            <span>{{ emailError }}</span>
+                        </div>
                     </div>
-                    <!--end::Signin-->
-                    <!--begin::Signup-->
-                    <div class="login-form login-signup">
-                        <form
-                            class="form"
-                            novalidate="novalidate"
-                            id="kt_login_signup_form"
-                            style="background: white; border-radius: 10px"
+
+                    <!-- Password field -->
+                    <div class="himoto-field-group">
+                        <label for="himoto-login-password" class="himoto-field-label">Mật khẩu</label>
+                        <div class="himoto-input-wrapper has-toggle">
+                            <input
+                                id="himoto-login-password"
+                                :type="showPassword ? 'text' : 'password'"
+                                name="password"
+                                ref="passwordInput"
+                                class="himoto-input"
+                                :class="{'is-invalid': passwordError}"
+                                v-model="form.password"
+                                autocomplete="current-password"
+                                placeholder="••••••••"
+                                :disabled="isSubmitting"
+                                @input="clearPasswordError"
+                                :aria-invalid="passwordError ? 'true' : 'false'"
+                                :aria-describedby="passwordError ? 'himoto-password-error' : null"
+                            />
+                            <button
+                                type="button"
+                                class="himoto-toggle-pwd"
+                                :aria-label="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+                                :title="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+                                @click="togglePassword"
+                            >
+                                <!-- Eye Icon (when hidden) -->
+                                <svg v-if="!showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <!-- Eye Slash Icon (when visible) -->
+                                <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div
+                            v-if="passwordError"
+                            class="himoto-field-error"
+                            id="himoto-password-error"
+                            role="alert"
                         >
-                            <div class="ml-8 mr-8 pt-8 pb-8">
-                                <div class="pb-13 pt-lg-0 pt-5">
-                                    <h3
-                                        class="font-weight-bolder text-dark font-size-h4 font-size-h1-lg"
-                                    >
-                                        Sign Up
-                                    </h3>
-                                    <p
-                                        class="text-muted font-weight-bold font-size-h4"
-                                    >
-                                        Enter your details to create your
-                                        account
-                                    </p>
-                                </div>
-                                <div class="form-group">
-                                    <input
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        type="text"
-                                        placeholder="Fullname"
-                                        name="fullname"
-                                        ref="fullname"
-                                        autocomplete="off"
-                                        v-model="register.name"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <input
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        id="email"
-                                        placeholder="Email"
-                                        name="email"
-                                        ref="remail"
-                                        autocomplete="off"
-                                        v-model="register.email"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <input
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        type="password"
-                                        placeholder="Password"
-                                        name="password"
-                                        ref="rpassword"
-                                        autocomplete="off"
-                                        v-model="register.password"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <input
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        type="password"
-                                        placeholder="Confirm password"
-                                        name="cpassword"
-                                        ref="cpassword"
-                                        autocomplete="off"
-                                        v-model="register.password_confirmation"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <input
-                                        :disabled="true"
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        type="text"
-                                        placeholder="Referral code"
-                                        autocomplete="off"
-                                        v-model="register.referral_code"
-                                    />
-                                </div>
-                                <div
-                                    class="form-group d-flex flex-wrap pb-lg-0 pb-3"
-                                >
-                                    <button
-                                        ref="kt_login_signup_submit"
-                                        class="btn btn-primary font-weight-bolder font-size-h6 px-8 py-4 my-3 mr-4"
-                                        style="width: 150px"
-                                    >
-                                        Submit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        id="kt_login_signup_cancel"
-                                        class="btn btn-light-primary font-weight-bolder font-size-h6 px-8 py-4 my-3"
-                                        @click="showForm('signin')"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                            </svg>
+                            <span>{{ passwordError }}</span>
+                        </div>
                     </div>
-                    <!--end::Signup-->
-                    <!--begin::Forgot-->
-                    <div class="login-form login-forgot">
-                        <!--begin::Form-->
-                        <form
-                            class="form"
-                            novalidate="novalidate"
-                            id="kt_login_forgot_form"
-                            ref="kt_login_forgot_form"
-                            style="background: white; border-radius: 10px"
-                        >
-                            <div class="ml-8 mr-8 pt-8 pb-8">
-                                <div class="pb-13 pt-lg-0 pt-5">
-                                    <h3
-                                        class="font-weight-bolder text-dark font-size-h4 font-size-h1-lg"
-                                    >
-                                        Forgotten Password ?
-                                    </h3>
-                                    <p
-                                        class="text-muted font-weight-bold font-size-h4"
-                                    >
-                                        Enter your email to reset your password
-                                    </p>
-                                </div>
-                                <div class="form-group">
-                                    <input
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        type="email"
-                                        placeholder="Email"
-                                        name="email"
-                                        autocomplete="off"
-                                        v-model="formForgotPassword.email"
-                                    />
-                                </div>
-                                <div
-                                    class="form-group d-flex flex-wrap pb-lg-0"
-                                >
-                                    <button
-                                        :disabled="is_submit_forgot_password"
-                                        :class="{
-                                            'spinner spinner-light spinner-right':
-                                                is_submit_forgot_password,
-                                        }"
-                                        @click="forgotPassword"
-                                        type="button"
-                                        id="kt_login_forgot_submit"
-                                        class="btn btn-primary font-weight-bolder font-size-h6 px-8 py-4 my-3 mr-4"
-                                    >
-                                        Submit
-                                    </button>
-                                    <button
-                                        type="button"
-                                        id="kt_login_forgot_cancel"
-                                        class="btn btn-light-primary font-weight-bolder font-size-h6 px-8 py-4 my-3"
-                                        @click="showForm('signin')"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                    <!--end::Forgot-->
-                    <!--begin::Reset-->
-                    <div class="login-form login-reset">
-                        <!--begin::Form-->
-                        <form
-                            class="form"
-                            novalidate="novalidate"
-                            id="kt_login_reset_form"
-                            ref="kt_login_reset_form"
-                        >
-                            <div class="pb-13 pt-lg-0 pt-5">
-                                <h3
-                                    class="font-weight-bolder text-dark font-size-h4 font-size-h1-lg"
-                                >
-                                    Reset Password?
-                                </h3>
-                            </div>
-                            <div class="form-group">
-                                <div class="form-group">
-                                    <input
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        placeholder="Email"
-                                        name="email"
-                                        ref="remail"
-                                        autocomplete="off"
-                                        v-model="reset_password.email"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <input
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        type="password"
-                                        placeholder="Password"
-                                        name="password"
-                                        ref="rpassword"
-                                        autocomplete="off"
-                                        v-model="reset_password.password"
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <input
-                                        class="form-control form-control-solid h-auto py-7 px-6 rounded-lg font-size-h6"
-                                        type="text"
-                                        placeholder="Token verify"
-                                        name="token"
-                                        ref="token"
-                                        autocomplete="off"
-                                        v-model="reset_password.token"
-                                    />
-                                </div>
-                            </div>
-                            <div class="form-group d-flex flex-wrap pb-lg-0">
-                                <button
-                                    :disabled="is_submit_forgot_password"
-                                    :class="{
-                                        'spinner spinner-light spinner-right':
-                                            is_submit_forgot_password,
-                                    }"
-                                    @click="resetPassword"
-                                    type="button"
-                                    class="btn btn-primary font-weight-bolder font-size-h6 px-8 py-4 my-3 mr-4"
-                                >
-                                    Submit
-                                </button>
-                                <button
-                                    type="button"
-                                    class="btn btn-light-primary font-weight-bolder font-size-h6 px-8 py-4 my-3"
-                                    @click="showForm('signin')"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                    <!--end::Reset-->
+
+                    <!-- Submit Button -->
+                    <button
+                        type="submit"
+                        class="himoto-btn-submit"
+                        :disabled="isSubmitting"
+                        id="himoto_btn_submit"
+                    >
+                        <span v-if="isSubmitting" class="himoto-spinner" aria-hidden="true"></span>
+                        <span>{{ isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span>
+                    </button>
+                </form>
+
+                <div class="himoto-form-footer">
+                    Cần hỗ trợ truy cập? Liên hệ quản trị viên.
                 </div>
             </div>
-            <!--end::Content-->
+            <!--end::Signin Form Card-->
+
+            <!--begin::Secondary Legacy Flows (Signup/Forgot/Reset) for backward compatibility-->
+            <div v-else class="himoto-auth-card">
+                <!-- Forgot Password -->
+                <div v-if="state === 'forgot'">
+                    <div class="himoto-form-header">
+                        <span class="himoto-form-badge">HỖ TRỢ TÀI KHOẢN</span>
+                        <h2 class="himoto-form-title">Quên mật khẩu</h2>
+                        <p class="himoto-form-desc">Nhập email để nhận mã khôi phục mật khẩu.</p>
+                    </div>
+                    <form @submit.prevent="forgotPassword">
+                        <div class="himoto-field-group">
+                            <label class="himoto-field-label">Email</label>
+                            <div class="himoto-input-wrapper">
+                                <input
+                                    type="email"
+                                    class="himoto-input"
+                                    placeholder="name@himoto.vn"
+                                    v-model="formForgotPassword.email"
+                                    required
+                                />
+                            </div>
+                        </div>
+                        <button
+                            type="submit"
+                            class="himoto-btn-submit"
+                            :disabled="is_submit_forgot_password"
+                        >
+                            <span v-if="is_submit_forgot_password" class="himoto-spinner" aria-hidden="true"></span>
+                            <span>{{ is_submit_forgot_password ? 'Đang gửi...' : 'Gửi yêu cầu' }}</span>
+                        </button>
+                        <div class="himoto-form-footer">
+                            <a href="#" @click.prevent="showForm('signin')" style="color: #c81018; font-weight: 600;">Quay lại đăng nhập</a>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Reset Password -->
+                <div v-else-if="state === 'reset'">
+                    <div class="himoto-form-header">
+                        <span class="himoto-form-badge">BẢO MẬT</span>
+                        <h2 class="himoto-form-title">Đặt lại mật khẩu</h2>
+                        <p class="himoto-form-desc">Nhập mã xác thực và mật khẩu mới.</p>
+                    </div>
+                    <form @submit.prevent="resetPassword">
+                        <div class="himoto-field-group">
+                            <label class="himoto-field-label">Email</label>
+                            <input type="email" class="himoto-input" v-model="reset_password.email" required />
+                        </div>
+                        <div class="himoto-field-group">
+                            <label class="himoto-field-label">Mật khẩu mới</label>
+                            <input type="password" class="himoto-input" v-model="reset_password.password" required />
+                        </div>
+                        <div class="himoto-field-group">
+                            <label class="himoto-field-label">Mã xác nhận (Token)</label>
+                            <input type="text" class="himoto-input" v-model="reset_password.token" required />
+                        </div>
+                        <button type="submit" class="himoto-btn-submit">Đặt lại mật khẩu</button>
+                        <div class="himoto-form-footer">
+                            <a href="#" @click.prevent="showForm('signin')" style="color: #c81018; font-weight: 600;">Quay lại đăng nhập</a>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Signup -->
+                <div v-else-if="state === 'signup'">
+                    <div class="himoto-form-header">
+                        <span class="himoto-form-badge">ĐĂNG KÝ TÀI KHOẢN</span>
+                        <h2 class="himoto-form-title">Tạo tài khoản</h2>
+                    </div>
+                    <form @submit.prevent="handleSignup">
+                        <div class="himoto-field-group">
+                            <label class="himoto-field-label">Họ và tên</label>
+                            <input type="text" class="himoto-input" v-model="register.name" required />
+                        </div>
+                        <div class="himoto-field-group">
+                            <label class="himoto-field-label">Email</label>
+                            <input type="email" class="himoto-input" v-model="register.email" required />
+                        </div>
+                        <div class="himoto-field-group">
+                            <label class="himoto-field-label">Mật khẩu</label>
+                            <input type="password" class="himoto-input" v-model="register.password" required />
+                        </div>
+                        <div class="himoto-field-group">
+                            <label for="himoto-register-confirmation" class="himoto-field-label">Xác nhận mật khẩu</label>
+                            <input id="himoto-register-confirmation" type="password" class="himoto-input" v-model="register.password_confirmation" autocomplete="new-password" required />
+                        </div>
+                        <button type="submit" class="himoto-btn-submit">Đăng ký</button>
+                        <div class="himoto-form-footer">
+                            <a href="#" @click.prevent="showForm('signin')" style="color: #c81018; font-weight: 600;">Quay lại đăng nhập</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <!--end::Secondary Legacy Flows-->
         </div>
+        <!--end::Main Form Panel-->
     </div>
 </template>
 
-<!-- Load login custom page styles -->
 <style lang="scss">
-@import "@/assets/sass/pages/login/login-1.scss";
+@import "@/assets/himoto/_variables.scss";
+@import "@/assets/himoto/_auth.scss";
 </style>
 
 <script>
-import formValidation from "@/assets/plugins/formvalidation/dist/es6/core/Core";
-
-// FormValidation plugins
-import Trigger from "@/assets/plugins/formvalidation/dist/es6/plugins/Trigger";
-import Bootstrap from "@/assets/plugins/formvalidation/dist/es6/plugins/Bootstrap";
-import SubmitButton from "@/assets/plugins/formvalidation/dist/es6/plugins/SubmitButton";
-
-import KTUtil from "@/assets/js/components/util";
 import { mapGetters, mapState } from "vuex";
-import { LOGIN, LOGOUT, REGISTER } from "@/core/services/store/auth.module";
+import { LOGIN, LOGOUT, REGISTER, FORGOT_PASSWORD, RESET_PASSWORD } from "@/core/services/store/auth.module";
 import Swal from "sweetalert2";
-import {
-    FORGOT_PASSWORD,
-    RESET_PASSWORD,
-} from "../../../core/services/store/auth.module";
 
 export default {
     name: "Auth",
     data() {
         return {
-            is_submit_forgot_password: false,
             state: "signin",
-            // Remove this dummy login info
             form: {
                 email: "",
                 password: "",
             },
+            showPassword: false,
+            isSubmitting: false,
+            emailError: "",
+            passwordError: "",
+            generalError: "",
+
+            // Secondary flows
+            is_submit_forgot_password: false,
             formForgotPassword: {
                 email: "",
             },
@@ -386,7 +285,6 @@ export default {
                 password: "",
                 token: "",
             },
-
             is_disable_input_ref_code: false,
         };
     },
@@ -395,323 +293,141 @@ export default {
             errors: (state) => state.auth.errors,
         }),
         ...mapGetters(["currentUser"]),
-        backgroundImage() {
-            return 'none';
-            // return process.env.BASE_URL + "media/svg/illustrations/login-2.jpg";
+        currentYear() {
+            return new Date().getFullYear();
         },
     },
     created() {
         this.checkLinkRefferal();
     },
-    mounted() {
-        const signin_form = KTUtil.getById("kt_login_signin_form");
-        const signup_form = KTUtil.getById("kt_login_signup_form");
-        const forgot_form = KTUtil.getById("kt_login_forgot_form");
-        const reset_form = KTUtil.getById("kt_login_reset_form");
-        this.state = "signin";
-        this.fv = formValidation(signin_form, {
-            fields: {
-                email: {
-                    validators: {
-                        notEmpty: {
-                            message: "Email không được để trống",
-                        },
-                        emailAddress: {
-                            message: "Địa chỉ email không hợp lệ",
-                        },
-                    },
-                },
-                password: {
-                    validators: {
-                        notEmpty: {
-                            message: "Mật khẩu không được để trống",
-                        },
-                    },
-                },
-            },
-            plugins: {
-                trigger: new Trigger(),
-                submitButton: new SubmitButton(),
-                bootstrap: new Bootstrap(),
-            },
-        });
-
-        this.fv1 = formValidation(signup_form, {
-            fields: {
-                fullname: {
-                    validators: {
-                        notEmpty: {
-                            message: "Full name is required",
-                        },
-                    },
-                },
-                email: {
-                    validators: {
-                        notEmpty: {
-                            message: "Email is required",
-                        },
-                        emailAddress: {
-                            message: "The value is not a valid email address",
-                        },
-                    },
-                },
-                password: {
-                    validators: {
-                        notEmpty: {
-                            message: "Password is required",
-                        },
-                    },
-                },
-                cpassword: {
-                    validators: {
-                        notEmpty: {
-                            message: "Confirm password is required",
-                        },
-                        identical: {
-                            compare: function () {
-                                return signup_form.querySelector(
-                                    '[name="password"]',
-                                ).value;
-                            },
-                            message:
-                                "The password and its confirm are not the same",
-                        },
-                    },
-                },
-                agree: {
-                    validators: {
-                        notEmpty: {
-                            message: "You should agree terms and conditions",
-                        },
-                    },
-                },
-            },
-            plugins: {
-                trigger: new Trigger(),
-                submitButton: new SubmitButton(),
-                bootstrap: new Bootstrap(),
-            },
-        });
-        this.fv4 = formValidation(reset_form, {
-            fields: {
-                email: {
-                    validators: {
-                        notEmpty: {
-                            message: "Email is required",
-                        },
-                        emailAddress: {
-                            message: "The value is not a valid email address",
-                        },
-                    },
-                },
-                password: {
-                    validators: {
-                        notEmpty: {
-                            message: "Password is required",
-                        },
-                    },
-                },
-                cpassword: {
-                    validators: {
-                        notEmpty: {
-                            message: "Confirm password is required",
-                        },
-                        identical: {
-                            compare: function () {
-                                return signup_form.querySelector(
-                                    '[name="password"]',
-                                ).value;
-                            },
-                            message:
-                                "The password and its confirm are not the same",
-                        },
-                    },
-                },
-                token: {
-                    validators: {
-                        notEmpty: {
-                            message: "Token is required",
-                        },
-                    },
-                },
-            },
-            plugins: {
-                trigger: new Trigger(),
-                submitButton: new SubmitButton(),
-                bootstrap: new Bootstrap(),
-            },
-        });
-
-        this.fv2 = formValidation(forgot_form, {
-            fields: {
-                email: {
-                    validators: {
-                        notEmpty: {
-                            message: "Email is required",
-                        },
-                        emailAddress: {
-                            message: "The value is not a valid email address",
-                        },
-                    },
-                },
-            },
-            plugins: {
-                trigger: new Trigger(),
-                submitButton: new SubmitButton(),
-                bootstrap: new Bootstrap(),
-            },
-        });
-
-        this.fv.on("core.form.valid", () => {
-            var email = this.form.email;
-            var password = this.form.password;
-
-            // clear existing errors
-            this.$store.dispatch(LOGOUT);
-
-            // set spinner to submit button
-            const submitButton = this.$refs["kt_login_signin_submit"];
-            submitButton.classList.add(
-                "spinner",
-                "spinner-light",
-                "spinner-right",
-            );
-
-            // dummy delay
-            setTimeout(() => {
-                // send login request
-                this.$store
-                    .dispatch(LOGIN, { email, password })
-                    .then((res) => {
-                        this.$router.push({ name: "dashboard" });
-                    })
-                    .catch((res) => {
-                        let text = "Information is not correct";
-                        if (res?.data) {
-                            if (
-                                res.data.error &&
-                                typeof res.data.error === "string"
-                            ) {
-                                text = res.data.error;
-                            } else if (Object.keys(res.data).length > 0) {
-                                let tmp = "";
-                                for (let k of Object.keys(res.data)) {
-                                    const val = res.data[k];
-                                    if (typeof val === "string") {
-                                        tmp = val;
-                                        break;
-                                    } else if (
-                                        Array.isArray(val) &&
-                                        val.length > 0
-                                    ) {
-                                        tmp = val[0];
-                                        break;
-                                    }
-                                }
-
-                                if (tmp?.length > 0) {
-                                    text = tmp;
-                                }
-                            }
-                        }
-                        Swal.fire({
-                            title: "",
-                            text: text,
-                            icon: "error",
-                            confirmButtonClass: "btn btn-secondary",
-                            heightAuto: false,
-                        });
-                    });
-
-                submitButton.classList.remove(
-                    "spinner",
-                    "spinner-light",
-                    "spinner-right",
-                );
-            }, 2000);
-        });
-
-        this.fv.on("core.form.invalid", () => {
-            Swal.fire({
-                title: "",
-                text: "Please, provide correct data!",
-                icon: "error",
-                confirmButtonClass: "btn btn-secondary",
-                heightAuto: false,
-            });
-        });
-
-        this.fv1.on("core.form.valid", () => {
-            const email = this.$refs.remail.value;
-            const password = this.$refs.rpassword.value;
-
-            // clear existing errors
-            this.$store.dispatch(LOGOUT);
-
-            // set spinner to submit button
-            const submitButton = this.$refs["kt_login_signup_submit"];
-            submitButton.classList.add(
-                "spinner",
-                "spinner-light",
-                "spinner-right",
-            );
-            // this.createWallet();
-            // dummy delay
-            setTimeout(() => {
-                this.$store
-                    .dispatch(REGISTER, this.register)
-                    .then(() => this.$router.push({ name: "dashboard" }))
-                    .catch((error) => {
-                        Swal.fire({
-                            title: "",
-                            text: "An error occurred during registration",
-                            icon: "error",
-                            confirmButtonClass: "btn btn-secondary",
-                            heightAuto: false,
-                        });
-                    });
-                submitButton.classList.remove(
-                    "spinner",
-                    "spinner-light",
-                    "spinner-right",
-                );
-            }, 2000);
-        });
-
-        this.fv1.on("core.form.invalid", () => {
-            Swal.fire({
-                title: "",
-                text: "Please, provide correct data!",
-                icon: "error",
-                confirmButtonClass: "btn btn-secondary",
-                heightAuto: false,
-            });
-        });
-    },
     methods: {
+        clearEmailError() {
+            this.emailError = "";
+            this.generalError = "";
+        },
+        clearPasswordError() {
+            this.passwordError = "";
+            this.generalError = "";
+        },
+        togglePassword() {
+            this.showPassword = !this.showPassword;
+        },
+        validateEmailFormat(email) {
+            // Standard RFC 5322 compatible regex
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(String(email).toLowerCase());
+        },
+        handleSignin() {
+            // Prevent multiple concurrent submissions
+            if (this.isSubmitting) return;
+
+            this.emailError = "";
+            this.passwordError = "";
+            this.generalError = "";
+
+            const trimmedEmail = (this.form.email || "").trim();
+            const password = this.form.password || "";
+
+            let hasError = false;
+
+            // 1. Email validation
+            if (!trimmedEmail) {
+                this.emailError = "Email không được để trống";
+                hasError = true;
+                if (this.$refs.emailInput) {
+                    this.$refs.emailInput.focus();
+                }
+            } else if (!this.validateEmailFormat(trimmedEmail)) {
+                this.emailError = "Địa chỉ email không hợp lệ";
+                hasError = true;
+                if (this.$refs.emailInput) {
+                    this.$refs.emailInput.focus();
+                }
+            }
+
+            // 2. Password validation
+            if (!password) {
+                this.passwordError = "Mật khẩu không được để trống";
+                if (!hasError && this.$refs.passwordInput) {
+                    this.$refs.passwordInput.focus();
+                }
+                hasError = true;
+            }
+
+            if (hasError) {
+                return;
+            }
+
+            // Valid -> Dispatch LOGIN without artificial delay
+            this.isSubmitting = true;
+
+            this.$store
+                .dispatch(LOGIN, { email: trimmedEmail, password: password })
+                .then(() => {
+                    const user = this.$store.getters.currentUser;
+                    // Role 4 (Sale) is routed to leads; other roles to dashboard
+                    if (user && user.role_id === 4) {
+                        this.$router.push({ name: "leads" });
+                    } else {
+                        this.$router.push({ name: "dashboard" });
+                    }
+                })
+                .catch((err) => {
+                    let text = "Email hoặc mật khẩu không đúng.";
+
+                    if (!err || typeof err.status === "undefined") {
+                        // Offline or network timeout
+                        text = "Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.";
+                    } else if (err.status >= 500) {
+                        text = "Hệ thống đang gặp sự cố. Vui lòng thử lại sau.";
+                    } else if (err.status === 422) {
+                        if (err.data && err.data.email) {
+                            this.emailError = Array.isArray(err.data.email) ? err.data.email[0] : err.data.email;
+                            return;
+                        }
+                        if (err.data && err.data.password) {
+                            this.passwordError = Array.isArray(err.data.password) ? err.data.password[0] : err.data.password;
+                            return;
+                        }
+                        if (err.data && typeof err.data.error === "string") {
+                            text = err.data.error;
+                        } else if (err.data && typeof err.data.message === "string") {
+                            text = err.data.message;
+                        }
+                    } else if (err.data && typeof err.data.error === "string") {
+                        text = err.data.error;
+                    } else if (err.data && typeof err.data.message === "string") {
+                        text = err.data.message;
+                    }
+
+                    this.generalError = text;
+                })
+                .finally(() => {
+                    this.isSubmitting = false;
+                });
+        },
+        showForm(form) {
+            this.state = form;
+            this.generalError = "";
+            this.emailError = "";
+            this.passwordError = "";
+        },
         checkLinkRefferal() {
-            let urlCurrent = window.location.href;
-            let data = urlCurrent.match(/(\d+)/g) || [];
-            if (data.length) {
-                localStorage.setItem("referral_code", data[0]);
-                this.register.referral_code = data[0];
+            // Check if current URL is a referral link (e.g. /ref/123)
+            const pathname = window.location.pathname || "";
+            const refMatch = pathname.match(/\/ref\/(\d+)/);
+            if (refMatch && refMatch[1]) {
+                const code = refMatch[1];
+                localStorage.setItem("referral_code", code);
+                this.register.referral_code = code;
                 this.showForm("signup");
+            } else {
+                this.state = "signin";
             }
             let referral_code = localStorage.getItem("referral_code");
             if (referral_code) {
                 this.register.referral_code = referral_code;
                 this.is_disable_input_ref_code = true;
-            }
-        },
-        showForm(form) {
-            this.state = form;
-            const form_name = "kt_login_" + form + "_form";
-            const formElem = KTUtil.getById(form_name);
-            if (formElem) {
-                KTUtil.animateClass(
-                    KTUtil.getById(form_name),
-                    "animate__animated animate__backInUp",
-                );
             }
         },
         forgotPassword() {
@@ -721,7 +437,7 @@ export default {
                 .then(() => {
                     Swal.fire({
                         title: "",
-                        text: "Please check your email to proceed to get the password!",
+                        text: "Vui lòng kiểm tra email để tiếp tục khôi phục mật khẩu!",
                         icon: "success",
                         confirmButtonClass: "btn btn-secondary",
                         heightAuto: false,
@@ -731,9 +447,10 @@ export default {
                     this.showForm("reset");
                 })
                 .catch((error) => {
+                    this.is_submit_forgot_password = false;
                     Swal.fire({
                         title: "",
-                        text: error.data.message,
+                        text: error && error.data ? error.data.message : "Có lỗi xảy ra",
                         icon: "error",
                         confirmButtonClass: "btn btn-secondary",
                         heightAuto: false,
@@ -747,23 +464,36 @@ export default {
                 .then(() => {
                     Swal.fire({
                         title: "",
-                        text: "Reset password success!",
+                        text: "Đặt lại mật khẩu thành công!",
                         icon: "success",
                         confirmButtonClass: "btn btn-secondary",
                         heightAuto: false,
                         timer: 5000,
                     });
-                    this.is_submit_forgot_password = false;
                     this.showForm("signin");
                 })
                 .catch((error) => {
                     Swal.fire({
                         title: "",
-                        text: error.data.message,
+                        text: error && error.data ? error.data.message : "Có lỗi xảy ra",
                         icon: "error",
                         confirmButtonClass: "btn btn-secondary",
                         heightAuto: false,
                         timer: 4000,
+                    });
+                });
+        },
+        handleSignup() {
+            this.$store
+                .dispatch(REGISTER, this.register)
+                .then(() => this.$router.push({ name: "dashboard" }))
+                .catch(() => {
+                    Swal.fire({
+                        title: "",
+                        text: "Có lỗi xảy ra trong quá trình đăng ký",
+                        icon: "error",
+                        confirmButtonClass: "btn btn-secondary",
+                        heightAuto: false,
                     });
                 });
         },
