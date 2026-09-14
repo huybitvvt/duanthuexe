@@ -13,98 +13,6 @@
   color: #17202a;
   -webkit-font-smoothing: antialiased;
 
-  /* Left Brand Panel (Desktop) */
-  .himoto-auth-brand {
-    position: relative;
-    width: 44%;
-    min-width: 380px;
-    max-width: 540px;
-    background: linear-gradient(150deg, #c81018 0%, #ed1c24 100%);
-    padding: 56px 48px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    overflow: hidden;
-    color: #ffffff;
-    flex-shrink: 0;
-
-    .himoto-brand-header {
-      position: relative;
-      z-index: 2;
-
-      .himoto-brand-logo {
-        height: 42px;
-        width: auto;
-        max-width: 200px;
-        object-fit: contain;
-        display: block;
-      }
-    }
-
-    .himoto-brand-hero {
-      position: relative;
-      z-index: 2;
-      margin: 40px 0;
-
-      .himoto-hero-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(255, 255, 255, 0.15);
-        color: #fff200;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        padding: 4px 12px;
-        border-radius: 999px;
-        margin-bottom: 20px;
-        border: 1px solid rgba(255, 242, 0, 0.3);
-      }
-
-      .himoto-hero-title {
-        font-size: 32px;
-        font-weight: 800;
-        line-height: 1.28;
-        color: #ffffff;
-        margin-bottom: 16px;
-        letter-spacing: -0.5px;
-      }
-
-      .himoto-hero-sub {
-        font-size: 15px;
-        color: rgba(255, 255, 255, 0.86);
-        line-height: 1.55;
-        max-width: 360px;
-      }
-    }
-
-    .himoto-brand-footer {
-      position: relative;
-      z-index: 2;
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.65);
-      letter-spacing: 0.2px;
-    }
-
-    /* Decorative background movement line */
-    .himoto-brand-bg-dec {
-      position: absolute;
-      right: -60px;
-      bottom: -60px;
-      width: 360px;
-      height: 360px;
-      opacity: 0.08;
-      pointer-events: none;
-      z-index: 1;
-
-      svg {
-        width: 100%;
-        height: 100%;
-      }
-    }
-  }
-
   /* Right Form Panel */
   .himoto-auth-main {
     flex: 1;
@@ -118,13 +26,15 @@
     box-sizing: border-box;
 
     .himoto-mobile-header {
-      display: none;
+      display: block;
       margin-bottom: 24px;
       text-align: center;
 
       .himoto-mobile-logo {
-        height: 38px;
-        width: auto;
+        width: 220px;
+        height: auto;
+        max-width: 100%;
+        display: block;
         object-fit: contain;
       }
     }

@@ -1,49 +1,11 @@
 <template>
     <div class="himoto-auth">
-        <!--begin::Brand Panel (Desktop >= 1024px)-->
-        <div class="himoto-auth-brand" aria-label="HIMOTO Thương hiệu">
-            <div class="himoto-brand-header">
-                <img
-                    src="/images/branding/logo-himoto-white.svg"
-                    alt="HIMOTO Logo"
-                    class="himoto-brand-logo"
-                    onerror="this.onerror=null; this.src='/images/branding/logo-himoto.svg';"
-                />
-            </div>
-            <div class="himoto-brand-hero">
-                <div class="himoto-hero-tag">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                    </svg>
-                    <span>Cổng Vận Hành Đội Xe</span>
-                </div>
-                <h1 class="himoto-hero-title">
-                    Vận hành đội xe,<br />trong một hệ thống.
-                </h1>
-                <p class="himoto-hero-sub">
-                    Quản lý xe, hợp đồng đơn thuê và thu chi toàn diện tại hệ thống HIMOTO.
-                </p>
-            </div>
-            <div class="himoto-brand-footer">
-                &copy; {{ currentYear }} HIMOTO Fleet Management System. All rights reserved.
-            </div>
-            <!-- Decorative curve/movement graphic -->
-            <div class="himoto-brand-bg-dec" aria-hidden="true">
-                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="100" cy="100" r="90" stroke="white" stroke-width="2" stroke-dasharray="8 8" />
-                    <circle cx="100" cy="100" r="60" stroke="white" stroke-width="1.5" />
-                    <path d="M20 100 Q100 20 180 100 Q100 180 20 100" stroke="white" stroke-width="2" />
-                </svg>
-            </div>
-        </div>
-        <!--end::Brand Panel-->
-
         <!--begin::Main Form Panel-->
         <div class="himoto-auth-main">
-            <!-- Mobile compact logo header (< 1024px) -->
+            <!-- Original HIMOTO logo from the supplied PDF -->
             <div class="himoto-mobile-header">
                 <img
-                    src="/images/branding/logo-himoto-dark.svg"
+                    src="/images/branding/logo-himoto-original.svg"
                     alt="HIMOTO Logo"
                     class="himoto-mobile-logo"
                 />

@@ -48,7 +48,7 @@ def run_tests():
 
         # Helper to reset to login
         def goto_clean_login():
-            page.goto(f"{base_url}/login")
+            page.goto(f"{base_url}/login", wait_until="domcontentloaded")
             page.evaluate("""() => {
                 try {
                     localStorage.clear();
@@ -68,27 +68,25 @@ def run_tests():
             }""")
 
         # -------------------------------------------------------------
-        # TEST 1: Desktop 2-Column Layout & Branding Elements
+        # TEST 1: Desktop Centered Login Layout
         # -------------------------------------------------------------
-        print("\n[TEST 1] Verifying Desktop 2-Column Brand Layout (1440x900)...")
+        print("\n[TEST 1] Verifying Desktop Centered Login Layout (1440x900)...")
         page.set_viewport_size({"width": 1440, "height": 900})
         goto_clean_login()
 
         brand_visible = page.is_visible(".himoto-auth-brand")
         main_visible = page.is_visible(".himoto-auth-main")
         title_text = page.inner_text(".himoto-form-title").strip()
-        hero_title = page.inner_text(".himoto-hero-title").strip()
         submit_text = page.inner_text("#himoto_btn_submit").strip()
 
-        assert brand_visible, "Brand panel (.himoto-auth-brand) should be visible on desktop >= 1024px"
+        assert not brand_visible, "Login must not include a desktop brand panel"
         assert main_visible, "Main form panel (.himoto-auth-main) should be visible"
         assert title_text == "Đăng nhập", f"Expected title 'Đăng nhập', got '{title_text}'"
-        assert "Vận hành đội xe" in hero_title, f"Expected hero title with brand tagline, got '{hero_title}'"
         assert "Đăng nhập" in submit_text, f"Expected submit button 'Đăng nhập', got '{submit_text}'"
 
         save_screenshot(page, output_dir, "redesign_desktop.png")
-        print("  -> [PASS] Desktop layout verified with 2 columns, brand panel, and Vietnamese content.")
-        results.append({"test": "Desktop 2-Column Layout", "status": "PASS"})
+        print("  -> [PASS] Centered desktop login verified without a brand panel.")
+        results.append({"test": "Desktop Centered Login Layout", "status": "PASS"})
 
         # -------------------------------------------------------------
         # TEST 2: Mobile 1-Column Responsive Layout (390x844)
@@ -98,7 +96,7 @@ def run_tests():
         page.wait_for_timeout(300)
 
         # Brand panel should be hidden on mobile
-        brand_display = page.evaluate("() => window.getComputedStyle(document.querySelector('.himoto-auth-brand')).display")
+        brand_display = page.evaluate("() => document.querySelector('.himoto-auth-brand') ? getComputedStyle(document.querySelector('.himoto-auth-brand')).display : 'none'")
         mobile_logo_visible = page.is_visible(".himoto-mobile-header")
         card_visible = page.is_visible(".himoto-auth-card")
 
@@ -107,7 +105,7 @@ def run_tests():
 
         assert brand_display == "none", f"Brand panel should have display: none on mobile, got {brand_display}"
         assert mobile_logo_visible, "Mobile logo header should be visible on < 1024px"
-        assert page.locator('.himoto-mobile-logo').get_attribute('src').endswith('logo-himoto-dark.svg')
+        assert page.locator('.himoto-mobile-logo').get_attribute('src').endswith('logo-himoto-original.svg')
         assert page.locator('.himoto-mobile-logo').evaluate('(img) => img.complete && img.naturalWidth > 0')
         assert card_visible, "Auth card should be visible on mobile"
         assert not has_h_scroll, "Mobile view has horizontal overflow!"
@@ -392,7 +390,7 @@ def run_tests():
 
         # Registration is a pre-existing route; preserve its required confirmation payload.
         goto_clean_login()
-        page.goto(f"{base_url}/ref/123")
+        page.goto(f"{base_url}/ref/123", wait_until="domcontentloaded")
         page.locator('#himoto-register-confirmation').wait_for()
         signup_requests = []
         def capture_signup(route):

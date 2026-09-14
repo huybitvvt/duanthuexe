@@ -1,5 +1,9 @@
 # Kiểm tra giao diện đăng nhập HIMOTO
 
+## Cập nhật theo yêu cầu bố cục một cột
+
+Trang login hiện chỉ có logo phía trên và form căn giữa trên desktop/mobile; đã bỏ panel giới thiệu bên trái. Logo `public/images/branding/logo-himoto-original.svg` được xuất trực tiếp từ PDF người dùng cung cấp, giữ nền đỏ, Hi vàng và MOTO trắng. Kết quả kiểm tra và ảnh của bố cục mới lưu tại `audit-prototype/login-centered/` trong workspace cha. Các ghi nhận bên dưới mô tả lần kiểm tra trước thay đổi bố cục này.
+
 Ngày: 2026-09-14. Nguồn được kiểm: a229ef0 và bản sửa bổ sung trong commit chứa tài liệu này.
 
 ## Sửa sau kiểm tra
