@@ -12,37 +12,26 @@
 
             </div>
             <div class="card-body">
-                <div class="alert alert-custom alert-white alert-shadow fade show gutter-b" role="alert">
-                    <div class="alert-text">
-                        <div class="row">
-                            <div class="col-md-2 d-flex align-items-center">
-                                <p class="font-weight-bold">Tổng số hợp đồng: <span class="font-weight-bold">{{
-                                    order_stats.total_order }}</span></p>
-                            </div>
-                            <div class="col-md-2">
-                                <p class="font-weight-bold">Hoàn thành: <span class="font-weight-bold">{{
-                                    order_stats.total_contracts_completed }}</span></p>
-                                <p class="font-weight-bold">Đang thuê: <span class="font-weight-bold">{{
-                                    order_stats.total_contracts_renting }}</span></p>
-                                <p class="text-danger font-weight-bold">Quá hạn: <span class="font-weight-bold">{{
-                                    order_stats.total_out_of_date }}</span></p>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="font-weight-bold"><span>Tổng thu thực tế:</span> {{ totalIn | formatPrice }}</div>
-								<div class="font-weight-bold"><span>&#x2022; Tổng thu cọc:</span> {{ money_stats.total_deposit | formatPrice }}</div>
-								<div class="font-weight-bold"><span>&#x2022; Tổng thu gia hạn:</span> {{ money_stats.total_renew | formatPrice }}</div>
-								<div class="font-weight-bold"><span>&#x2022; Tổng thu phí thuê:</span> {{ money_stats.total_rental_fees | formatPrice }}</div>
-                            </div>
-
-							<div class="col-md-4">
-								<div class="font-weight-bold"><span>Tổng chi thực tế:</span> {{ money_stats.total_real_refund | formatPrice }}</div>
-								<div class="font-weight-bold"><span>Tổng tiền cọc phải trả:</span> {{ money_stats.total_origin_refund | formatPrice }}</div>
-								<div class="font-weight-bold"><span>&#x2022; Tổng tiền hoàn lại do trả sớm:</span> {{ Math.abs(money_stats.total_money_early) | formatPrice }}</div>
-								<div class="font-weight-bold"><span>&#x2022; Tổng tiền phạt muộn:</span> {{ money_stats.total_money_out_date | formatPrice }}</div>
-							</div>
-                        </div>
-                    </div>
-                </div>
+                <section class="contract-overview" aria-label="Thống kê hợp đồng">
+                    <div class="contract-overview-card"><h4>Hợp đồng</h4><dl>
+                        <div><dt>Tổng số hợp đồng</dt><dd>{{ order_stats.total_order }}</dd></div>
+                        <div><dt>Hoàn thành</dt><dd>{{ order_stats.total_contracts_completed }}</dd></div>
+                        <div><dt>Đang thuê</dt><dd>{{ order_stats.total_contracts_renting }}</dd></div>
+                        <div class="text-danger"><dt>Quá hạn</dt><dd>{{ order_stats.total_out_of_date }}</dd></div>
+                    </dl></div>
+                    <div class="contract-overview-card"><h4>Thu thực tế</h4><dl>
+                        <div><dt>Tổng thu</dt><dd>{{ totalIn | formatPrice }}</dd></div>
+                        <div><dt>Thu cọc</dt><dd>{{ money_stats.total_deposit | formatPrice }}</dd></div>
+                        <div><dt>Thu gia hạn</dt><dd>{{ money_stats.total_renew | formatPrice }}</dd></div>
+                        <div><dt>Thu phí thuê</dt><dd>{{ money_stats.total_rental_fees | formatPrice }}</dd></div>
+                    </dl></div>
+                    <div class="contract-overview-card"><h4>Chi & hoàn trả</h4><dl>
+                        <div><dt>Tổng chi thực tế</dt><dd>{{ money_stats.total_real_refund | formatPrice }}</dd></div>
+                        <div><dt>Tiền cọc phải trả</dt><dd>{{ money_stats.total_origin_refund | formatPrice }}</dd></div>
+                        <div><dt>Hoàn do trả sớm</dt><dd>{{ Math.abs(money_stats.total_money_early) | formatPrice }}</dd></div>
+                        <div><dt>Phạt muộn</dt><dd>{{ money_stats.total_money_out_date | formatPrice }}</dd></div>
+                    </dl></div>
+                </section>
                 <div class="example">
 
 
@@ -165,7 +154,7 @@
                                             {{ item.contract_number }}
                                         </div>
                                     </th>
-                                    <td>{{ item.created_at }}</td>
+                                    <td class="contract-date-cell"><div>{{ (item.created_at || "").split(" ")[0] }}</div><small class="text-muted">{{ (item.created_at || "").split(" ")[1] }}</small></td>
                                     <td style="width: 150px;">
                                         <span>{{ item.customer_name }}<br></span>
                                         <span>{{ item.customer_phone }}<br></span>
@@ -186,17 +175,17 @@
                                             <div class="d-inline" v-for="(orderItem, key) in item.orderItems" :key="key"
                                                 :class="key ? 'mt-2' : ''">
 												<div v-if="item.order_status != 'deposit_contract'">
-													<span>Từ {{
+													<span class="contract-date-line">Từ {{
 														(orderItem.rent_at) | formatDate
-														}} đến {{ (orderItem.return_at) | formatDate }}
+														}}</span><span class="contract-date-line">Đến {{ (orderItem.return_at) | formatDate }}
 													</span>
 													<br />
 													<div class="badge badge-info mb-1">{{ countDateAndHours(orderItem) }} ngày </div>
 													<span v-if="item.out_date && item.orderItems.length == key + 1" class="badge badge-danger"><span v-if="item.out_date !== 'Đến giờ trả xe'">Quá hạn:</span> {{ item.out_date }}</span>
 												</div>
 												<div v-else>
-													<div>Ngày cọc: {{ (orderItem.rent_at) | formatDate }}</div>
-													<div>Ngày hẹn lấy xe : {{ (orderItem.return_at) | formatDate }}</div>
+													<div class="contract-date-line">Ngày cọc: {{ (orderItem.rent_at) | formatDate }}</div>
+													<div class="contract-date-line">Ngày hẹn lấy xe: {{ (orderItem.return_at) | formatDate }}</div>
 												</div>
                                             </div>
                                         </div>
@@ -716,4 +705,17 @@ export default {
 .filter-row-2>div {
     margin-bottom: 20px;
 }
+</style>
+
+<style>
+.contract-date-cell, .contract-date-line { white-space: nowrap; }
+.contract-date-line { display: block; line-height: 1.7; }
+.contract-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.contract-overview-card { border: 1px solid #e5e9f0; border-radius: 12px; padding: 18px 20px; background: #fff; }
+.contract-overview-card h4 { font-size: 15px; font-weight: 700; margin: 0 0 12px; color: #334155; }
+.contract-overview-card dl { margin: 0; }
+.contract-overview-card dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 9px 0; border-top: 1px solid #eef1f5; }
+.contract-overview-card dt { font-weight: 400; }
+.contract-overview-card dd { margin: 0; font-weight: 600; white-space: nowrap; }
+@media (max-width: 991px) { .contract-overview { grid-template-columns: 1fr; } }
 </style>

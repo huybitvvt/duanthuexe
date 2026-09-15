@@ -514,3 +514,9 @@ export default {
   }
 }
 </style>
+
+<style scoped>
+.himoto-sidebar.collapsed .sidebar-brand { padding: 0 6px; justify-content: center; }
+.himoto-sidebar.collapsed .brand-link { width: 100%; min-width: 0; align-items: center; }
+.himoto-sidebar.collapsed .brand-logo-img { width: 100%; max-width: 100%; height: auto; object-fit: contain; }
+</style>
