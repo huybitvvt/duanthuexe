@@ -270,8 +270,11 @@
 								</div>
 							</div>
 
-			<div class="row mb-10 payment-row-align" v-if="!order.create_order_without_input_deposit" :class="order?.created_without_collect_deposit ? 'd-none' : ''">
-								<div class="form-group col-md-3">
+			<div class="row mb-10" v-if="!order.create_order_without_input_deposit" :class="order?.created_without_collect_deposit ? 'd-none' : ''">
+								<div class="col-12">
+									<PaymentMethod label="Hình thức thu cọc" :settings="order.first_deposit_payment_method" :banks="banks" :fixedAmount="firstDepositValInput" @setting_changed="order_first_deposit_changed" class="contract-payment-method">
+										<template #amount>
+											<div class="form-group col-md-3">
 									<label for="paid" v-if="start_this_contract"><strong>Đã thu cọc giữ xe</strong></label>
 									<label for="paid" v-else-if="is_deposit_contract_mode"><strong>Thu cọc giữ xe</strong></label>
 									<label for="paid" v-else><strong>Số tiền đặt cọc</strong></label>
@@ -281,23 +284,26 @@
 										<error-message :errors="errors" field="amount"></error-message>
 									</ValidationProvider>
 								</div>
-								<div class="col-md-9">
-									<PaymentMethod label="Hình thức thu cọc" :settings="order.first_deposit_payment_method" :banks="banks" :fixedAmount="firstDepositValInput" @setting_changed="order_first_deposit_changed"></PaymentMethod>
+										</template>
+									</PaymentMethod>
 								</div>
 							</div>
 
 							<div v-if="start_this_contract"><hr/></div>
 
 							<div class="row mb-10" v-if="start_this_contract || (id && order.additional_deposit_amount)">
-								<div class="col-md-3 form-group">
+								<div class="col-12">
+									<PaymentMethod label="Hình thức thu thêm cọc" :settings="order.additional_deposit_payment_method" :banks="banks" :fixedAmount="order.additional_deposit_amount" @setting_changed="additional_deposit_amount_changed" class="contract-payment-method">
+										<template #amount>
+											<div class="col-md-3 form-group">
 									<label for="paid"><strong>Thu thêm cọc</strong></label>
 									<ValidationProvider name="Thu thêm" mode="lazy" v-slot="{ errors }" vid="additional_deposit_amount">
 										<money id="additional_deposit_amount" v-model="order.additional_deposit_amount" :value="order.additional_deposit_amount" v-bind="money" class="form-control"></money>
 										<error-message :errors="errors" field="additional_deposit_amount"></error-message>
 									</ValidationProvider>
 								</div>
-								<div class="col-md-9">
-									<PaymentMethod label="Hình thức thu thêm cọc" :settings="order.additional_deposit_payment_method" :banks="banks" :fixedAmount="order.additional_deposit_amount" @setting_changed="additional_deposit_amount_changed"></PaymentMethod>
+										</template>
+									</PaymentMethod>
 								</div>
 							</div>
 
@@ -314,15 +320,18 @@
 							</div>
 
 							<div class="row" v-if="!is_deposit_contract_mode && !order.create_order_without_input_rental_fee && !order.deposit_closed" :class="order?.created_without_collect_rental_fees || (order && order.data_version == null) ? 'd-none' : ''">
-								<div class="form-group col-md-3">
+								<div class="col-12">
+									<PaymentMethod label="Hình thức thu phí thuê" :settings="order.total_rental_payment_method" :banks="banks" :fixedAmount="totalFeeAllOrderItems" @setting_changed="order_total_rental_fee_changed" class="contract-payment-method">
+										<template #amount>
+											<div class="form-group col-md-3">
 									<label for="paid"><strong>Tổng phí thuê xe</strong></label>
 									<ValidationProvider name="Tổng phí thuê xe" rules="min_value:0" mode="lazy" v-slot="{ errors }" vid="amount">
 										<money id="paid" :value="totalFeeAllOrderItems" v-bind="money" class="form-control" disabled></money>
 										<error-message :errors="errors" field="amount"></error-message>
 									</ValidationProvider>
 								</div>
-								<div class="form-group col-md-9">
-									<PaymentMethod label="Hình thức thu phí thuê" :settings="order.total_rental_payment_method" :banks="banks" :fixedAmount="totalFeeAllOrderItems" @setting_changed="order_total_rental_fee_changed"></PaymentMethod>
+										</template>
+									</PaymentMethod>
 								</div>
 							</div>
 						</div>
@@ -1709,9 +1718,6 @@ export default {
 </script>
 
 <style>
-.payment-row-align { align-items: flex-start; }
-.payment-row-align > .form-group, .payment-row-align > .col-md-9 { display: flex; flex-direction: column; }
-.payment-row-align label { min-height: 48px; display: flex; align-items: flex-start; }
 .delete-vehicle {
     position: absolute;
     left: 178px;

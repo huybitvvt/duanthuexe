@@ -5,8 +5,9 @@
 			<span class="payment-method-summary">{{ paymentMethodLabel }}</span>
 		</div>
 
-		<div class="row mt-2">
-			<div class="col-md-4 form-group">
+		<div class="row mt-2 payment-amount-fields">
+            <slot name="amount"></slot>
+			<div :class="[($slots.amount || $scopedSlots.amount) ? 'col-md-3' : 'col-md-4', 'form-group']">
 				<label><strong>Tổng tiền chuyển khoản</strong></label>
 				<ValidationProvider vid="bank_transfer_amount" name="Tiền chuyển khoản" rules="numeric|min_value:0" v-slot="{ errors }">
 					<money v-model="settings.bank_transfer_amount" v-bind="money" class="form-control" placeholder="Tiền chuyển khoản"></money>
@@ -14,7 +15,7 @@
 				</ValidationProvider>
 			</div>
 
-			<div class="col-md-4 form-group">
+			<div :class="[($slots.amount || $scopedSlots.amount) ? 'col-md-3' : 'col-md-4', 'form-group']">
 				<label><strong>Tổng tiền mặt</strong></label>
 				<ValidationProvider vid="cash_amount" name="Tiền mặt" rules="numeric|min_value:0" v-slot="{ errors }">
 					<money v-model="settings.cash_amount" v-bind="money" class="form-control" placeholder="Tiền mặt"></money>
@@ -22,7 +23,7 @@
 				</ValidationProvider>
 			</div>
 
-			<div v-if="hasBankTransfer" class="col-md-4 form-group">
+			<div v-if="hasBankTransfer" :class="[($slots.amount || $scopedSlots.amount) ? 'col-md-3' : 'col-md-4', 'form-group']">
 				<label><strong>Tài khoản nhận tiền</strong></label>
 				<ValidationProvider vid="bank_id" name="Tài khoản" :rules="hasBankTransfer ? 'required' : ''" v-slot="{ errors }">
 					<el-select
@@ -290,5 +291,20 @@ export default {
 	font-size: 12px;
 	line-height: 1;
 	padding-bottom: 8px;
+}
+</style>
+
+<style>
+/* All amount fields share one flex row so wrapped labels align the inputs. */
+.contract-payment-method .payment-amount-fields > .form-group {
+    display: flex;
+    flex-direction: column;
+}
+.contract-payment-method .payment-amount-fields > .form-group > label {
+    flex: 1;
+    margin-bottom: 8px;
+}
+.contract-payment-method .payment-amount-fields .form-control {
+    min-height: 42px;
 }
 </style>
