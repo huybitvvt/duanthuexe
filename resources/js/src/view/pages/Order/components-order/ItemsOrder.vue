@@ -83,13 +83,13 @@
             <div class="col-md-4" v-if="!is_deposit_contract_mode">
                 <div class="form-group">
                     <label><strong>Số GP lái xe</strong></label>
-                    <el-input placeholder="Số GPLX" v-model="local_order_item.driver_license_number" @change="changeDriverLicenseNumber"></el-input>
+                    <el-input placeholder="Số GPLX" v-model="local_order_item.driver_license_number" @input="changeDriverLicenseNumber"></el-input>
                 </div>
             </div>
             <div class="col-md-4" v-if="!is_deposit_contract_mode">
                 <div class="form-group">
                     <label><strong>Ngày cấp GPLX</strong></label>
-                    <el-date-picker class="w-100" v-model="local_order_item.driver_license_issued_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Ngày cấp GPLX" @change="changeDriverLicenseIssuedOn"></el-date-picker>
+                    <el-date-picker class="w-100" v-model="local_order_item.driver_license_issued_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Ngày cấp GPLX" @input="changeDriverLicenseIssuedOn" @change="changeDriverLicenseIssuedOn"></el-date-picker>
                 </div>
             </div>
 
@@ -624,4 +624,6 @@ export default {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.form-group > label, .form-group label strong { white-space: nowrap; }
+</style>
