@@ -146,7 +146,11 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label><strong>Nơi cấp CCCD</strong></label>
-                            <el-input placeholder="Ví dụ: Cục CSQLHC về TTXH" v-model="order.customer_id_card_issued_by"></el-input>
+                            <el-select class="w-100" filterable clearable placeholder="Chọn nơi cấp CCCD" v-model="order.customer_id_card_issued_by">
+                                <el-option label="CỤC TRƯỞNG CỤC CẢNH SÁT QUẢN LÝ HÀNH CHÍNH VỀ TRẬT TỰ XÃ HỘI" value="CỤC TRƯỞNG CỤC CẢNH SÁT QUẢN LÝ HÀNH CHÍNH VỀ TRẬT TỰ XÃ HỘI"></el-option>
+                                <el-option label="CỤC TRƯỞNG CỤC CẢNH SÁT ĐKQL CƯ TRÚ VÀ DLQG VỀ DÂN CƯ" value="CỤC TRƯỞNG CỤC CẢNH SÁT ĐKQL CƯ TRÚ VÀ DLQG VỀ DÂN CƯ"></el-option>
+                                <el-option label="BỘ CÔNG AN" value="BỘ CÔNG AN"></el-option>
+                            </el-select>
                         </div>
                     </div>
 
