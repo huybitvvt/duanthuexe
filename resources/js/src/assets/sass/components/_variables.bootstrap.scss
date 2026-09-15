@@ -378,7 +378,7 @@ $body-color:                						$dark-75 !default;
 // Font, line-height, and color for body text, headings, and more.
 
 // Font family
-$font-family-base:            						"Nunito Sans", Helvetica, "sans-serif" !default;
+$font-family-base:            						"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !default;
 
 $font-size-base:              						1rem !default; // Assumes the browser default, typically `13px`
 $font-size-lg:               	 					$font-size-base * 1.08 !default;   // 14.04px
@@ -795,3 +795,4 @@ $nav-footer-py:                                     1rem;
 $nav-font-size:                                     1rem;
 $nav-icon-size:                                     1.25rem;
 $nav-icon-width:                                    2rem;
+
