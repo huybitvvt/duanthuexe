@@ -264,15 +264,15 @@
                 </div>
             </div>
 
-            <b-modal title="Tạo hợp đồng" size="xl" ref="modal-contract-create" :centered="true" :scrollable="true"
+            <b-modal title="Tạo hợp đồng" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
                 hide-footer>
                 <order-update @createSuccess="createSuccess"></order-update>
             </b-modal>
-            <b-modal :title='"Sửa hợp đồng  " + orderId' size="xl" ref="modal-contract-update" :centered="true"
+            <b-modal :title='"Sửa hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-update" :centered="true"
                 :scrollable="true" hide-footer>
                 <order-update :id="orderId" @updateSuccess="updateSuccess"></order-update>
             </b-modal>
-            <b-modal :title='"Xem hợp đồng  " + orderId' size="xl" ref="modal-contract-show" :centered="true"
+            <b-modal :title='"Xem hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-show" :centered="true"
                 :scrollable="true">
                 <order-show :order="order_show"></order-show>
             </b-modal>
