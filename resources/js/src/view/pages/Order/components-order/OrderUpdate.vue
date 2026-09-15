@@ -270,7 +270,7 @@
 								</div>
 							</div>
 
-							<div class="row mb-10" v-if="!order.create_order_without_input_deposit" :class="order?.created_without_collect_deposit ? 'd-none' : ''">
+			<div class="row mb-10 payment-row-align" v-if="!order.create_order_without_input_deposit" :class="order?.created_without_collect_deposit ? 'd-none' : ''">
 								<div class="form-group col-md-3">
 									<label for="paid" v-if="start_this_contract"><strong>Đã thu cọc giữ xe</strong></label>
 									<label for="paid" v-else-if="is_deposit_contract_mode"><strong>Thu cọc giữ xe</strong></label>
@@ -1709,6 +1709,9 @@ export default {
 </script>
 
 <style>
+.payment-row-align { align-items: flex-start; }
+.payment-row-align > .form-group, .payment-row-align > .col-md-9 { display: flex; flex-direction: column; }
+.payment-row-align label { min-height: 48px; display: flex; align-items: flex-start; }
 .delete-vehicle {
     position: absolute;
     left: 178px;
