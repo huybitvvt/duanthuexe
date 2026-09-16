@@ -30,6 +30,7 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\LeaseContractController;
 use App\Http\Controllers\DailyCashRegisterController;
 use App\Http\Controllers\HrController;
+use App\Http\Controllers\CustomerReminderController;
 
 /*
 |--------------------------------------------------------------------------

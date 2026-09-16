@@ -206,6 +206,14 @@ export default new Router({
                         import("@/view/pages/lease-to-own/LeaseIndex.vue"),
                 },
                 {
+                    path: "/customer-reminders",
+                    name: "customer-reminders",
+                    component: () =>
+                        import(
+                            "@/view/pages/customer-reminders/CustomerReminderIndex.vue"
+                        ),
+                },
+                {
                     path: "/report/detail-report",
                     name: "report-car-rental",
                     component: () =>
