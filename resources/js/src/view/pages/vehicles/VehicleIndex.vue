@@ -7,11 +7,11 @@
                 </div>
                 <div class="card-toolbar d-flex align-items-center">
                     <div class="btn-group btn-group-sm mr-3" role="group" aria-label="Chế độ hiển thị">
-                        <button type="button" class="btn" :class="viewMode === 'table' ? 'btn-primary' : 'btn-secondary'" @click="switchView('table')">
-                            <i class="fa fa-list mr-1"></i> Bảng
+                        <button type="button" class="btn font-weight-bold" :class="viewMode === 'table' ? 'btn-primary' : 'btn-secondary'" @click="switchView('table')">
+                            Bảng
                         </button>
-                        <button type="button" class="btn" :class="viewMode === 'grid' ? 'btn-primary' : 'btn-secondary'" @click="switchView('grid')">
-                            <i class="fa fa-th-large mr-1"></i> Lưới thẻ
+                        <button type="button" class="btn font-weight-bold" :class="viewMode === 'grid' ? 'btn-primary' : 'btn-secondary'" @click="switchView('grid')">
+                            Lưới thẻ
                         </button>
                     </div>
                     <ModalVehicleCreate @storeSuccess="getList"></ModalVehicleCreate>
@@ -20,24 +20,7 @@
 
             </div>
             <div class="alert alert-custom alert-white alert-shadow fade show gutter-b" role="alert">
-                <div class="alert-icon">
-                    <span class="svg-icon svg-icon-primary svg-icon-xl">
-                        <!--begin::Svg Icon | path:/metronic/theme/html/demo1/dist/assets/media/svg/icons/Tools/Compass.svg-->
-                        <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24px"
-                            height="24px" viewBox="0 0 24 24" version="1.1">
-                            <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-                                <rect x="0" y="0" width="24" height="24"></rect>
-                                <path
-                                    d="M7.07744993,12.3040451 C7.72444571,13.0716094 8.54044565,13.6920474 9.46808594,14.1079953 L5,23 L4.5,18 L7.07744993,12.3040451 Z M14.5865511,14.2597864 C15.5319561,13.9019016 16.375416,13.3366121 17.0614026,12.6194459 L19.5,18 L19,23 L14.5865511,14.2597864 Z M12,3.55271368e-14 C12.8284271,3.53749572e-14 13.5,0.671572875 13.5,1.5 L13.5,4 L10.5,4 L10.5,1.5 C10.5,0.671572875 11.1715729,3.56793164e-14 12,3.55271368e-14 Z"
-                                    fill="#000000" opacity="0.3"></path>
-                                <path
-                                    d="M12,10 C13.1045695,10 14,9.1045695 14,8 C14,6.8954305 13.1045695,6 12,6 C10.8954305,6 10,6.8954305 10,8 C10,9.1045695 10.8954305,10 12,10 Z M12,13 C9.23857625,13 7,10.7614237 7,8 C7,5.23857625 9.23857625,3 12,3 C14.7614237,3 17,5.23857625 17,8 C17,10.7614237 14.7614237,13 12,13 Z"
-                                    fill="#000000" fill-rule="nonzero"></path>
-                            </g>
-                        </svg>
-                        <!--end::Svg Icon-->
-                    </span>
-                </div>
+                <div class="alert-icon font-weight-bolder text-primary">Tổng hợp</div>
                 <div class="alert-text">
                     <div class="row">
                         <div class="col-md-3">
@@ -174,7 +157,7 @@
                     <div>
 
 
-                        <el-button :loading="loading" icon="fa fa-search" class=" btn btn-primary font-weight-bold mr-2"
+                        <el-button :loading="loading" class=" btn btn-primary font-weight-bold mr-2"
                             @click="search">
                             Tìm kiếm
                         </el-button>
@@ -277,20 +260,22 @@
                                     <td>
                                         <div class="d-flex align-items-center gap-1">
                                             <button v-b-modal.modal-show-car-rental
-                                                class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
+                                                class="btn btn-xs btn-outline-info font-weight-bold" title="Xem chi tiết"
                                                 @click="showPopup(item)">
-                                                <i class="far fa-eye"></i>
+                                                Xem
                                             </button>
                                             <button v-b-modal.modal-vehicle-edit @click="item_current = item"
-                                                class="btn btn-xs btn-icon btn-outline-info" title="Sửa">
-                                                <i class="far fa-edit"> </i>
+                                                class="btn btn-xs btn-outline-info font-weight-bold" title="Sửa"
+                                                class="btn btn-xs btn-outline-info font-weight-bold">
+                                                Sửa
                                             </button>
-                                            <button class="btn btn-xs btn-icon btn-outline-primary" title="Tạo đơn thuê"
+                                            <button class="btn btn-xs btn-outline-primary font-weight-bold" title="Tạo đơn thuê"
                                                 @click="$router.push('/car-rental?vehicle_id=' + item.id)">
-                                                <i class="fa fa-file-contract"></i>
+                                                Thuê
                                             </button>
                                             <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteVehicle(item.id)" href="javascript:"
-                                                class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
+                                                class="btn btn-xs btn-outline-danger font-weight-bold">
+                                                Xóa
                                             </a>
                                         </div>
                                     </td>
@@ -320,14 +305,14 @@
                                     <span class="meta-val font-weight-bold text-primary">{{ item.odometer }} km</span>
                                 </div>
                                 <div class="vehicle-card-actions">
-                                    <button class="btn btn-sm btn-secondary" @click="showPopup(item)" v-b-modal.modal-show-car-rental>
-                                        <i class="far fa-eye mr-1"></i> Chi tiết
+                                    <button class="btn btn-sm btn-secondary font-weight-bold" @click="showPopup(item)" v-b-modal.modal-show-car-rental>
+                                        Chi tiết
                                     </button>
-                                    <button class="btn btn-sm btn-secondary" @click="item_current = item" v-b-modal.modal-vehicle-edit>
-                                        <i class="far fa-edit mr-1"></i> Sửa
+                                    <button class="btn btn-sm btn-secondary font-weight-bold" @click="item_current = item" v-b-modal.modal-vehicle-edit>
+                                        Sửa
                                     </button>
-                                    <button class="btn btn-sm btn-primary ml-auto" @click="$router.push('/car-rental?vehicle_id=' + item.id)">
-                                        <i class="fa fa-file-contract mr-1"></i> Thuê
+                                    <button class="btn btn-sm btn-primary font-weight-bold ml-auto" @click="$router.push('/car-rental?vehicle_id=' + item.id)">
+                                        Thuê
                                     </button>
                                 </div>
                             </div>

@@ -15,7 +15,10 @@ const normalizeContract = c => {
     (c.installments || []).forEach(i => {
         i.expected_amount = i.amount_due;
         i.paid_amount = i.amount_paid;
-        i.remaining_amount = Math.max(0, Number(i.amount_due) - Number(i.amount_paid));
+        i.adjustment_amount = Number(i.adjustment_amount || 0);
+        i.remaining_amount = i.remaining_amount == null
+            ? Math.max(0, Number(i.amount_due) - Number(i.amount_paid) - i.adjustment_amount)
+            : Number(i.remaining_amount);
     });
     (c.debt_notes || []).forEach(n => { n.notes = n.note_content; n.promised_date = n.appointment_date; });
     return c;

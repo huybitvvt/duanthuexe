@@ -41,9 +41,9 @@
 
 
                 <div class="col-md-1" style="margin: auto">
-                    <span title="Xóa" @click="deleteSetting">
-                        <i class="fas fa-trash text-danger cursor-pointer" title="Xóa"></i>
-                    </span>
+                    <button type="button" class="btn btn-xs btn-outline-danger font-weight-bold" title="Xóa" @click="deleteSetting">
+                        Xóa
+                    </button>
                 </div>
             </div>
         </div>

@@ -93,7 +93,7 @@
     <template #modal-footer="{ cancel }">
       <b-button variant="secondary" @click="cancel">Đóng</b-button>
       <b-button variant="primary" :disabled="loading" @click="handleSubmit">
-        <i class="fas fa-truck-moving mr-1"></i> Xuất kho điều chuyển
+        Xuất kho điều chuyển
       </b-button>
     </template>
   </b-modal>

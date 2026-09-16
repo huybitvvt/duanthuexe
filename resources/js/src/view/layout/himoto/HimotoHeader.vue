@@ -9,11 +9,7 @@
         @click="$emit('toggle-mobile-sidebar')"
         aria-label="Mở menu"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
+        <span class="btn-text-label">Menu</span>
       </button>
 
       <!-- Desktop Sidebar Collapse Toggle -->
@@ -25,19 +21,12 @@
         title="Thu gọn menu"
         aria-label="Thu gọn menu"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
+        <span class="btn-text-label">Thu gọn</span>
       </button>
 
       <!-- Store / Branch Selector -->
       <div class="store-selector-wrapper">
-        <svg class="store-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-          <polyline points="9 22 9 12 15 12 15 22"></polyline>
-        </svg>
+        <span class="store-label-text">Chi nhánh:</span>
         <select
           id="globalStoreSelect"
           class="store-select"
@@ -56,10 +45,7 @@
     <!-- Desktop Global Search Bar -->
     <div class="header-search-wrapper" ref="searchContainer">
       <div class="search-input-box">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
+        <span class="search-label-text">Tìm:</span>
         <input
           type="text"
           id="globalSearchInput"
@@ -81,7 +67,7 @@
           @click="clearSearch"
           aria-label="Xóa từ khóa"
         >
-          &times;
+          Xóa
         </button>
       </div>
 
@@ -144,9 +130,9 @@
             @click="selectSearchResult(item)"
           >
             <div class="search-result-icon">
-              <span v-if="item.type === 'vehicle'">🏍️</span>
-              <span v-else-if="item.type === 'customer'">👤</span>
-              <span v-else>📋</span>
+              <span v-if="item.type === 'vehicle'">[Xe]</span>
+              <span v-else-if="item.type === 'customer'">[Khách]</span>
+              <span v-else>[Đơn]</span>
             </div>
             <div class="search-result-info">
               <div class="search-result-title">
@@ -173,10 +159,7 @@
         @click="toggleMobileSearch"
         aria-label="Mở tìm kiếm"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
+        <span class="btn-text-label">Tìm</span>
       </button>
 
       <!-- Quick Create Contract Button -->
@@ -185,10 +168,6 @@
         class="btn btn-primary btn-sm btn-quick-order"
         @click="onQuickCreateOrder"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
         <span>Tạo đơn</span>
       </button>
 
@@ -208,11 +187,7 @@
           title="Đăng xuất"
           aria-label="Đăng xuất"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
+          <span class="logout-text">Đăng xuất</span>
         </button>
       </div>
     </div>
@@ -220,10 +195,7 @@
     <!-- Mobile Search Bar Drawer/Bar -->
     <div v-if="searchMobileOpen" class="mobile-search-bar show" ref="mobileSearchContainer">
       <div class="search-input-box">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
+        <span class="search-label-text">Tìm:</span>
         <input
           type="text"
           id="globalSearchInputMobile"
@@ -243,7 +215,7 @@
           @click="closeMobileSearch"
           aria-label="Đóng tìm kiếm"
         >
-          &times;
+          Đóng
         </button>
       </div>
 
@@ -261,9 +233,9 @@
             @click="selectSearchResult(item)"
           >
             <div class="search-result-icon">
-              <span v-if="item.type === 'vehicle'">🏍️</span>
-              <span v-else-if="item.type === 'customer'">👤</span>
-              <span v-else>📋</span>
+              <span v-if="item.type === 'vehicle'">[Xe]</span>
+              <span v-else-if="item.type === 'customer'">[Khách]</span>
+              <span v-else>[Đơn]</span>
             </div>
             <div class="search-result-info">
               <div class="search-result-title">{{ item.title }}</div>
@@ -849,7 +821,7 @@ export default {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--brand-red, #ed1c24), #990000);
+  background: var(--brand-red, #ed1c24);
   color: #ffffff;
   font-size: 11px;
   font-weight: 700;
@@ -904,6 +876,19 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .app-header {
+    height: 56px;
+    padding: 0 8px;
+    gap: 6px;
+  }
+  .header-left,
+  .header-right {
+    gap: 6px;
+    min-width: 0;
+  }
+  .header-left {
+    flex: 1 1 auto;
+  }
   .header-search-wrapper {
     display: none;
   }
@@ -917,13 +902,42 @@ export default {
     display: none;
   }
   .store-selector-wrapper {
-    max-width: 170px;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 140px;
     overflow: hidden;
+    padding: 4px 8px;
+  }
+  .store-label-text {
+    display: none;
   }
   .store-select {
     font-size: 12px;
-    max-width: 130px;
+    width: 100%;
+    min-width: 0;
+    max-width: 124px;
     text-overflow: ellipsis;
+  }
+  .btn-quick-order {
+    padding: 7px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .header-user-badge {
+    gap: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .user-avatar-circle {
+    display: none;
+  }
+  .btn-logout-header {
+    min-height: 36px;
+    padding: 0 7px;
+    border: 1px solid var(--border, #e7ebf0);
+    font-size: 11px;
+    background: #ffffff;
   }
 }
 </style>

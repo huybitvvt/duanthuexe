@@ -145,6 +145,18 @@ export default new Router({
                         import("@/view/pages/finances/ReceiptCreate.vue"),
                 },
                 {
+                    path: "/finances/daily-cash-register",
+                    name: "daily-cash-register",
+                    component: () =>
+                        import("@/view/pages/finances/DailyCashRegister.vue"),
+                },
+                {
+                    path: "/hr/duty-schedule",
+                    name: "hr-duty-schedule",
+                    component: () =>
+                        import("@/view/pages/hr/StoreDutySchedule.vue"),
+                },
+                {
                     path: "/stores",
                     name: "stores",
                     component: () =>

@@ -28,6 +28,8 @@ use App\Http\Controllers\MaintenanceTypeController;
 use App\Http\Controllers\MaintenanceScheduleController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\LeaseContractController;
+use App\Http\Controllers\DailyCashRegisterController;
+use App\Http\Controllers\HrController;
 
 /*
 |--------------------------------------------------------------------------
@@ -259,7 +261,24 @@ Route::group(['middleware' => 'api'], function ($router) {
                 Route::get('/{id}', [LeaseContractController::class, 'show']);
                 Route::post('/', [LeaseContractController::class, 'store']);
                 Route::post('/{id}/payments', [LeaseContractController::class, 'allocatePayment']);
+                Route::post('/{id}/settle', [LeaseContractController::class, 'settle']);
+                Route::post('/reverse-allocation/{allocationId}', [LeaseContractController::class, 'reverse']);
                 Route::post('/{id}/notes', [LeaseContractController::class, 'addNote']);
+            });
+
+            Route::group(['prefix' => 'daily-cash-registers'], function () {
+                Route::get('/summary', [DailyCashRegisterController::class, 'summary']);
+                Route::post('/close', [DailyCashRegisterController::class, 'close']);
+                Route::post('/reopen', [DailyCashRegisterController::class, 'reopen']);
+                Route::get('/history', [DailyCashRegisterController::class, 'history']);
+            });
+
+            Route::group(['prefix' => 'hr'], function () {
+                Route::get('/staff', [HrController::class, 'staffIndex']);
+                Route::post('/staff', [HrController::class, 'staffStore']);
+                Route::get('/duty-schedules', [HrController::class, 'dutySchedules']);
+                Route::post('/duty-schedules', [HrController::class, 'saveDutySchedule']);
+                Route::delete('/duty-schedules/{id}', [HrController::class, 'deleteDutySchedule']);
             });
 
             Route::group(['prefix' => 'customer-reminders'], function () {

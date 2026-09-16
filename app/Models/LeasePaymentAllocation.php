@@ -9,6 +9,10 @@ class LeasePaymentAllocation extends Model
 {
     use \App\Traits\HandlesPostgresDates;
 
+    const STATUS_ACTIVE = 'active';
+    const STATUS_REVERSED = 'reversed';
+    const STATUS_DISCOUNT = 'discount';
+
     protected $fillable = [
         'lease_contract_id',
         'installment_id',
@@ -16,6 +20,11 @@ class LeasePaymentAllocation extends Model
         'amount',
         'payment_date',
         'notes',
+        'status',
+        'reversal_transaction_id',
+        'reversal_reason',
+        'reversed_at',
+        'reversed_by',
         'created_by',
     ];
 
@@ -42,5 +51,17 @@ class LeasePaymentAllocation extends Model
     public function createdByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    public function scopeEffectivePayments($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('status')->orWhere('status', self::STATUS_ACTIVE);
+        });
+    }
+
+    public function scopeDiscountAdjustments($query)
+    {
+        return $query->where('status', self::STATUS_DISCOUNT);
     }
 }

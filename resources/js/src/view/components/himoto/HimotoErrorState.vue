@@ -1,19 +1,13 @@
 <template>
   <div class="himoto-error-state" role="alert">
     <div class="error-icon-box">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
+      <span aria-hidden="true">Lỗi</span>
     </div>
     <h3 class="error-title">{{ title }}</h3>
     <p class="error-message">{{ message }}</p>
     <div v-if="showRetry" class="error-actions">
       <button type="button" class="btn btn-primary" @click="$emit('retry')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-        </svg>
+        <span aria-hidden="true">Thử lại:</span>
         {{ retryText }}
       </button>
     </div>

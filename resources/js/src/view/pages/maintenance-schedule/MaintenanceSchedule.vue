@@ -36,7 +36,7 @@
                                 </el-date-picker>
                             </div>
                             <div class="col-md-3 text-right">
-                                <el-button :loading="loading" icon="fa fa-search"
+                                <el-button :loading="loading"
                                     class="btn btn-primary font-weight-bold" @click="search">
                                     Tìm kiếm
                                 </el-button>
@@ -83,15 +83,14 @@
                                         </td>
                                         <td>
                                             <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteItem(item.id)"
-                                                href="javascript:" class="btn btn-xs btn-icon btn-outline-danger"><i
-                                                class="fas fa-trash"></i>
+                                                href="javascript:" class="btn btn-xs btn-outline-danger">Xóa
                                             </a>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <HimotoEmptyState v-else icon="fas fa-tools" title="Không có lịch hẹn bảo dưỡng nào" description="Thử thay đổi bộ lọc tìm kiếm hoặc tạo lịch hẹn bảo dưỡng mới." actionText="Tạo mới lịch hẹn" @action="openModalCreate()" />
+                        <HimotoEmptyState v-else title="Không có lịch hẹn bảo dưỡng nào" description="Thử thay đổi bộ lọc tìm kiếm hoặc tạo lịch hẹn bảo dưỡng mới." actionText="Tạo mới lịch hẹn" @action="openModalCreate()" />
                     </div>
                 </div>
                 <b-modal title="Tạo mới" size="xl" ref="modal-create" :centered="true" :scrollable="true" hide-footer>

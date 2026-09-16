@@ -11,7 +11,7 @@
                     <div class="w-100 mr-3">
                         <el-input clearable placeholder="Nhập người thụ hưởng hoặc STK" v-model="query.keyword" @change="handleKeywordChange($event)"></el-input>
                     </div>
-                    <el-button :loading="loading" icon="fa fa-search" class="btn btn-primary font-weight-bold" @click="search"></el-button>
+                    <el-button :loading="loading" class="btn btn-primary font-weight-bold" @click="search">Tìm kiếm</el-button>
                 </div>
                 <!-- Ends Search box -->
 
@@ -55,28 +55,28 @@
                                 <td>{{ item.opening_balance | formatPrice }}</td>
                                 <td>{{ item.current_balance | formatPrice }}</td>
                                 <td>
-                                    <router-link v-if="currentUser.role_id === 1" :to="{name: 'banks-update', params: {id: item.id}}" title="Sửa"
-                                                 class="btn btn-xs btn-icon mr-2 btn-outline-info"><i
-                                        class="fas fa-pen-nib"></i>
+                                    <router-link v-if="currentUser.role_id === 1" :to="{name: 'banks-update', params: {id: item.id}}"
+                                                 class="btn btn-xs btn-outline-info font-weight-bold mr-1">
+                                        Sửa
                                     </router-link>
                                     <button
                                             v-b-modal.modal-show-car-rental
-                                            class="btn btn-xs btn-icon btn-outline-info"
-                                            title="Xem chi tiết"
+                                            class="btn btn-xs btn-outline-primary font-weight-bold mr-1"
                                             data-target="#rentalPopup"
                                             @click="showBankPopup(item)"
                                         >
-                                            <i class="far fa-eye"></i>
-                                        </button>
-                                    <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteBank(item.id)" href="javascript:"
-                                       class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
+                                            Xem
+                                    </button>
+                                    <a v-if="currentUser.role_id === 1" @click="deleteBank(item.id)" href="javascript:"
+                                       class="btn btn-xs btn-outline-danger font-weight-bold">
+                                        Xóa
                                     </a>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <HimotoEmptyState v-else icon="fas fa-university" title="Chưa có tài khoản ngân hàng" description="Thử thay đổi bộ lọc hoặc thêm mới tài khoản ngân hàng." actionText="Thêm mới tài khoản" @action="$router.push({ name: 'banks-create' })" />
+                <HimotoEmptyState v-else title="Chưa có tài khoản ngân hàng" description="Thử thay đổi bộ lọc hoặc thêm mới tài khoản ngân hàng." actionText="Thêm mới tài khoản" @action="$router.push({ name: 'banks-create' })" />
             </div>
             <ModalShowBank :transactions="transactions" :bank="bank_show"></ModalShowBank>
             <div class="edu-paginate mx-auto text-center" v-if="!loading && banks.length">

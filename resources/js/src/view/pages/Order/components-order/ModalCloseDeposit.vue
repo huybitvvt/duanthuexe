@@ -1,6 +1,6 @@
 <template>
     <div>
-        <b-button class="btn btn-primary" @click="is_dialog_visible = !is_dialog_visible" native-type="button"><i class="fas"></i>Thanh lý</b-button>
+        <b-button class="btn btn-primary" @click="is_dialog_visible = !is_dialog_visible" native-type="button">Thanh lý</b-button>
         <b-modal centered v-model="is_dialog_visible" title="Thanh lý hợp đồng cọc" hide-footer>
             <ValidationObserver v-slot="{ handleSubmit }" ref="form">
                 <form class="form form-destroy-contract" @submit.prevent="handleSubmit(closeDepositOrder)">

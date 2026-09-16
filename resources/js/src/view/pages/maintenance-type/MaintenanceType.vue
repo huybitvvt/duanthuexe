@@ -58,8 +58,8 @@
 
 
                                     <td class="text-center">
-                                        <button class="btn btn-xs btn-icon btn-danger" title="Xóa hình thức bảo dưỡng"
-                                            @click="deleteType(item.id, index)"><i class="fas fa-trash"></i></button>
+                                        <button class="btn btn-xs btn-outline-danger font-weight-bold" title="Xóa hình thức bảo dưỡng"
+                                            @click="deleteType(item.id, index)">Xóa</button>
                                     </td>
                                 </tr>
                             </tbody>

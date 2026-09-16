@@ -7,7 +7,7 @@
         <!--begin::Logo-->
         <a href="/">
             <!-- <img style="width: 40px; height: 40px" alt="Logo" src="/images/himoto.png"/> -->
-            <img style="width: 140px;" alt="Logo" src="/images/logo-himoto-official.png"/>
+            <img class="himoto-header-logo" alt="Logo" src="/images/branding/logo-himoto-pdf.png"/>
             <!--      <img alt="Logo" :src="headerLogo" />-->
         </a>
         <!--end::Logo-->
@@ -19,7 +19,7 @@
                 class="btn p-0 burger-icon burger-icon-left"
                 id="kt_aside_mobile_toggle"
             >
-                <span></span>
+                Mở menu
             </button>
             <!--end::Aside Mobile Toggle-->
             <!--begin::Header Menu Mobile Toggle-->
@@ -37,11 +37,7 @@
                 id="kt_header_mobile_topbar_toggle"
                 ref="kt_header_mobile_topbar_toggle"
             >
-        <span class="svg-icon svg-icon-xl">
-          <!--begin::Svg Icon | path:svg/icons/General/User.svg-->
-          <inline-svg class="svg-icon" src="media/svg/icons/General/User.svg"/>
-            <!--end::Svg Icon-->
-        </span>
+                Tài khoản
             </button>
             <!--end::Topbar Mobile Toggle-->
         </div>
@@ -93,3 +89,25 @@ export default {
     }
 };
 </script>
+
+<style scoped>
+.himoto-header-logo {
+    display: block;
+    width: 140px;
+    max-height: 30px;
+    padding: 6px 10px;
+    border-radius: 5px;
+    background: #ed1c24;
+    object-fit: contain;
+}
+
+.header-mobile .burger-icon,
+.header-mobile #kt_header_mobile_topbar_toggle {
+    width: auto;
+    min-height: 30px;
+    padding: 0 8px !important;
+    font-size: 12px;
+    line-height: 30px;
+    white-space: nowrap;
+}
+</style>

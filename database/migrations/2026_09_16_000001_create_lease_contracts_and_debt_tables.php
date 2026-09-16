@@ -58,6 +58,11 @@ class CreateLeaseContractsAndDebtTables extends Migration
                 $table->decimal('amount', 15, 2)->default(0);
                 $table->date('payment_date');
                 $table->text('notes')->nullable();
+                $table->string('status', 32)->default('active')->index()->comment('active, reversed');
+                $table->unsignedBigInteger('reversal_transaction_id')->nullable()->index();
+                $table->text('reversal_reason')->nullable();
+                $table->timestamp('reversed_at')->nullable();
+                $table->unsignedBigInteger('reversed_by')->nullable()->index();
                 $table->unsignedBigInteger('created_by')->nullable()->index();
                 $table->timestamps();
             });

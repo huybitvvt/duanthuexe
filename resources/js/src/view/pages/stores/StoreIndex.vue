@@ -30,11 +30,12 @@
                         <td class="text-danger">{{ item.status }}</td>
                         <td>
                             <router-link :to="{name: 'stores-update', params: {id: item.id}}" title="Sửa"
-                                         class="btn btn-xs btn-icon mr-2 btn-outline-info"><i
-                                class="fas fa-pen-nib"></i>
+                                         class="btn btn-xs btn-outline-info font-weight-bold mr-1">
+                                Sửa
                             </router-link>
                             <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteStore(item.id)" href="javascript:"
-                               class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
+                               class="btn btn-xs btn-outline-danger font-weight-bold">
+                                Xóa
                             </a>
                         </td>
                     </tr>

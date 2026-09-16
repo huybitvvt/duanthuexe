@@ -101,7 +101,7 @@
                                     </el-select>
                                 </td>
                                 <td class="text-center">
-                                    <button v-if="currentUser.role_id === 1" class="btn btn-xs btn-icon btn-danger" title="Xóa cài đặt" @click="deletePriceVehicle(item.id, index)"><i class="fas fa-trash"></i></button>
+                                    <button v-if="currentUser.role_id === 1" class="btn btn-xs btn-outline-danger font-weight-bold" title="Xóa cài đặt" @click="deletePriceVehicle(item.id, index)">Xóa</button>
                                 </td>
                             </tr>
                             </tbody>

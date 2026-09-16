@@ -281,7 +281,7 @@
 						:auto-upload="true"
 						:headers="headerInfo"
 						multiple>
-							<i class="el-icon-plus"></i>
+							<span class="font-weight-bold">Thêm ảnh</span>
 							<div slot="tip" class="el-upload__tip">Chọn nhiều file để upload</div>
 					</el-upload>
 
@@ -305,7 +305,7 @@
                         <div @click="addSetting()">
                             <div class="d-flex">
                                 <span class="flex-shrink-0 text-center">
-                                    <i class="icon-xl text-success fas fa-plus"></i>
+                                    <span class="font-weight-bold text-success">Thêm</span>
                                 </span>
                                 <div class="text-success" style="
 									margin-top: 2px;

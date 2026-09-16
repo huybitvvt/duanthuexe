@@ -10,16 +10,15 @@
       </div>
       <div class="d-flex align-items-center">
         <button class="btn btn-outline-success mr-2 font-weight-bold" :disabled="exporting" @click="handleExportExcel">
-          <i class="fas fa-file-excel mr-1" :class="{ 'fa-spin': exporting }"></i>
           {{ exporting ? 'Đang xuất...' : 'Xuất Excel công nợ' }}
         </button>
 
         <button class="btn btn-primary font-weight-bold mr-2" @click="openCreateModal">
-          <i class="fas fa-plus-circle mr-1"></i> Tạo HĐ Thuê sở hữu
+          Tạo HĐ Thuê sở hữu
         </button>
 
-        <button class="btn btn-light-primary" @click="refreshData">
-          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i> Làm mới
+        <button class="btn btn-light-primary font-weight-bold" @click="refreshData">
+          {{ loading ? 'Đang tải...' : 'Làm mới' }}
         </button>
       </div>
     </div>
@@ -27,85 +26,57 @@
     <!-- Hàng thẻ thống kê KPI -->
     <div class="row mb-4" v-loading="loadingStats">
       <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card card-custom bg-light-primary wave wave-animate-slower p-4 border-0">
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <span class="text-muted font-weight-bold font-size-sm d-block">TỔNG HỢP ĐỒNG</span>
-              <span class="font-size-h3 font-weight-bolder text-primary">
-                {{ stats ? stats.total_contracts : 0 }}
-              </span>
-              <span class="text-muted font-size-xs d-block mt-1">
-                Đang thực hiện: <strong>{{ stats ? stats.active_contracts : 0 }}</strong> HĐ
-              </span>
-            </div>
-            <div class="symbol symbol-50 symbol-light-primary">
-              <span class="symbol-label">
-                <i class="fas fa-file-contract font-size-h4 text-primary"></i>
-              </span>
-            </div>
+        <div class="card card-custom bg-light-primary p-4 border-0">
+          <div>
+            <span class="text-muted font-weight-bold font-size-sm d-block">TỔNG HỢP ĐỒNG</span>
+            <span class="font-size-h3 font-weight-bolder text-primary">
+              {{ stats ? stats.total_contracts : 0 }}
+            </span>
+            <span class="text-muted font-size-xs d-block mt-1">
+              Đang thực hiện: <strong>{{ stats ? stats.active_contracts : 0 }}</strong> HĐ
+            </span>
           </div>
         </div>
       </div>
 
       <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card card-custom bg-light-danger wave wave-animate-slower p-4 border-0">
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <span class="text-muted font-weight-bold font-size-sm d-block">TỔNG DƯ NỢ CÒN LẠI</span>
-              <span class="font-size-h3 font-weight-bolder text-danger">
-                {{ (stats ? stats.total_remaining_debt : 0) | formatPrice }}
-              </span>
-              <span class="text-muted font-size-xs d-block mt-1">
-                Tổng thu dự kiến từ các kỳ
-              </span>
-            </div>
-            <div class="symbol symbol-50 symbol-light-danger">
-              <span class="symbol-label">
-                <i class="fas fa-hand-holding-usd font-size-h4 text-danger"></i>
-              </span>
-            </div>
+        <div class="card card-custom bg-light-danger p-4 border-0">
+          <div>
+            <span class="text-muted font-weight-bold font-size-sm d-block">TỔNG DƯ NỢ CÒN LẠI</span>
+            <span class="font-size-h3 font-weight-bolder text-danger">
+              {{ (stats ? stats.total_remaining_debt : 0) | formatPrice }}
+            </span>
+            <span class="text-muted font-size-xs d-block mt-1">
+              Tổng thu dự kiến từ các kỳ
+            </span>
           </div>
         </div>
       </div>
 
       <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card card-custom bg-light-warning wave wave-animate-slower p-4 border-0">
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <span class="text-muted font-weight-bold font-size-sm d-block">HỢP ĐỒNG QUÁ HẠN</span>
-              <span class="font-size-h3 font-weight-bolder text-warning">
-                {{ stats ? stats.overdue_contracts : 0 }}
-              </span>
-              <span class="text-muted font-size-xs d-block mt-1">
-                Chiếm <strong>{{ overduePercentage }}%</strong> tổng hợp đồng
-              </span>
-            </div>
-            <div class="symbol symbol-50 symbol-light-warning">
-              <span class="symbol-label">
-                <i class="fas fa-exclamation-triangle font-size-h4 text-warning"></i>
-              </span>
-            </div>
+        <div class="card card-custom bg-light-warning p-4 border-0">
+          <div>
+            <span class="text-muted font-weight-bold font-size-sm d-block">HỢP ĐỒNG QUÁ HẠN</span>
+            <span class="font-size-h3 font-weight-bolder text-warning">
+              {{ stats ? stats.overdue_contracts : 0 }}
+            </span>
+            <span class="text-muted font-size-xs d-block mt-1">
+              Chiếm <strong>{{ overduePercentage }}%</strong> tổng hợp đồng
+            </span>
           </div>
         </div>
       </div>
 
       <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card card-custom bg-light-success wave wave-animate-slower p-4 border-0">
-          <div class="d-flex align-items-center justify-content-between">
-            <div>
-              <span class="text-muted font-weight-bold font-size-sm d-block">ĐÃ THU LŨY KẾ</span>
-              <span class="font-size-h3 font-weight-bolder text-success">
-                {{ (stats ? stats.total_collected : 0) | formatPrice }}
-              </span>
-              <span class="text-muted font-size-xs d-block mt-1">
-                Tiền cọc & các kỳ đã đóng
-              </span>
-            </div>
-            <div class="symbol symbol-50 symbol-light-success">
-              <span class="symbol-label">
-                <i class="fas fa-check-double font-size-h4 text-success"></i>
-              </span>
-            </div>
+        <div class="card card-custom bg-light-success p-4 border-0">
+          <div>
+            <span class="text-muted font-weight-bold font-size-sm d-block">ĐÃ THU LŨY KẾ</span>
+            <span class="font-size-h3 font-weight-bolder text-success">
+              {{ (stats ? stats.total_collected : 0) | formatPrice }}
+            </span>
+            <span class="text-muted font-size-xs d-block mt-1">
+              Tiền cọc & các kỳ đã đóng
+            </span>
           </div>
         </div>
       </div>
@@ -127,35 +98,35 @@
             </button>
             <button
               type="button"
-              class="btn btn-sm mr-2"
+              class="btn btn-sm mr-2 font-weight-bold"
               :class="query.aging_bucket === 'current' ? 'btn-success' : 'btn-light-success'"
               @click="setAgingBucket('current')"
             >
-              <i class="fas fa-check-circle mr-1"></i> Đúng hạn ({{ stats?.aging_buckets?.current || 0 }})
+              Đúng hạn ({{ stats?.aging_buckets?.current || 0 }})
             </button>
             <button
               type="button"
-              class="btn btn-sm mr-2"
+              class="btn btn-sm mr-2 font-weight-bold"
               :class="query.aging_bucket === 'overdue_1_7' ? 'btn-warning' : 'btn-light-warning'"
               @click="setAgingBucket('overdue_1_7')"
             >
-              <i class="fas fa-clock mr-1"></i> Quá hạn 1-7 ngày ({{ stats?.aging_buckets?.overdue_1_7 || 0 }})
+              Quá hạn 1-7 ngày ({{ stats?.aging_buckets?.overdue_1_7 || 0 }})
             </button>
             <button
               type="button"
-              class="btn btn-sm mr-2"
+              class="btn btn-sm mr-2 font-weight-bold"
               :class="query.aging_bucket === 'overdue_8_30' ? 'btn-danger' : 'btn-light-danger'"
               @click="setAgingBucket('overdue_8_30')"
             >
-              <i class="fas fa-exclamation-circle mr-1"></i> Quá hạn 8-30 ngày ({{ stats?.aging_buckets?.overdue_8_30 || 0 }})
+              Quá hạn 8-30 ngày ({{ stats?.aging_buckets?.overdue_8_30 || 0 }})
             </button>
             <button
               type="button"
-              class="btn btn-sm mr-2"
+              class="btn btn-sm mr-2 font-weight-bold"
               :class="query.aging_bucket === 'overdue_30_plus' ? 'btn-dark' : 'btn-light-dark'"
               @click="setAgingBucket('overdue_30_plus')"
             >
-              <i class="fas fa-radiation-alt mr-1"></i> Quá hạn >30 ngày ({{ stats?.aging_buckets?.overdue_30_plus || 0 }})
+              Quá hạn >30 ngày ({{ stats?.aging_buckets?.overdue_30_plus || 0 }})
             </button>
           </div>
 
@@ -175,7 +146,6 @@
               v-model="query.search"
               placeholder="Tìm theo Mã HĐ, Tên KH, Số điện thoại, Biển số xe..."
               clearable
-              prefix-icon="el-icon-search"
               @keyup.enter.native="handleSearch"
             />
           </div>
@@ -196,10 +166,10 @@
           </div>
           <div class="col-md-4 d-flex justify-content-md-end">
             <button class="btn btn-primary font-weight-bold mr-2" @click="handleSearch">
-              <i class="fas fa-search mr-1"></i> Tìm kiếm
+              Tìm kiếm
             </button>
             <button class="btn btn-light font-weight-bold" @click="resetQuery">
-              <i class="fas fa-undo mr-1"></i> Xóa lọc
+              Xóa lọc
             </button>
           </div>
         </div>
@@ -228,7 +198,7 @@
             <tbody>
               <tr v-if="contracts.length === 0">
                 <td colspan="10" class="text-center py-5 text-muted">
-                  <i class="fas fa-folder-open font-size-h2 d-block mb-2 text-muted"></i>
+                  <div class="font-weight-bold mb-1">Chưa có hợp đồng nào</div>
                   Không tìm thấy hợp đồng thuê sở hữu nào phù hợp với điều kiện tìm kiếm.
                 </td>
               </tr>
@@ -248,7 +218,7 @@
                   <div class="font-weight-bold text-dark">{{ item.customer?.name }}</div>
                   <div class="font-size-xs text-muted">
                     <a :href="'tel:' + item.customer?.phone" class="text-primary font-weight-bold">
-                      <i class="fas fa-phone mr-1"></i>{{ item.customer?.phone }}
+                      {{ item.customer?.phone }}
                     </a>
                   </div>
                   <div v-if="item.customer?.id_card" class="font-size-xs text-muted">
@@ -313,7 +283,7 @@
                       {{ item.latest_debt_note.notes }}
                     </span>
                     <div v-if="item.latest_debt_note.promised_date" class="text-primary font-size-xs mt-1 font-weight-bold">
-                      <i class="fas fa-calendar-check mr-1"></i>Hẹn: {{ item.latest_debt_note.promised_date | formatDate }}
+                      Hẹn: {{ item.latest_debt_note.promised_date | formatDate }}
                     </div>
                   </div>
                   <div v-else class="text-muted font-size-xs">
@@ -327,32 +297,32 @@
                     <!-- Lịch trả góp -->
                     <button
                       type="button"
-                      class="btn btn-sm btn-icon btn-light-primary mr-1"
+                      class="btn btn-sm btn-light-primary font-weight-bold mr-1"
                       title="Xem lịch trả góp"
                       @click="openScheduleModal(item.id)"
                     >
-                      <i class="fas fa-calendar-alt"></i>
+                      Lịch trả
                     </button>
 
                     <!-- Thu tiền kỳ -->
                     <button
                       v-if="item.remaining_debt > 0"
                       type="button"
-                      class="btn btn-sm btn-icon btn-light-success mr-1"
+                      class="btn btn-sm btn-light-success font-weight-bold mr-1"
                       title="Thu tiền kỳ / Trả góp"
                       @click="openPaymentModal(item)"
                     >
-                      <i class="fas fa-hand-holding-usd"></i>
+                      Thu tiền
                     </button>
 
                     <!-- Nhắc nợ / Ghi chú đôn đốc -->
                     <button
                       type="button"
-                      class="btn btn-sm btn-icon btn-light-warning"
+                      class="btn btn-sm btn-light-warning font-weight-bold"
                       title="Đôn đốc & ghi chú nhắc nợ"
                       @click="openDebtNoteModal(item)"
                     >
-                      <i class="fas fa-phone-volume"></i>
+                      Nhắc nợ
                     </button>
                   </div>
                 </td>

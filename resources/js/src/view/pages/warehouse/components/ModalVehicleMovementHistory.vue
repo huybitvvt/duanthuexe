@@ -44,11 +44,11 @@
                   {{ getEventLabel(ev.event_type) }}
                 </span>
                 <span class="font-weight-bold text-dark">
-                  {{ ev.from_store_name }} <i class="fas fa-arrow-right text-muted mx-1"></i> {{ ev.to_store_name }}
+                  {{ ev.from_store_name }} &rarr; {{ ev.to_store_name }}
                 </span>
               </div>
               <span class="text-muted small">
-                <i class="far fa-clock mr-1"></i> {{ ev.created_at }}
+                {{ ev.created_at }}
               </span>
             </div>
 
@@ -65,7 +65,7 @@
       </div>
 
       <div v-else-if="!loading" class="text-center py-5 text-muted">
-        <i class="flaticon2-document display-4 text-muted d-block mb-2"></i>
+        <div class="font-weight-bold mb-1">Chưa có lịch sử di chuyển</div>
         Chưa có lịch sử điều chuyển hoặc ghi nhận vị trí cho xe này.
       </div>
     </div>

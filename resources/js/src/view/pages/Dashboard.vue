@@ -3,14 +3,14 @@
     <!-- Role 4 / 403 Forbidden Fallback State -->
     <div v-if="!hasPermission" class="himoto-unauthorized-container">
       <div class="unauthorized-card">
-        <div class="unauthorized-icon">🔒</div>
+        <div class="unauthorized-icon">Hạn chế</div>
         <h2 class="unauthorized-title">Không có quyền truy cập</h2>
         <p class="unauthorized-desc">
           Tài khoản của bạn (Tư vấn Lead) không có quyền truy cập trang Tổng quan quản trị theo chính sách phân quyền hệ thống.
         </p>
         <div class="unauthorized-actions">
           <router-link to="/leads" class="btn btn-primary">
-            <span>📥 Chuyển sang Quản lý Lead</span>
+            <span>Chuyển sang Quản lý Lead</span>
           </router-link>
         </div>
       </div>
@@ -24,12 +24,6 @@
         <div class="page-header-row">
       <div class="page-title-block">
         <h1 class="page-title">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="page-title-icon">
-            <rect width="7" height="9" x="3" y="3" rx="1" />
-            <rect width="7" height="5" x="14" y="3" rx="1" />
-            <rect width="7" height="9" x="14" y="12" rx="1" />
-            <rect width="7" height="5" x="3" y="16" rx="1" />
-          </svg>
           Tổng quan vận hành
         </h1>
         <div class="page-subtitle">
@@ -64,10 +58,6 @@
           class="btn btn-primary btn-quick-order"
           @click="$router.push('/car-rental')"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M5 12h14" />
-            <path d="M12 5v14" />
-          </svg>
           Tạo đơn thuê mới
         </button>
       </div>
@@ -79,13 +69,6 @@
       <div class="kpi-card accent-red">
         <div class="kpi-card-top">
           <span class="kpi-label">Lượt thuê {{ currentPeriod === 'day' ? 'hôm nay' : 'tháng này' }}</span>
-          <div class="kpi-icon-wrap bg-red-dim text-brand-red">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-              <path d="M3 6h18" />
-              <path d="M16 10a4 4 0 0 1-8 0" />
-            </svg>
-          </div>
         </div>
         <div class="kpi-value">
           {{ currentPeriod === 'day' ? (reports.total_order_in_day || 0) : (reports.total_order_in_month || 0) }}
@@ -99,12 +82,6 @@
       <div class="kpi-card accent-yellow">
         <div class="kpi-card-top">
           <span class="kpi-label">Tổng thu thực tế</span>
-          <div class="kpi-icon-wrap bg-yellow-dim text-brand-yellow-dark">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" x2="12" y1="2" y2="22" />
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-          </div>
         </div>
         <div class="kpi-value">
           {{ (currentPeriod === 'day' ? totalInByDay : totalInByMonth) | formatPrice }}
@@ -118,14 +95,6 @@
       <div class="kpi-card accent-green">
         <div class="kpi-card-top">
           <span class="kpi-label">Xe đang cho thuê</span>
-          <div class="kpi-icon-wrap bg-green-dim text-success">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="18.5" cy="17.5" r="3.5" />
-              <circle cx="5.5" cy="17.5" r="3.5" />
-              <circle cx="15" cy="5" r="1" />
-              <path d="M12 17.5V14l-3-3 4-3 2 3h2" />
-            </svg>
-          </div>
         </div>
         <div class="kpi-value">
           {{ reports.total_vehicle_using || 0 }} <span class="kpi-unit">/ {{ reports.total_vehicle || 0 }} xe</span>
@@ -139,12 +108,6 @@
       <div class="kpi-card accent-blue">
         <div class="kpi-card-top">
           <span class="kpi-label">Xe sẵn sàng</span>
-          <div class="kpi-icon-wrap bg-blue-dim text-info">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-          </div>
         </div>
         <div class="kpi-value">
           {{ reports.total_vehicle_ready || 0 }}
@@ -158,11 +121,6 @@
       <div class="kpi-card accent-purple">
         <div class="kpi-card-top">
           <span class="kpi-label">Xe hỏng / Bảo dưỡng</span>
-          <div class="kpi-icon-wrap bg-purple-dim text-danger">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-            </svg>
-          </div>
         </div>
         <div class="kpi-value">
           {{ (reports.total_vehicle_broken || 0) + (reports.total_vehicle_repairing || 0) }}
@@ -227,7 +185,7 @@
               <div class="finance-stat-item">
                 <span class="finance-label">Hoàn do trả sớm</span>
                 <span class="finance-value font-weight-bold">
-                  {{ Math.abs(currentPeriod === 'day' ? reports.total_money_early_in_day_new : reports.total_money_early_in_month_new || 0) | formatPrice }}
+                  {{ Math.abs(Number((currentPeriod === 'day' ? reports.total_money_early_in_day_new : reports.total_money_early_in_month_new) || 0)) | formatPrice }}
                 </span>
               </div>
               <div class="finance-stat-item">
@@ -249,10 +207,6 @@
         <div class="himoto-card h-100">
           <div class="himoto-card-header d-flex justify-content-between align-items-center">
             <h3 class="himoto-card-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2 text-brand-red">
-                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-                <polyline points="16 7 22 7 22 13" />
-              </svg>
               Biểu đồ doanh thu theo ngày trong tháng
             </h3>
             <span class="chart-sum-badge font-weight-bold">
@@ -272,10 +226,6 @@
         <div class="himoto-card h-100">
           <div class="himoto-card-header">
             <h3 class="himoto-card-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2 text-brand-red">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 2a10 10 0 0 1 10 10" />
-              </svg>
               Cơ cấu đội xe hiện tại
             </h3>
           </div>
@@ -335,12 +285,6 @@
     <div class="himoto-card">
       <div class="himoto-card-header">
         <h3 class="himoto-card-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mr-2 text-brand-red">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
           Danh sách Lead khách hàng mới nhất
         </h3>
       </div>

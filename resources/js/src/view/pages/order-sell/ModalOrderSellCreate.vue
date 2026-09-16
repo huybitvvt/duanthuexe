@@ -242,11 +242,7 @@
                     <div class="row" v-if="order.store_id">
                         <div class="col-md-12 d-flex justify-content-start">
                             <h5 class="text-primary">Danh sách sản phẩm</h5>
-                            <i
-                                class="fas fa-plus ml-4 text-primary cursor-pointer"
-                                title="Thêm xe"
-                                @click="addOrderItem"
-                            ></i>
+                            <button type="button" class="btn btn-link ml-3 p-0 text-primary" @click="addOrderItem">Thêm xe</button>
                         </div>
                         <OrderItems
                             v-for="(item, index) in order.items"

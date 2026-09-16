@@ -300,6 +300,16 @@ export default {
   }
 }
 
+@media (min-width: 769px) and (max-width: 1024px) {
+  .himoto-main-shell {
+    margin-left: 248px;
+  }
+
+  .himoto-main-shell.sidebar-collapsed {
+    margin-left: var(--sidebar-collapsed-width, 72px);
+  }
+}
+
 .fade-in-fast-enter-active,
 .fade-in-fast-leave-active {
   transition: opacity 120ms ease;

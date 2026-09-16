@@ -17,21 +17,21 @@
           class="mr-2"
         >
           <template #button-content>
-            <i class="fas fa-random mr-1"></i> Điều chuyển kho
+            Điều chuyển kho
           </template>
           <b-dropdown-item @click="openStoreTransferModal">
-            <i class="fas fa-truck-moving text-primary mr-2"></i> 1. Chuyển xe giữa 2 kho
+            1. Chuyển xe giữa 2 kho
           </b-dropdown-item>
           <b-dropdown-item @click="openReturnDifferentStoreModal">
-            <i class="fas fa-undo-alt text-success mr-2"></i> 2. Khách trả xe tại cơ sở khác
+            2. Khách trả xe tại cơ sở khác
           </b-dropdown-item>
           <b-dropdown-item @click="openVehicleExchangeModal">
-            <i class="fas fa-exchange-alt text-warning mr-2"></i> 3. Đổi xe sự cố cho hợp đồng
+            3. Đổi xe sự cố cho hợp đồng
           </b-dropdown-item>
         </b-dropdown>
 
-        <button class="btn btn-light-primary" @click="refreshData">
-          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loadingSummary }"></i> Làm mới
+        <button class="btn btn-light-primary font-weight-bold" @click="refreshData">
+          {{ loadingSummary ? 'Đang tải...' : 'Làm mới' }}
         </button>
       </div>
     </div>
@@ -58,10 +58,8 @@
                   class="symbol symbol-40 mr-3"
                   :class="store.kind === 'lease_to_own' ? 'symbol-light-warning' : 'symbol-light-primary'"
                 >
-                  <span class="symbol-label font-size-h5 font-weight-bold">
-                    <i
-                      :class="store.kind === 'lease_to_own' ? 'fas fa-hand-holding-usd text-warning' : 'fas fa-warehouse text-primary'"
-                    ></i>
+                  <span class="symbol-label font-size-sm font-weight-bold" :class="store.kind === 'lease_to_own' ? 'text-warning' : 'text-primary'">
+                    {{ store.kind === 'lease_to_own' ? 'TSH' : 'KHO' }}
                   </span>
                 </div>
                 <div>
@@ -80,13 +78,13 @@
               <!-- Permission indicator -->
               <span
                 v-if="!store.can_view_details"
-                class="badge badge-light-warning"
+                class="badge badge-light-warning font-weight-bold"
                 title="Bạn chỉ có quyền xem số lượng tổng hợp của cơ sở này"
               >
-                <i class="fas fa-lock mr-1"></i> Tổng hợp
+                Tổng hợp
               </span>
-              <span v-else class="badge badge-light-success">
-                <i class="fas fa-check-circle mr-1"></i> Quản lý
+              <span v-else class="badge badge-light-success font-weight-bold">
+                Quản lý
               </span>
             </div>
 
@@ -172,9 +170,7 @@
               clearable
               @clear="fetchVehicles"
               @keyup.enter.native="fetchVehicles"
-            >
-              <i slot="prefix" class="el-input__icon el-icon-search"></i>
-            </el-input>
+            />
           </div>
           <div class="col-md-3 mb-2">
             <el-select
@@ -208,17 +204,14 @@
             </el-select>
           </div>
           <div class="col-md-2 mb-2 text-right">
-            <button class="btn btn-primary btn-block" @click="fetchVehicles">
-              <i class="fas fa-filter mr-1"></i> Lọc xe
+            <button class="btn btn-primary btn-block font-weight-bold" @click="fetchVehicles">
+              Lọc xe
             </button>
           </div>
         </div>
 
         <!-- Trạng thái Cấm truy cập chi tiết (Nhân viên cơ sở khác) -->
         <div v-if="permissionDenied" class="alert alert-custom alert-light-warning py-5 text-center">
-          <div class="alert-icon mb-2">
-            <i class="flaticon-lock text-warning display-4"></i>
-          </div>
           <div class="alert-text">
             <h5 class="font-weight-bold text-dark mb-2">Phân quyền chi nhánh bảo mật</h5>
             <p class="text-muted mb-0">
@@ -240,7 +233,7 @@
                   <th>Nơi đang giữ xe</th>
                   <th>Trạng thái</th>
                   <th>Hợp đồng đang thuê</th>
-                  <th class="text-right">Hành động</th>
+                  <th class="text-right" style="min-width: 160px;">Hành động</th>
                 </tr>
               </thead>
               <tbody>
@@ -261,7 +254,6 @@
                   </td>
                   <td>
                     <span class="font-weight-bolder" :class="vehicle.is_in_transit ? 'text-warning' : 'text-success'">
-                      <i :class="vehicle.is_in_transit ? 'fas fa-shipping-fast mr-1' : 'fas fa-map-marker-alt mr-1'"></i>
                       {{ vehicle.is_in_transit ? 'Đang trên đường chuyển' : vehicle.current_store_name }}
                     </span>
                   </td>
@@ -284,21 +276,21 @@
                   <td class="text-right">
                     <!-- Nút xem lịch sử di chuyển -->
                     <button
-                      class="btn btn-sm btn-icon btn-light-info mr-1"
+                      class="btn btn-sm btn-light-info font-weight-bold mr-1"
                       title="Xem sổ cái lịch sử di chuyển xe"
                       @click="viewMovementHistory(vehicle.id)"
                     >
-                      <i class="fas fa-history"></i>
+                      Lịch sử
                     </button>
 
                     <!-- Nút chuyển kho nhanh nếu xe ready -->
                     <button
                       v-if="vehicle.status === 'ready'"
-                      class="btn btn-sm btn-icon btn-light-primary"
+                      class="btn btn-sm btn-light-primary font-weight-bold"
                       title="Điều chuyển xe này sang kho khác"
                       @click="quickTransferVehicle(vehicle)"
                     >
-                      <i class="fas fa-truck-moving"></i>
+                      Chuyển kho
                     </button>
                   </td>
                 </tr>

@@ -46,35 +46,35 @@
                         </button>
                         <button
                             type="button"
-                            class="btn btn-sm mr-2 mb-1"
+                            class="btn btn-sm mr-2 mb-1 font-weight-bold"
                             :class="query.today_filter === 'created_today' ? 'btn-primary' : 'btn-light-primary'"
                             @click="setTodayFilter('created_today')"
                         >
-                            <i class="fas fa-file-alt mr-1"></i> Tạo hôm nay
+                            Tạo hôm nay
                         </button>
                         <button
                             type="button"
-                            class="btn btn-sm mr-2 mb-1"
+                            class="btn btn-sm mr-2 mb-1 font-weight-bold"
                             :class="query.today_filter === 'pickup_today' ? 'btn-success' : 'btn-light-success'"
                             @click="setTodayFilter('pickup_today')"
                         >
-                            <i class="fas fa-motorcycle mr-1"></i> Nhận xe hôm nay
+                            Nhận xe hôm nay
                         </button>
                         <button
                             type="button"
-                            class="btn btn-sm mr-2 mb-1"
+                            class="btn btn-sm mr-2 mb-1 font-weight-bold"
                             :class="query.today_filter === 'return_today' ? 'btn-warning' : 'btn-light-warning'"
                             @click="setTodayFilter('return_today')"
                         >
-                            <i class="fas fa-clock mr-1"></i> Hẹn trả hôm nay
+                            Hẹn trả hôm nay
                         </button>
                         <button
                             type="button"
-                            class="btn btn-sm mr-2 mb-1"
+                            class="btn btn-sm mr-2 mb-1 font-weight-bold"
                             :class="query.today_filter === 'transaction_today' ? 'btn-info' : 'btn-light-info'"
                             @click="setTodayFilter('transaction_today')"
                         >
-                            <i class="fas fa-money-bill-wave mr-1"></i> Giao dịch hôm nay
+                            Giao dịch hôm nay
                         </button>
                     </div>
 
@@ -136,19 +136,16 @@
                         </div>
 
                         <div class=" col-md-3 ">
-                            <el-button :loading="loading" icon="fa fa-search"
-                                class=" btn btn-primary font-weight-bold  " @click="search">
+                            <el-button :loading="loading"
+                                class=" btn btn-primary font-weight-bold " @click="search">
                                 Tìm kiếm
                             </el-button>
                             <span class="" v-if="checkedCount > 0">
-                                <el-button :loading="loading" icon="fa fa-trash"
-                                    class=" btn btn-danger font-weight-bold  " @click="deleteMany">
-
+                                <el-button :loading="loading"
+                                    class=" btn btn-danger font-weight-bold ml-2 " @click="deleteMany">
+                                    Xóa đã chọn
                                 </el-button>
-
-
                             </span>
-
                         </div>
 
 
@@ -270,21 +267,23 @@
                                         </span>
                                     </td>
                                     <td class="button-container text-center">
-										<div class="d-flex">
-											<button class="btn btn-xs btn-icon btn-success" title="Sửa hợp đồng"
+										<div class="d-flex align-items-center">
+											<button class="btn btn-xs btn-success font-weight-bold mr-1" title="Sửa hợp đồng"
 												@click="openUpdateModal(item)">
-												<i class="fas fa-pen-nib"></i>
+												Sửa
 											</button>
-											<button class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
+											<button class="btn btn-xs btn-outline-info font-weight-bold mr-1" title="Xem chi tiết"
 												@click="openShowOrder(item)">
-												<i class="far fa-eye"></i>
+												Xem
 											</button>
-											<button class="btn btn-xs btn-icon btn-outline-primary" title="In hợp đồng"
+											<button class="btn btn-xs btn-outline-primary font-weight-bold mr-1" title="In hợp đồng"
 												@click="printOrderContract(item)">
-												<i class="fas fa-print"></i>
+												In
 											</button>
-											<button class="btn btn-xs btn-icon  btn-danger" title="Xóa hợp đồng"
-												@click="deleteOrder(item.id)"><i class="fas fa-trash"></i></button>
+											<button class="btn btn-xs btn-danger font-weight-bold mr-2" title="Xóa hợp đồng"
+												@click="deleteOrder(item.id)">
+												Xóa
+											</button>
 
 											<div class="checkbox-wrapper">
 												<input type="checkbox" :id="'checkbox_' + item.id" class="checkbox-input"
@@ -296,7 +295,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <HimotoEmptyState v-else icon="far fa-file-alt" title="Không tìm thấy hợp đồng nào" description="Thử thay đổi bộ lọc hoặc thêm mới hợp đồng vào hệ thống." actionText="Thêm mới hợp đồng" @action="openModalCreate()" />
+                    <HimotoEmptyState v-else title="Không tìm thấy hợp đồng nào" description="Thử thay đổi bộ lọc hoặc thêm mới hợp đồng vào hệ thống." actionText="Thêm mới hợp đồng" @action="openModalCreate()" />
                 </div>
             </div>
 

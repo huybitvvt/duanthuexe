@@ -11,7 +11,13 @@ class Cash extends Model
 {
     use \App\Traits\HandlesPostgresDates;
     protected $table = 'cash';
-    protected $fillable = [  'store_id', 'opening_balance'];
+    protected $fillable = [
+        'store_id',
+        'name',
+        'status',
+        'opening_balance',
+        'current_balance',
+    ];
     public function transactions(): HasMany
     {
         return $this->hasMany(Transaction::class, 'cash_id', 'id');

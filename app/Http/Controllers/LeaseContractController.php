@@ -152,6 +152,64 @@ class LeaseContractController extends Controller
     }
 
     /**
+     * Settle lease-to-own contract early.
+     */
+    public function settle(Request $request, int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $request->validate([
+            'settlement_amount' => 'required|numeric|min:0',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'payment_method' => 'nullable',
+            'bank_id' => 'nullable|integer',
+            'bank_owner_type' => 'nullable|in:personal,company',
+            'note' => 'nullable|string|max:500',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $contract = $this->leaseService->settleContract($id, $request->all(), $user);
+            return $this->successResponse($contract, 'Tất toán hợp đồng thành công.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->validator->errors()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Reverse payment allocation (Đảo thu).
+     */
+    public function reverse(Request $request, int $allocationId): JsonResponse
+    {
+        $user = Auth::user();
+        $request->validate([
+            'reason' => 'required|string|max:1000',
+        ]);
+
+        try {
+            $result = $this->leaseService->reverseAllocation($allocationId, $request->input('reason'), $user);
+            return $this->successResponse($result, 'Đã đảo thu thành công.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->validator->errors()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
      * Export lease-to-own debt report to Excel.
      */
     public function export(Request $request)

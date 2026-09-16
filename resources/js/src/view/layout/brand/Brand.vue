@@ -14,12 +14,7 @@
                 id="kt_aside_toggle"
                 ref="kt_aside_toggle"
             >
-        <span class="svg-icon svg-icon svg-icon-xl">
-          <inline-svg
-              class="svg-icon"
-              src="media/svg/icons/Navigation/Angle-double-left.svg"
-          />
-        </span>
+        Thu gọn
             </button>
         </div>
     </div>
@@ -65,7 +60,7 @@ export default {
                 logo = logos[Object.keys(logos)[0]];
             }
             //return '/images/logo.png';
-            return '/images/logo-himoto-official.png';
+            return '/images/branding/logo-himoto-pdf.png';
             // return process.env.BASE_URL + logo;
         }
     },

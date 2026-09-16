@@ -3,8 +3,8 @@
         <div class="card-toolbar mb-4">
             <router-link
                 class="font-weight-bold font-size-3  btn btn-secondary"
-                :to="{ name: 'customers' }"
-            ><i class="fas fa-angle-double-left"></i> Quay lại
+                :to="{ name: 'stores' }"
+            >Quay lại
             </router-link>
         </div>
         <div class="card card-custom gutter-b">

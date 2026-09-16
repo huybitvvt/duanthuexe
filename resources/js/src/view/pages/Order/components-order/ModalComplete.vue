@@ -1,6 +1,6 @@
 <template>
     <div>
-        <b-button class="btn mr-2 btn-primary" @click="showModal()"><i class="fas"></i>Hoàn thành</b-button>
+        <b-button class="btn mr-2 btn-primary" @click="showModal()">Hoàn thành</b-button>
         <b-modal centered v-model="dialogVisible" title="Hoàn thành" hide-footer id="modal-complete-order" @close="onCloseByX">
             <ValidationObserver v-slot="{ handleSubmit }" ref="form">
                 <form class="form" @submit.prevent="handleSubmit(completeOrder)">
@@ -39,7 +39,7 @@
 										<label for="debt" v-if="item.handler_price > 0">
 											<el-tooltip content="Là giá chốt cuối cùng(tổng tiền cuối cùng mà khách phải trả theo thỏa thuận cho hợp đồng này, không tính thêm bất kì khoản phí nào kể cả phí quá giờ), quá hạn cũng không tính thêm tiền.">
 												<span>
-													<strong>Giá Tổng Khác</strong> <i class="fa fa-question" style="font-size: 8px;vertical-align: text-top;"></i>
+													<strong>Giá Tổng Khác</strong> [?]
 												</span>
 											</el-tooltip>
 										</label>
@@ -81,7 +81,7 @@
 								<label for="debt">
 									<strong v-if="tempDebt > 0">Tổng số tiền khách còn nợ</strong>
 									<strong v-else>Tổng số tiền cần hoàn lại cho khách</strong>
-									<span style="display:inline-block;width: 16px;cursor: pointer;" @click="editCustomRefundAmount"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" data-v-d2e47025=""><path fill="currentColor" d="m199.04 672.64 193.984 112 224-387.968-193.92-112-224 388.032zm-23.872 60.16 32.896 148.288 144.896-45.696zM455.04 229.248l193.92 112 56.704-98.112-193.984-112-56.64 98.112zM104.32 708.8l384-665.024 304.768 175.936L409.152 884.8h.064l-248.448 78.336zm384 254.272v-64h448v64h-448z"></path></svg></span>
+									<button type="button" class="btn btn-sm btn-link py-0 px-1 font-weight-bold" @click="editCustomRefundAmount">[Sửa]</button>
 								</label>
 
 								<money v-if="editing_custom_refund" id="debt" v-model="custom_refund_amount" v-bind="money" class="form-control"></money>
@@ -92,7 +92,7 @@
 								<label for="is-customer-paid">
 									<el-tooltip content="Chỉ khi khách hàng đã đặt cọc hoặc đã thanh toán phí cho hợp đồng này rồi thì mới cần tính toán khoản tiền hoàn lại cho khách.">
 										<span>
-											<strong>Khách hàng đã thanh toán cho hợp đồng này chưa?</strong> <i class="fa fa-question" style="font-size: 8px;vertical-align: text-top;"></i>
+											<strong>Khách hàng đã thanh toán cho hợp đồng này chưa?</strong> [?]
 										</span>
 									</el-tooltip>
 								</label>

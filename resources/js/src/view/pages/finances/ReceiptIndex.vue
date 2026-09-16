@@ -50,7 +50,7 @@
                                 </el-date-picker>
                             </div>
                             <div class="col-md-2 text-right">
-                                <el-button :loading="loading" icon="fa fa-search" style="width: 100%;"
+                                <el-button :loading="loading" style="width: 100%;"
                                     class="btn btn-primary font-weight-bold" @click="search">
                                     Tìm kiếm
                                 </el-button>
@@ -122,22 +122,17 @@
 
                                         <td>
                                             <router-link :to="{ name: 'receipt-update', params: { id: item.id } }"
-                                                title="Sửa" class="btn btn-xs btn-icon mr-2 btn-outline-info"><i
-                                                    class="fas fa-pen-nib"></i>
+                                                title="Sửa" class="btn btn-xs btn-outline-primary mr-1">Sửa
                                             </router-link>
 
-
-
                                             <button v-b-modal.modal-show-car-rental
-                                                class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
-                                                @click="showBankPopup(item)">
-                                                <i class="far fa-eye"></i>
+                                                class="btn btn-xs btn-outline-info mr-1" title="Xem chi tiết"
+                                                @click="showBankPopup(item)">Xem
                                             </button>
-                                            <a v-if="currentUser.role_id === 1" title="Xóa"
-                                                @click="deleteReceipt(item.id)" href="javascript:"
-                                                class="btn btn-xs btn-icon btn-outline-danger"><i
-                                                    class="fas fa-trash"></i>
-                                            </a>
+                                            <button v-if="currentUser.role_id === 1" title="Xóa"
+                                                @click="deleteReceipt(item.id)" type="button"
+                                                class="btn btn-xs btn-outline-danger">Xóa
+                                            </button>
                                         </td>
                                     </tr>
                                 </tbody>

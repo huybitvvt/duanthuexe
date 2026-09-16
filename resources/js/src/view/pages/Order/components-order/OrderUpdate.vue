@@ -9,11 +9,11 @@
 							<h6 v-if="id" class="mb-0 mr-3">ID hợp đồng: #{{ id }}</h6>
 							<div class="d-inline-flex align-items-center">
 								<span class="badge badge-primary px-3 py-2" style="font-size: 13px;">
-									<i class="fas fa-file-contract mr-1"></i> Số HĐ: <strong>{{ order.contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
+									Số HĐ: <strong>{{ order.contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
 								</span>
 								<span v-if="id && is_deposit_contract_mode" class="font-weight-bold badge badge-success ml-2">Cọc giữ xe</span>
 								<span v-if="order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))" class="font-weight-bold badge badge-warning ml-2" style="font-size: 12px;">
-									<i class="fas fa-lock mr-1"></i>Hợp đồng đã chốt
+									Hợp đồng đã chốt
 								</span>
 							</div>
 						</div>
@@ -22,7 +22,7 @@
 							<label class="mb-0">
 								<strong>Ngày tạo hợp đồng</strong>
 								<span v-if="!editing_order_created_at">: &nbsp;{{ order.created_at }}</span>
-								<span style="display:inline-block;width: 16px;cursor: pointer;" @click="editingOrderCreatedAt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" data-v-d2e47025=""><path fill="currentColor" d="m199.04 672.64 193.984 112 224-387.968-193.92-112-224 388.032zm-23.872 60.16 32.896 148.288 144.896-45.696zM455.04 229.248l193.92 112 56.704-98.112-193.984-112-56.64 98.112zM104.32 708.8l384-665.024 304.768 175.936L409.152 884.8h.064l-248.448 78.336zm384 254.272v-64h448v64h-448z"></path></svg></span>
+								<button type="button" class="btn btn-sm btn-link py-0 px-1 font-weight-bold" @click="editingOrderCreatedAt">[Sửa]</button>
 							</label>
 							<ValidationProvider v-if="editing_order_created_at" vid="completed_at" name="Ngày tạo hợp đồng" rules="required" v-slot="{ errors }">
 								<el-date-picker class="w-100" v-model="order.created_at" format="dd-MM-yyyy HH:mm:ss" type="datetime" placeholder="Ngày tạo hợp đồng"></el-date-picker>
@@ -39,7 +39,7 @@
 						</div>
 						<div class="d-flex justify-content-end align-items-center" v-else-if="id && order && order.order_status == 'renting' && !(order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))">
 							<button type="button" class="btn btn-sm btn-outline-warning font-weight-bold" @click="handleLockContract" :disabled="loadingLock">
-								<i class="fas fa-lock mr-1"></i> Chốt hợp đồng đã ký
+								Chốt hợp đồng đã ký
 							</button>
 						</div>
 					</div>
@@ -169,7 +169,7 @@
                     <div class="col-md-12" v-if="order.relatives && order.relatives.length">
                         <div class="p-3 mb-4 rounded" style="background-color: #f7f9fb; border: 1px solid #e1e8ed;">
                             <label class="font-weight-bold text-dark mb-2">
-                                <i class="fas fa-users text-primary mr-1"></i> Thông tin người thân (theo mẫu HĐ: ... Và ...):
+                                Thông tin người thân (theo mẫu HĐ: ... Và ...):
                             </label>
                             <div class="row mb-2">
                                 <div class="col-md-4">
@@ -222,14 +222,13 @@
                         <h2 class="font-weight-bold">Thông tin phương tiện</h2>
                     </div>
 
-                    <div class="mb-3 d-flex flex-grow-1 align-items-center p-4 rounded text-success">
-                        <div class="mr-4 flex-shrink-0 text-center">
-                            <div :style="{
+                    <div class="mb-3 d-flex flex-grow-1 align-items-center p-2 rounded">
+                        <div class="mr-4 flex-shrink-0">
+                            <button :style="{
                                 'pointer-events': order.order_status === 'completed' ? 'none' : 'auto'
-                            }" class="cursor-pointer" @click="addVehicle()">
-                                <i class="text-success icon-xl fas fa-plus"></i>
-                                <span class="ml-2"> Thêm phương tiện</span>
-                            </div>
+                            }" class="btn btn-sm btn-outline-success font-weight-bold" @click="addVehicle()">
+                                Thêm phương tiện
+                            </button>
                         </div>
                     </div>
                     <div v-if="order.order_items" v-for="(item, key) in order.order_items" :key="key">
@@ -368,10 +367,7 @@
 							<div class="form-group" v-if="order && order.order_status == 'completed' && !order.created_without_collect_deposit && !order.created_without_collect_rental_fees && order.default_refund_amount && order.default_refund_amount != debt">
 								<label for="debt"><strong>Cần hoàn trả khách(mặc định)</strong>
 									<el-tooltip content="Số tiền này do app tính toán dựa vào tiền cọc và chi phí thuê.">
-										<i class="fa fa-question" style="
-											font-size: 8px;
-											vertical-align: text-top;
-										"></i>
+										<span class="font-size-xs text-muted ml-1">[?]</span>
 									</el-tooltip>
 								</label>
 								<money id="debt" :value="order.default_refund_amount ? order.default_refund_amount : debt" v-bind="money" class="form-control" :disabled="true"></money>
@@ -379,10 +375,7 @@
 							<div class="form-group" v-if="order && order.order_status == 'completed' && typeof order.custom_refund_amount === 'number' && !order.created_without_collect_deposit && !order.created_without_collect_rental_fees">
 								<label for="debt"><strong>Đã hoàn trả khách(tùy chỉnh)</strong>
 									<el-tooltip content="Số tiền này do nhân viên tùy chỉnh: giá trị do nhân viên nhập vao khác với giá trị do app tính toán.">
-										<i class="fa fa-question" style="
-											font-size: 8px;
-											vertical-align: text-top;
-										"></i>
+										<span class="font-size-xs text-muted ml-1">[?]</span>
 									</el-tooltip>
 								</label>
 								<money id="debt" :value="order.custom_refund_amount" v-bind="money" class="form-control" :disabled="true"></money>
@@ -429,6 +422,17 @@
                         </div>
                     </div>
 
+                    <!-- Ảnh biên bản bàn giao xe / hiện trạng -->
+                    <div class="row">
+                        <div class="col-md-12 form-group">
+                            <label><strong>Ảnh biên bản bàn giao & hiện trạng xe</strong></label>
+                            <div class="border rounded p-3 text-center bg-light text-muted" style="border-style: dashed !important; border-width: 2px;">
+                                <div class="font-weight-bold mb-1">Ảnh biên bản bàn giao (sắp hỗ trợ)</div>
+                                <div class="font-size-sm">Khu vực tải và lưu trữ ảnh biên bản bàn giao xe, chữ ký hiện trường đang được kết nối hạ tầng.</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-12 form-group">
                             <label for="note"><strong>Ghi chú</strong></label>
@@ -448,7 +452,7 @@
                     <el-collapse v-if="id" accordion>
                         <el-collapse-item name="1">
                             <template slot="title">
-                                Xem lịch sử<i class="header-icon el-icon-info"></i>
+                                Xem lịch sử đơn & giao dịch
                             </template>
                             <el-tabs type="card">
                                 <el-tab-pane label="Lịch sử thanh toán">
@@ -475,7 +479,6 @@
 						</ModalComplete>
 
 						<button type="button" class="btn btn-sm btn-outline-primary mr-2 font-weight-bold" :disabled="previewLoading" @click="onPreviewContract">
-							<i class="far fa-eye mr-1"></i>
 							<span v-if="previewLoading">Đang chuẩn bị...</span>
 							<span v-else>Xem trước hợp đồng</span>
 						</button>
@@ -491,12 +494,12 @@
 						" native-type="submit" class="btn btn-sm btn-success mr-2" style="color: #fff"
 							:loading="loading" :disabled="Boolean(order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked)))">
 							<span v-if="start_this_contract">Kích hoạt hợp đồng</span>
-							<span v-else-if="order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))"><i class="fas fa-lock mr-1"></i>Hợp đồng đã chốt</span>
+							<span v-else-if="order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))">Hợp đồng đã chốt</span>
 							<span v-else>Cập nhật</span>
 						</el-button>
 
 						<button v-if="id" type="button" class="btn btn-sm btn-info mr-2 font-weight-bold" @click="onPrintOfficialContract">
-							<i class="fas fa-print mr-1"></i> In hợp đồng
+							In hợp đồng
 						</button>
 						<ModalAddOnPrice v-if="id && order.order_status == 'renting'" :order="order" :banks="banks" @addOnSuccess="addOnSuccess"></ModalAddOnPrice>
 

@@ -146,7 +146,7 @@
                             </el-date-picker>
                         </div>
                         <div class="col-md-2 text-right">
-                            <el-button :loading="is_loading_search" icon="fa fa-search"
+                            <el-button :loading="is_loading_search"
                                 class="btn btn-primary font-weight-bold" @click="search">
                                 Tìm kiếm
                             </el-button>
@@ -196,11 +196,12 @@
                                     </td>
                                     <td>
                                         <button v-b-modal.modal-user-edit @click="item_current = item"
-                                            class="btn btn-xs btn-icon btn-outline-info">
-                                            <i class="far fa-edit"> </i>
+                                            class="btn btn-xs btn-outline-info font-weight-bold mr-1">
+                                            Sửa
                                         </button>
                                         <a title="Xóa" @click="deleteUser(item.id)" href="javascript:"
-                                            class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
+                                            class="btn btn-xs btn-outline-danger font-weight-bold">
+                                            Xóa
                                         </a>
                                     </td>
                                 </tr>

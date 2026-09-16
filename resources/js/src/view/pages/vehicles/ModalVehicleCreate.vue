@@ -508,7 +508,7 @@
 						:auto-upload="true"
 						:headers="headerInfo"
 						multiple>
-							<i class="el-icon-plus"></i>
+							<span class="font-weight-bold">Thêm ảnh</span>
 							<div slot="tip" class="el-upload__tip">Chọn nhiều file để upload</div>
 					</el-upload>
 

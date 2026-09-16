@@ -85,7 +85,7 @@
                                     </el-date-picker>
                                 </div>
                                 <div class=" ">
-                                    <el-button :loading="loading" icon="fa fa-search"
+                                    <el-button :loading="loading"
                                         class=" btn btn-primary font-weight-bold" @click="search">
                                         Tìm kiếm
                                     </el-button>
@@ -203,20 +203,20 @@
                                             </td>
                                             <td>
                                                 <button v-b-modal.modal-lead-view
-                                                    class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
+                                                    class="btn btn-xs btn-outline-info font-weight-bold mr-1" title="Xem chi tiết"
                                                     @click="showPopup(item)">
-                                                    <i class="far fa-eye"></i>
+                                                    Xem
                                                 </button>
                                                 <button
                                                     v-if="(currentUser.role_id === 1 || currentUser.role_id === 4) && item.status !== 'deleted'"
                                                     v-b-modal.modal-lead-update @click="item_current = item"
-                                                    class="btn btn-xs btn-icon btn-outline-info">
-                                                    <i class="far fa-edit"> </i>
+                                                    class="btn btn-xs btn-outline-info font-weight-bold mr-1">
+                                                    Sửa
                                                 </button>
                                                 <button v-if="item.status !== 'deleted'" v-b-modal.lead-modal-delete
                                                     @click="leadIdToDelete = item.id"
-                                                    class="btn btn-xs btn-icon btn-outline-danger">
-                                                    <i class="fa fa-trash"> </i>
+                                                    class="btn btn-xs btn-outline-danger font-weight-bold">
+                                                    Xóa
                                                 </button>
 
 
@@ -225,7 +225,7 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <HimotoEmptyState v-else icon="far fa-comments" title="Không tìm thấy Lead nào" description="Thử thay đổi bộ lọc hoặc thêm mới Lead vào hệ thống." actionText="Thêm mới Lead" @action="item_current = null" v-b-modal.modal-lead-update />
+                            <HimotoEmptyState v-else title="Không tìm thấy Lead nào" description="Thử thay đổi bộ lọc hoặc thêm mới Lead vào hệ thống." actionText="Thêm mới Lead" @action="item_current = null" v-b-modal.modal-lead-update />
                         </div>
                     </div>
                 </div>

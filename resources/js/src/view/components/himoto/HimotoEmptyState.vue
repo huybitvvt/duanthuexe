@@ -1,14 +1,6 @@
 <template>
-  <div class="himoto-empty-state">
-    <div class="empty-icon-box">
-      <slot name="icon">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-          <line x1="9" y1="14" x2="15" y2="14"></line>
-        </svg>
-      </slot>
-    </div>
-    <h3 class="empty-title">{{ title }}</h3>
+  <div class="himoto-empty-state py-5 text-center">
+    <h3 class="empty-title font-weight-bolder text-dark">{{ title }}</h3>
     <p class="empty-description">{{ description }}</p>
     <div v-if="showAction || $slots.action" class="empty-actions">
       <slot name="action">

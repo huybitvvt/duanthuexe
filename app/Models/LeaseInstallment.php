@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 
 class LeaseInstallment extends Model
 {
@@ -26,7 +27,7 @@ class LeaseInstallment extends Model
         'notes',
     ];
 
-    protected $appends = ['remaining_amount', 'expected_amount', 'paid_amount'];
+    protected $appends = ['remaining_amount', 'expected_amount', 'paid_amount', 'adjustment_amount'];
 
     protected $casts = [
         'due_date' => 'date',
@@ -47,7 +48,7 @@ class LeaseInstallment extends Model
 
     public function getRemainingAmountAttribute(): float
     {
-        return (float)max(0, ($this->amount_due ?? 0) - ($this->amount_paid ?? 0));
+        return (float)max(0, ($this->amount_due ?? 0) - ($this->amount_paid ?? 0) - $this->adjustment_amount);
     }
 
     public function getExpectedAmountAttribute(): float
@@ -58,5 +59,22 @@ class LeaseInstallment extends Model
     public function getPaidAmountAttribute(): float
     {
         return (float)($this->amount_paid ?? 0);
+    }
+
+    public function getAdjustmentAmountAttribute(): float
+    {
+        // Keep reads backward-compatible while the additive allocation
+        // migration has not yet been applied (and for narrow test schemas).
+        if (!Schema::hasTable('lease_payment_allocations')) {
+            return 0.0;
+        }
+
+        $allocations = $this->relationLoaded('allocations')
+            ? $this->allocations
+            : $this->allocations()->get();
+
+        return (float)$allocations->filter(function ($allocation) {
+            return $allocation->status === LeasePaymentAllocation::STATUS_DISCOUNT;
+        })->sum('amount');
     }
 }

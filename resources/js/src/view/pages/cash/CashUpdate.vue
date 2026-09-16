@@ -4,7 +4,7 @@
             <router-link
                 class="font-weight-bold font-size-3  btn btn-secondary"
                 :to="{ name: 'cash' }"
-            ><i class="fas fa-angle-double-left"></i> Quay lại
+            >Quay lại
             </router-link>
         </div>
         <div class="card card-custom gutter-b">

@@ -26,7 +26,7 @@
         <div class="card-header bg-light py-2 px-3 min-h-40px">
           <div class="card-title m-0">
             <h6 class="font-weight-bolder text-dark m-0">
-              <i class="fas fa-phone-volume text-primary mr-2"></i>Thêm lượt đôn đốc / Nhắc nợ
+              Thêm lượt đôn đốc / Nhắc nợ
             </h6>
           </div>
         </div>
@@ -76,11 +76,11 @@
           <div class="text-right mt-3">
             <button
               type="button"
-              class="btn btn-sm btn-primary"
+              class="btn btn-sm btn-primary font-weight-bold"
               :disabled="loading"
               @click="handleSubmit"
             >
-              <i class="fas fa-save mr-1"></i> Lưu lượt nhắc nợ
+              Lưu lượt nhắc nợ
             </button>
           </div>
         </div>
@@ -91,7 +91,7 @@
         <div class="card-header bg-light py-2 px-3 min-h-40px">
           <div class="card-title m-0">
             <h6 class="font-weight-bolder text-dark m-0">
-              <i class="fas fa-history text-secondary mr-2"></i>Lịch sử các lần đôn đốc trước ({{ (contract && contract.debt_notes) ? contract.debt_notes.length : 0 }})
+              Lịch sử các lần đôn đốc trước ({{ (contract && contract.debt_notes) ? contract.debt_notes.length : 0 }})
             </h6>
           </div>
         </div>
@@ -106,8 +106,8 @@
               class="timeline-item d-flex align-items-start mb-3 pb-2 border-bottom"
             >
               <div class="timeline-badge mr-3">
-                <span :class="getStatusBadgeClass(item.call_status)">
-                  <i :class="getStatusIcon(item.call_status)"></i>
+                <span :class="getStatusBadgeClass(item.call_status)" class="badge px-2 py-1 font-weight-bold">
+                  {{ item.call_status }}
                 </span>
               </div>
               <div class="timeline-content flex-grow-1">
@@ -116,7 +116,7 @@
                   <span class="text-muted font-size-xs">{{ item.created_at | formatDateTime }}</span>
                 </div>
                 <div v-if="item.promised_date" class="text-primary font-size-xs my-1 font-weight-bold">
-                  <i class="fas fa-calendar-check text-primary mr-1"></i>Hẹn thanh toán: {{ item.promised_date | formatDate }}
+                  Hẹn thanh toán: {{ item.promised_date | formatDate }}
                 </div>
                 <div class="text-dark-75 font-size-sm mt-1 bg-light rounded p-2">
                   {{ item.notes }}
@@ -225,17 +225,7 @@ export default {
       };
       return map[status] || "badge badge-light";
     },
-    getStatusIcon(status) {
-      const map = {
-        connected: "fas fa-check-circle",
-        promise: "fas fa-clock",
-        no_answer: "fas fa-phone-slash",
-        busy: "fas fa-redo",
-        dispute: "fas fa-exclamation-triangle",
-        other: "fas fa-info-circle",
-      };
-      return map[status] || "fas fa-comment";
-    },
+
     resetForm() {
       this.contract = null;
       this.form = {

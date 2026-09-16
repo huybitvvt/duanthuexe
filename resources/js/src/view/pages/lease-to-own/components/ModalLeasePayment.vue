@@ -56,12 +56,12 @@
           <label class="radio radio-outline radio-primary mr-4">
             <input type="radio" v-model="form.payment_method" value="cash" />
             <span></span>
-            <i class="fas fa-money-bill-wave text-success mr-1"></i> Tiền mặt
+            Tiền mặt
           </label>
           <label class="radio radio-outline radio-primary">
             <input type="radio" v-model="form.payment_method" value="bank_transfer" />
             <span></span>
-            <i class="fas fa-university text-primary mr-1"></i> Chuyển khoản
+            Chuyển khoản
           </label>
         </div>
       </div>
@@ -122,7 +122,6 @@
       </div>
 
       <div class="alert alert-custom alert-light-warning p-2 font-size-xs text-muted mb-0">
-        <i class="fas fa-info-circle text-warning mr-1"></i>
         Khoản thu sẽ được tự động phân bổ theo thứ tự lũy kế các kỳ trả góp chưa thanh toán (từ cũ nhất đến mới nhất) và tạo phiếu thu trong sổ quỹ tài chính.
       </div>
     </div>
@@ -130,7 +129,7 @@
     <template #modal-footer="{ cancel }">
       <b-button variant="secondary" @click="cancel">Hủy</b-button>
       <b-button variant="success" :disabled="loading" @click="handleSubmit">
-        <i class="fas fa-hand-holding-usd mr-1"></i> Xác nhận thu tiền
+        Xác nhận thu tiền
       </b-button>
     </template>
   </b-modal>

@@ -33,7 +33,7 @@
                                 </el-date-picker>
                             </div>
                             <div class="col-md-3 text-right">
-                                <el-button :loading="loading" icon="fa fa-search"
+                                <el-button :loading="loading"
                                     class="btn btn-primary font-weight-bold" @click="search">
                                     Tìm kiếm
                                 </el-button>
@@ -76,8 +76,7 @@
                                         <td>
 
                                             <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteLog(item.id)"
-                                                href="javascript:" class="btn btn-xs btn-icon btn-outline-danger"><i
-                                                    class="fas fa-trash"></i>
+                                                    href="javascript:" class="btn btn-xs btn-outline-danger">Xóa
                                             </a>
                                         </td>
                                     </tr>

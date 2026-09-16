@@ -156,8 +156,15 @@ class LeaseContractService
         }
 
         $paymentDate = data_get($data, 'payment_date') ? Carbon::parse($data['payment_date']) : Carbon::now();
-        $notes = (string)data_get($data, 'notes', 'Thu tiền góp hợp đồng thuê sở hữu');
-        $paymentMethod = (int)data_get($data, 'payment_method', 1); // 1: TM, 2: CK
+        $notes = (string)data_get($data, 'notes', data_get($data, 'note', 'Thu tiền góp hợp đồng thuê sở hữu'));
+        $rawMethod = data_get($data, 'payment_method', 1);
+        if ($rawMethod === 'TM' || $rawMethod === 'cash') {
+            $paymentMethod = 1;
+        } elseif ($rawMethod === 'CK' || $rawMethod === 'bank') {
+            $paymentMethod = 2;
+        } else {
+            $paymentMethod = (int)$rawMethod ?: 1;
+        }
         $bankId = data_get($data, 'bank_id');
         $requestKey = data_get($data, 'idempotency_key');
         $fingerprint = hash('sha256', json_encode($data));
@@ -179,7 +186,9 @@ class LeaseContractService
             if (!in_array($contract->status, [LeaseContract::STATUS_ACTIVE, LeaseContract::STATUS_DEFAULTED])) {
                 throw ValidationException::withMessages(['contract' => 'Hợp đồng không còn nhận thanh toán.']);
             }
-            $outstanding = max(0, $contract->total_amount - $contract->allocations()->sum('amount'));
+            $activeAllocated = (float) $contract->allocations()->effectivePayments()->sum('amount');
+            $discount = (float) ($contract->discount_amount ?? 0);
+            $outstanding = max(0, (float) $contract->total_amount - $discount - $activeAllocated);
             if ($amount > $outstanding) {
                 throw ValidationException::withMessages(['amount' => 'Khoản thu vượt dư nợ; cần xử lý trả dư qua nghiệp vụ riêng.']);
             }
@@ -310,6 +319,255 @@ class LeaseContractService
     }
 
     /**
+     * Tất toán hợp đồng thuê sở hữu (Early settlement / Settle full remaining debt).
+     */
+    public function settleContract(int $contractId, array $data, User $user): LeaseContract
+    {
+        $contract = LeaseContract::with(['installments', 'allocations'])->findOrFail($contractId);
+        PilotAccess::store($user, $contract->store_id);
+
+        if ($contract->status === LeaseContract::STATUS_COMPLETED) {
+            throw ValidationException::withMessages(['contract' => 'Hợp đồng này đã được tất toán trước đó.']);
+        }
+
+        return DB::transaction(function () use ($contract, $data, $user) {
+            $contract = LeaseContract::where('id', $contract->id)->lockForUpdate()->firstOrFail();
+
+            // Calculate active total paid and remaining debt
+            $totalPaid = (float) $contract->allocations()->effectivePayments()->sum('amount');
+            $currentDiscount = (float) ($contract->discount_amount ?? 0);
+            $remainingDebt = max(0, (float) $contract->total_amount - $currentDiscount - $totalPaid);
+
+            if ($remainingDebt <= 0) {
+                $contract->status = LeaseContract::STATUS_COMPLETED;
+                $contract->settled_at = Carbon::now();
+                $contract->save();
+                return $contract;
+            }
+
+            $settlementAmount = (float) data_get($data, 'settlement_amount', 0);
+            $discountAmount = (float) data_get($data, 'discount_amount', 0);
+            $rawMethod = data_get($data, 'payment_method', 1);
+            if ($rawMethod === 'TM' || $rawMethod === 'cash') {
+                $paymentMethod = 1;
+            } elseif ($rawMethod === 'CK' || $rawMethod === 'bank') {
+                $paymentMethod = 2;
+            } else {
+                $paymentMethod = (int)$rawMethod ?: 1;
+            }
+            $bankId = data_get($data, 'bank_id');
+            $bankOwnerType = data_get($data, 'bank_owner_type', 'personal');
+            $notes = (string) data_get($data, 'notes', data_get($data, 'note', 'Tất toán hợp đồng'));
+            $idempotencyKey = data_get($data, 'idempotency_key');
+
+            // 1. Chặn tất toán 0 đồng hoặc âm khi còn dư nợ
+            if ($settlementAmount <= 0) {
+                throw ValidationException::withMessages([
+                    'settlement_amount' => 'Số tiền tất toán phải lớn hơn 0 để hoàn tất hợp đồng còn nợ (' . number_format($remainingDebt, 0, ',', '.') . ' đ).'
+                ]);
+            }
+
+            // Chặn khoản thu vượt dư nợ còn lại
+            if ($settlementAmount > $remainingDebt) {
+                throw ValidationException::withMessages([
+                    'settlement_amount' => 'Số tiền tất toán (' . number_format($settlementAmount, 0, ',', '.') . ' đ) vượt quá tổng dư nợ còn lại (' . number_format($remainingDebt, 0, ',', '.') . ' đ).'
+                ]);
+            }
+
+            // 2. Kiểm tra quyền chiết khấu
+            if ($discountAmount > 0 && !PilotAccess::isAdmin($user)) {
+                throw ValidationException::withMessages([
+                    'discount_amount' => 'Chỉ Quản trị viên mới có quyền áp dụng chiết khấu khi tất toán hợp đồng.'
+                ]);
+            }
+
+            // 3. Kiểm tra số tiền tất toán + chiết khấu phải đủ bù đắp dư nợ
+            if (($settlementAmount + $discountAmount) < ($remainingDebt - 0.01)) {
+                throw ValidationException::withMessages([
+                    'settlement_amount' => 'Số tiền tất toán kèm chiết khấu (' . number_format($settlementAmount + $discountAmount, 0, ',', '.') . ' đ) không đủ để tất toán toàn bộ dư nợ (' . number_format($remainingDebt, 0, ',', '.') . ' đ).'
+                ]);
+            }
+
+
+            if (($settlementAmount + $discountAmount) > ($remainingDebt + 0.01)) {
+                throw ValidationException::withMessages([
+                    'discount_amount' => 'Số tiền thực thu và chiết khấu vượt dư nợ còn lại. Vui lòng nhập đúng phần nghĩa vụ cần tất toán.'
+                ]);
+            }
+
+            // 4. Phân bổ tiền thanh toán thực tế vào các kỳ
+            $this->allocatePayment($contract->id, [
+                'amount' => min($settlementAmount, $remainingDebt),
+                'payment_date' => Carbon::now()->toDateString(),
+                'payment_method' => $paymentMethod,
+                'bank_id' => $bankId,
+                'bank_owner_type' => $bankOwnerType,
+                'notes' => $notes . ($discountAmount > 0 ? " (Chiết khấu duyệt: " . number_format($discountAmount, 0, ',', '.') . " đ)" : ""),
+                'idempotency_key' => $idempotencyKey,
+            ], $user);
+
+            // 5. Chiết khấu là điều chỉnh nghĩa vụ, không phải tiền đã thu.
+            if ($discountAmount > 0 && ($settlementAmount + $discountAmount) >= ($remainingDebt - 0.01)) {
+                $contract->discount_amount = $currentDiscount + $discountAmount;
+                $remainingDiscount = $discountAmount;
+                $installments = $contract->installments()->with('allocations')->orderBy('period_number')->get();
+
+                foreach ($installments as $installment) {
+                    if ($remainingDiscount <= 0.01) {
+                        break;
+                    }
+
+                    $remainingObligation = $installment->remaining_amount;
+                    if ($remainingObligation <= 0) {
+                        continue;
+                    }
+
+                    $adjusted = min($remainingDiscount, $remainingObligation);
+                    LeasePaymentAllocation::create([
+                        'lease_contract_id' => $contract->id,
+                        'installment_id' => $installment->id,
+                        'transaction_id' => null,
+                        'amount' => $adjusted,
+                        'payment_date' => Carbon::now()->toDateString(),
+                        'notes' => 'Chiết khấu tất toán được duyệt bởi ' . $user->name,
+                        'status' => LeasePaymentAllocation::STATUS_DISCOUNT,
+                        'created_by' => $user->id,
+                    ]);
+
+                    $remainingDiscount -= $adjusted;
+                    $effectiveSettled = (float)$installment->amount_paid + (float)$installment->adjustment_amount + $adjusted;
+                    if ($effectiveSettled >= ((float)$installment->amount_due - 0.01)) {
+                        $installment->status = LeaseInstallment::STATUS_PAID;
+                        $installment->paid_at = Carbon::now();
+                    } else {
+                        $installment->status = LeaseInstallment::STATUS_PARTIALLY_PAID;
+                    }
+                    $installment->notes = trim(($installment->notes ? $installment->notes . "\n" : "") . "Điều chỉnh chiết khấu: " . number_format($adjusted, 0, ',', '.') . " đ duyệt bởi " . $user->name);
+                    $installment->save();
+                }
+
+                if ($remainingDiscount > 0.01) {
+                    throw new \RuntimeException('Không thể phân bổ hết chiết khấu vào lịch kỳ thanh toán.');
+                }
+            }
+
+            $unpaidCount = $contract->installments()->where('status', '!=', LeaseInstallment::STATUS_PAID)->count();
+            if ($unpaidCount === 0) {
+                $contract->status = LeaseContract::STATUS_COMPLETED;
+                $contract->settled_at = Carbon::now();
+            }
+            $contract->notes = trim(($contract->notes ? $contract->notes . "\n" : "") . "Đã tất toán ngày " . Carbon::now()->format('d/m/Y') . " bởi " . $user->name . ". Số tiền thực thu: " . number_format($settlementAmount, 0, ',', '.') . " đ" . ($discountAmount > 0 ? " (Chiết khấu: " . number_format($discountAmount, 0, ',', '.') . " đ)" : "") . ". " . $notes);
+            $contract->save();
+
+            return $contract;
+        });
+    }
+
+    /**
+     * Đảo thu (Reversal) giao dịch thu tiền kỳ thuê sở hữu.
+     */
+    public function reverseAllocation(int $allocationId, string $reason, User $user): array
+    {
+        if (!PilotAccess::isAdmin($user)) {
+            throw new \Illuminate\Auth\Access\AuthorizationException('Chỉ Admin hoặc Kế toán mới có quyền đảo thu.');
+        }
+
+        if (empty(trim($reason))) {
+            throw ValidationException::withMessages(['reason' => 'Vui lòng nhập lý do đảo thu bắt buộc.']);
+        }
+
+        return DB::transaction(function () use ($allocationId, $reason, $user) {
+            $allocation = LeasePaymentAllocation::with(['installment', 'contract', 'transaction'])->lockForUpdate()->findOrFail($allocationId);
+            PilotAccess::store($user, $allocation->contract->store_id);
+
+            if ($allocation->status === LeasePaymentAllocation::STATUS_REVERSED) {
+                throw ValidationException::withMessages(['allocation' => 'Khoản phân bổ này đã được đảo thu trước đó.']);
+            }
+
+            if ($allocation->status === LeasePaymentAllocation::STATUS_DISCOUNT) {
+                throw ValidationException::withMessages(['allocation' => 'Chiết khấu là điều chỉnh nghĩa vụ và không thể đảo như một phiếu thu.']);
+            }
+
+            $installment = $allocation->installment;
+            $amount = (float) $allocation->amount;
+
+            // Giảm số tiền đã thanh toán của kỳ
+            if ($installment) {
+                $newPaid = max(0, (float) $installment->amount_paid - $amount);
+                $installment->amount_paid = $newPaid;
+                $discountAdjustment = (float)$installment->allocations()
+                    ->discountAdjustments()
+                    ->sum('amount');
+                $effectiveSettled = $newPaid + $discountAdjustment;
+                if ($effectiveSettled >= ((float)$installment->amount_due - 0.01)) {
+                    $installment->status = LeaseInstallment::STATUS_PAID;
+                } elseif ($effectiveSettled <= 0) {
+                    $installment->status = LeaseInstallment::STATUS_UNPAID;
+                    $installment->paid_at = null;
+                } else {
+                    $installment->status = LeaseInstallment::STATUS_PARTIALLY_PAID;
+                    $installment->paid_at = null;
+                }
+                $installment->save();
+            }
+
+            // Xác định thông tin quỹ/ngân hàng từ giao dịch gốc để liên kết sổ chuẩn xác
+            $origTx = $allocation->transaction;
+            $paymentMethod = $origTx ? (int)$origTx->payment_method : 1;
+            $cashId = $origTx ? $origTx->cash_id : null;
+            $bankId = $origTx ? $origTx->bank_id : null;
+            $bankOwnerType = $origTx ? $origTx->bank_owner_type : null;
+
+            if ($paymentMethod === 1 && !$cashId) {
+                $cashId = \App\Models\Cash::where('store_id', $allocation->contract->store_id)->where('status', 'Active')->value('id');
+            }
+
+            // Ghi nhận phiếu chi đối ứng (Reversal transaction) có đầy đủ cash_id / bank_id
+            $revTrans = Transaction::create([
+                'order_id' => null,
+                'name' => 'Đảo thu đợt #' . ($installment ? $installment->period_number : $allocation->id) . ' HĐ ' . $allocation->contract->contract_code,
+                'type' => Transaction::CHI,
+                'value' => $amount,
+                'payment_method' => $paymentMethod,
+                'cash_id' => $cashId,
+                'bank_id' => $bankId,
+                'bank_owner_type' => $bankOwnerType,
+                'note' => 'Đảo thu phân bổ #' . $allocation->id . ' - Lý do: ' . $reason,
+                'status' => 1,
+                'user_id' => $user->id,
+                'store_id' => $allocation->contract->store_id,
+                'desc' => 'Đảo thu kỳ trả góp thuê sở hữu',
+            ]);
+
+            // Cập nhật trạng thái đảo thu trên bản ghi phân bổ gốc (KHÔNG xóa cứng để giữ toàn vẹn dữ liệu và đối chiếu sổ)
+            $allocation->status = LeasePaymentAllocation::STATUS_REVERSED;
+            $allocation->reversal_transaction_id = $revTrans->id;
+            $allocation->reversal_reason = $reason;
+            $allocation->reversed_at = Carbon::now();
+            $allocation->reversed_by = $user->id;
+            $allocation->save();
+
+            $activePaid = (float)$allocation->contract->allocations()->effectivePayments()->sum('amount');
+            $effectiveObligation = max(0, (float)$allocation->contract->total_amount - (float)($allocation->contract->discount_amount ?? 0));
+            if (($effectiveObligation - $activePaid) > 0.01) {
+                $allocation->contract->status = LeaseContract::STATUS_ACTIVE;
+                $allocation->contract->settled_at = null;
+            } else {
+                $allocation->contract->status = LeaseContract::STATUS_COMPLETED;
+            }
+            $allocation->contract->save();
+
+            return [
+                'success' => true,
+                'reversed_allocation_id' => $allocationId,
+                'amount_reversed' => $amount,
+                'reversal_transaction_id' => $revTrans->id,
+                'reason' => $reason,
+            ];
+        });
+    }
+
+    /**
      * Add a debt collection note and appointment date.
      */
     public function addDebtNote(int $contractId, array $data, User $user): DebtNote
@@ -345,7 +603,7 @@ class LeaseContractService
             'customer',
             'vehicle',
             'store',
-            'installments',
+            'installments.allocations',
             'debtNotes.createdByUser',
             'assignedUser:id,name',
             'allocations',
@@ -404,8 +662,12 @@ class LeaseContractService
 
         // Calculate dynamic debt metrics for each contract
         $contracts->getCollection()->transform(function ($contract) use ($today) {
-            $totalPaid = $contract->allocations->sum('amount');
-            $outstanding = max(0, $contract->total_amount - $totalPaid);
+            $totalPaid = (float) $contract->allocations->filter(function ($a) {
+                return $a->status === null || $a->status === LeasePaymentAllocation::STATUS_ACTIVE;
+            })->sum('amount');
+            $discount = (float) ($contract->discount_amount ?? 0);
+            $effectiveObligation = max(0, (float) $contract->total_amount - $discount);
+            $outstanding = max(0, $effectiveObligation - $totalPaid);
 
             // Find overdue installments (due_date < today and not paid)
             $overdueList = $contract->installments->filter(function ($inst) use ($today) {
@@ -413,7 +675,7 @@ class LeaseContractService
             });
 
             $overdueAmount = $overdueList->sum(function ($inst) {
-                return max(0, $inst->amount_due - $inst->amount_paid);
+                return $inst->remaining_amount;
             });
 
             $maxOverdueDays = 0;
@@ -450,7 +712,8 @@ class LeaseContractService
                 'due_date' => $currentInstallment->due_date ? Carbon::parse($currentInstallment->due_date)->format('d/m/Y') : null,
                 'amount_due' => $currentInstallment->amount_due,
                 'amount_paid' => $currentInstallment->amount_paid,
-                'remaining' => max(0, $currentInstallment->amount_due - $currentInstallment->amount_paid),
+                'adjustment_amount' => $currentInstallment->adjustment_amount,
+                'remaining' => $currentInstallment->remaining_amount,
                 'status' => $currentInstallment->status,
             ] : null;
             $contract->latest_note = $latestNote ? [
@@ -472,16 +735,24 @@ class LeaseContractService
      */
     public function getStats(array $params, User $user): array
     {
-        $query = LeaseContract::with(['installments', 'allocations']);
+        $query = LeaseContract::with(['installments.allocations', 'allocations']);
         if (!PilotAccess::isAdmin($user)) { $query->where('store_id', $user->store_id ?: -1); }
         $contracts = $query->where('status', '!=', LeaseContract::STATUS_CANCELLED)->get();
         $today = Carbon::today('Asia/Ho_Chi_Minh');
 
         $totalValue = $contracts->sum('total_amount');
         $totalCollected = $contracts->sum(function ($c) {
-            return $c->allocations->sum('amount');
+            return (float) $c->allocations->filter(function ($a) {
+                return $a->status === null || $a->status === LeasePaymentAllocation::STATUS_ACTIVE;
+            })->sum('amount');
         });
-        $totalOutstanding = max(0, $totalValue - $totalCollected);
+        $totalDiscounts = (float)$contracts->sum('discount_amount');
+        $totalOutstanding = $contracts->sum(function ($contract) {
+            $paid = (float)$contract->allocations->filter(function ($allocation) {
+                return $allocation->status === null || $allocation->status === LeasePaymentAllocation::STATUS_ACTIVE;
+            })->sum('amount');
+            return max(0, (float)$contract->total_amount - (float)($contract->discount_amount ?? 0) - $paid);
+        });
 
         $totalOverdue = 0;
         $bucketCounts = [
@@ -507,7 +778,7 @@ class LeaseContractService
             });
 
             $cOverdueAmount = $overdueList->sum(function ($inst) {
-                return max(0, $inst->amount_due - $inst->amount_paid);
+                return $inst->remaining_amount;
             });
             $totalOverdue += $cOverdueAmount;
 
@@ -528,7 +799,10 @@ class LeaseContractService
                 $bucketAmounts['overdue_1_7'] += $cOverdueAmount;
             } else {
                 $bucketCounts['current']++;
-                $bucketAmounts['current'] += max(0, $contract->total_amount - $contract->allocations->sum('amount'));
+                $paid = (float)$contract->allocations->filter(function ($allocation) {
+                    return $allocation->status === null || $allocation->status === LeasePaymentAllocation::STATUS_ACTIVE;
+                })->sum('amount');
+                $bucketAmounts['current'] += max(0, (float)$contract->total_amount - (float)($contract->discount_amount ?? 0) - $paid);
             }
         }
 
@@ -537,6 +811,7 @@ class LeaseContractService
             'active_contracts' => $contracts->where('status', LeaseContract::STATUS_ACTIVE)->count(),
             'total_contract_value' => $totalValue,
             'total_collected' => $totalCollected,
+            'total_discounts' => $totalDiscounts,
             'total_outstanding' => $totalOutstanding,
             'total_overdue' => $totalOverdue,
             'buckets' => [

@@ -31,12 +31,12 @@
                     </td>
                     <td>{{ item.note }}</td>
                     <td v-if="skin != 'order-show' && order_status !== 'completed' ">
-						<a v-if="item.type == GIA_HAN_THEM" title="Sửa giao dịch" @click="editTransaction(item)"
-                            href="javascript:" class="btn btn-xs btn-icon btn-outline"><i class="fas fa-edit"></i>
-                        </a>
-                        <a v-if="item.type == GIA_HAN_THEM" title="Xóa" @click="deleteTransaction(item.id)"
-                            href="javascript:" class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
-                        </a>
+						<button v-if="item.type == GIA_HAN_THEM" type="button" @click="editTransaction(item)"
+                            class="btn btn-xs btn-outline-primary mr-1">Sửa
+                        </button>
+                        <button v-if="item.type == GIA_HAN_THEM" type="button" @click="deleteTransaction(item.id)"
+                            class="btn btn-xs btn-outline-danger">Xóa
+                        </button>
                     </td>
                 </tr>
             </tbody>

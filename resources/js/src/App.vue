@@ -20,6 +20,62 @@
 // HIMOTO Brand & Design System
 @import "assets/himoto/himoto.scss";
 
+/* Product requirement: controls use text labels instead of decorative icons. */
+.el-input__prefix,
+.el-input__suffix,
+.el-select__caret,
+.el-message__icon,
+.el-notification__icon,
+.swal2-icon,
+.himoto-app-shell .dropdown-toggle::after {
+  display: none !important;
+}
+
+.el-input--prefix .el-input__inner,
+.el-input--suffix .el-input__inner,
+.el-date-editor.el-input .el-input__inner {
+  padding-left: 15px !important;
+  padding-right: 15px !important;
+}
+
+.el-message,
+.el-notification {
+  padding-left: 16px !important;
+}
+
+.el-upload--picture-card {
+  line-height: normal !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.el-select-dropdown__list,
+.el-select-dropdown__item {
+  list-style: none !important;
+}
+
+.el-select-dropdown__item::marker {
+  content: "";
+}
+
+/* BootstrapVue creates a multiplication sign for modal close controls. */
+.modal-header .close {
+  width: auto;
+  min-width: 44px;
+  padding: 8px !important;
+  font-size: 0 !important;
+  line-height: 1;
+}
+
+.modal-header .close::after {
+  content: "Đóng";
+  font-size: 12px;
+  font-weight: 600;
+  color: #687386;
+}
+
 // Check documentation for RTL css
 // Update HTML with RTL attribute at public/index.html
 /*@import "assets/css/style.vue.rtl";*/

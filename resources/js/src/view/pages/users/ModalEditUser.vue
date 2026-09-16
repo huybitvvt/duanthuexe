@@ -7,13 +7,13 @@
                         <ul class="nav nav-tabs nav-bold nav-tabs-line">
                             <li class="nav-item" @click="activeTab(1)">
                                 <a class="nav-link" v-bind:class="{ active: tab_active1 }" data-toggle="tab">
-                                    <span class="nav-icon"><i class="flaticon2-user"></i></span>
+                                    <span class="nav-icon">Hồ sơ</span>
                                     <span class="nav-text">Sửa nhân viên</span>
                                 </a>
                             </li>
                             <li class="nav-item" @click="activeTab(2)">
                                 <a class="nav-link" v-bind:class="{ active: tab_active2 }" data-toggle="tab">
-                                    <span class="nav-icon"><i class="flaticon-edit"></i></span>
+                                    <span class="nav-icon">Mật khẩu</span>
                                     <span class="nav-text">Đổi mật khẩu</span>
                                 </a>
                             </li>

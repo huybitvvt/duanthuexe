@@ -28,7 +28,7 @@ class ContractNumberService
     }
 
     /**
-     * Sinh số hợp đồng an toàn đa luồng theo định dạng YYYY/MM/DD-0001.
+     * Sinh số hợp đồng an toàn đa luồng theo định dạng YYYYMMDD-0001 (chuẩn Excel).
      * Múi giờ sử dụng: Asia/Ho_Chi_Minh.
      *
      * @param Carbon|string|null $date
@@ -42,7 +42,7 @@ class ContractNumberService
             : ($date ? Carbon::parse($date)->setTimezone('Asia/Ho_Chi_Minh') : Carbon::now('Asia/Ho_Chi_Minh'));
 
         $dateSql = $carbonDate->format('Y-m-d');
-        $datePrefix = $carbonDate->format('Y/m/d');
+        $datePrefix = $carbonDate->format('Ymd');
 
         $driver = DB::connection()->getDriverName();
         $seq = 1;
@@ -94,7 +94,7 @@ class ContractNumberService
     }
 
     /**
-     * Kiểm tra tính hợp lệ của chuỗi số hợp đồng.
+     * Kiểm tra tính hợp lệ của chuỗi số hợp đồng (Hỗ trợ chuẩn mới YYYYMMDD-0001 và chuẩn cũ YYYY/MM/DD-0001).
      *
      * @param string|null $contractNumber
      * @return bool
@@ -105,19 +105,22 @@ class ContractNumberService
             return false;
         }
 
-        if (!preg_match('/^(\d{4})\/(\d{2})\/(\d{2})-(\d{4})$/', $contractNumber, $matches)) {
-            return false;
+        if (preg_match('/^(\d{4})(\d{2})(\d{2})-(\d{4})$/', $contractNumber, $matches)) {
+            $year = (int) $matches[1];
+            $month = (int) $matches[2];
+            $day = (int) $matches[3];
+            $seq = (int) $matches[4];
+            return ($seq >= 1 && $seq <= 9999) && checkdate($month, $day, $year);
         }
 
-        $year = (int) $matches[1];
-        $month = (int) $matches[2];
-        $day = (int) $matches[3];
-        $seq = (int) $matches[4];
-
-        if ($seq < 1 || $seq > 9999) {
-            return false;
+        if (preg_match('/^(\d{4})\/(\d{2})\/(\d{2})-(\d{4})$/', $contractNumber, $matches)) {
+            $year = (int) $matches[1];
+            $month = (int) $matches[2];
+            $day = (int) $matches[3];
+            $seq = (int) $matches[4];
+            return ($seq >= 1 && $seq <= 9999) && checkdate($month, $day, $year);
         }
 
-        return checkdate($month, $day, $year);
+        return false;
     }
 }

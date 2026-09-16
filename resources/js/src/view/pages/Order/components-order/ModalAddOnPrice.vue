@@ -3,7 +3,7 @@
         <b-button
             class="btn btn-primary"
             @click="dialogVisible = !dialogVisible"
-            ><i class="fas fa-hand-holding-usd"></i>Nạp tiền gia hạn
+            >Nạp tiền gia hạn
         </b-button>
         <b-modal
             centered

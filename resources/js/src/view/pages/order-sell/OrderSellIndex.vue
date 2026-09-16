@@ -148,11 +148,9 @@
                                     </td>
                                     <td>
                                         <button v-b-modal.modal-order-edit @click="order_current = order"
-                                            class="btn btn-xs btn btn-xs btn-icon  btn-outline-info"><i
-                                                class="far fa-edit"> </i></button>
+                                            class="btn btn-xs btn btn-xs btn-outline-info">Sửa</button>
                                         <button @click="deleteOrder(order.id)"
-                                            class="btn btn-danger btn-xs btn btn-xs btn-icon  btn-outline-info"><i
-                                                class="fas fa-trash"> </i></button>
+                                            class="btn btn-danger btn-xs btn btn-xs btn-outline-info">Xóa</button>
                                     </td>
                                 </tr>
                             </tbody>

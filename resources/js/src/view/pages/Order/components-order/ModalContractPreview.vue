@@ -16,14 +16,13 @@
 			<div class="d-flex justify-content-between align-items-center w-100 preview-header">
 				<div class="d-flex align-items-center">
 					<h5 class="modal-title font-weight-bolder mb-0 mr-3 text-dark">
-						<i class="far fa-file-pdf text-danger mr-2"></i>
 						Xem trước hợp đồng thuê xe
 					</h5>
 					<span v-if="doc && doc.is_preview" class="badge badge-warning font-weight-bold">
-						<i class="fas fa-exclamation-triangle mr-1"></i>Bản xem trước (Chưa cấp số)
+						Bản xem trước (Chưa cấp số)
 					</span>
 					<span v-else-if="doc && doc.contract_number" class="badge badge-success font-weight-bold">
-						<i class="fas fa-check-circle mr-1"></i>Số HĐ: {{ doc.contract_number }}
+						Số HĐ: {{ doc.contract_number }}
 					</span>
 				</div>
 
@@ -31,28 +30,28 @@
 				<div class="preview-toolbar d-flex align-items-center">
 					<div class="btn-group btn-group-sm mr-3">
 						<button class="btn btn-outline-secondary" @click="zoomOut" :disabled="zoomLevel <= 50" title="Thu nhỏ">
-							<i class="fas fa-search-minus"></i>
+							Thu nhỏ (-)
 						</button>
 						<span class="btn btn-outline-secondary disabled font-weight-bold" style="min-width: 60px;">
 							{{ zoomLevel }}%
 						</span>
 						<button class="btn btn-outline-secondary" @click="zoomIn" :disabled="zoomLevel >= 150" title="Phóng to">
-							<i class="fas fa-search-plus"></i>
+							Phóng to (+)
 						</button>
 						<button class="btn btn-outline-secondary" @click="resetZoom" title="Kích thước chuẩn (100%)">
 							100%
 						</button>
 						<button class="btn btn-outline-secondary" @click="fitWidth" title="Vừa chiều ngang màn hình">
-							<i class="fas fa-expand-arrows-alt"></i> Vừa màn hình
+							Vừa màn hình
 						</button>
 					</div>
 
 					<button class="btn btn-sm btn-primary font-weight-bold mr-2" @click="printDocument">
-						<i class="fas fa-print mr-1"></i> In hợp đồng
+						In hợp đồng
 					</button>
 
-					<button type="button" class="close ml-2" @click="close">
-						×
+					<button type="button" class="btn btn-sm btn-outline-secondary ml-2 font-weight-bold" @click="close">
+						Đóng
 					</button>
 				</div>
 			</div>
@@ -60,7 +59,6 @@
 
 		<!-- Alert banner -->
 		<div v-if="doc && doc.is_preview" class="preview-alert-banner alert alert-custom alert-light-warning fade show m-3 py-2 px-3" role="alert">
-			<div class="alert-icon"><i class="flaticon-warning text-warning"></i></div>
 			<div class="alert-text small">
 				<strong>Lưu ý:</strong> Đây là bản xem trước dựa trên dữ liệu đang nhập trên form. Bản in thử sẽ mang nhãn <em>Bản xem trước - Chưa cấp số</em> và <strong>không làm tiêu thụ số HĐ hoặc tạo giao dịch</strong>. Để cấp số chính thức, hãy bấm nút <strong>Lưu hợp đồng</strong>.
 			</div>
@@ -185,11 +183,40 @@ export default {
 
 <style>
 .modal-preview-dialog {
+	width: calc(100vw - 48px) !important;
 	max-width: 95vw !important;
+}
+
+.modal-preview-dialog .modal-content {
+	min-width: 0;
 }
 
 .preview-header {
 	padding: 8px 12px;
+	gap: 16px;
+	min-width: 0;
+}
+
+.preview-header > div:first-child {
+	flex: 1 1 auto;
+	min-width: 260px;
+}
+
+.preview-header .modal-title {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+
+.preview-toolbar {
+	flex: 0 1 auto;
+	justify-content: flex-end;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.preview-toolbar .btn-group {
+	flex-wrap: wrap;
+	margin-right: 0 !important;
 }
 
 .modal-preview-body {
@@ -215,12 +242,13 @@ export default {
 }
 
 @media (max-width: 767px) {
-	.modal-preview-dialog { margin: 8px auto; }
+	.modal-preview-dialog { width: calc(100vw - 16px) !important; max-width: calc(100vw - 16px) !important; margin: 8px auto; }
 	.modal-preview-dialog .preview-header { flex-direction: column; align-items: stretch !important; padding: 0; gap: 12px; }
-	.modal-preview-dialog .preview-header > div:first-child { flex-wrap: wrap; gap: 8px; }
+	.modal-preview-dialog .preview-header > div:first-child { min-width: 0; flex-wrap: wrap; gap: 8px; }
 	.modal-preview-dialog .modal-title { flex: 1 0 100%; font-size: 17px; }
 	.modal-preview-dialog .preview-toolbar { flex-wrap: wrap; gap: 8px; }
-	.modal-preview-dialog .preview-toolbar .btn-group { flex: 1 0 100%; margin-right: 0 !important; }
+	.modal-preview-dialog .preview-toolbar .btn-group { display: flex; flex: 1 0 100%; margin-right: 0 !important; }
+	.modal-preview-dialog .preview-toolbar .btn-group .btn { flex: 1 1 auto; white-space: nowrap; }
 	.modal-preview-dialog .preview-toolbar .close { margin-left: auto !important; }
 	.modal-preview-dialog .modal-preview-body { max-height: 75vh; }
 }

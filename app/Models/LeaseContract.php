@@ -30,6 +30,8 @@ class LeaseContract extends Model
         'installment_count',
         'period_amount',
         'status',
+        'discount_amount',
+        'settled_at',
         'assigned_user_id',
         'notes',
     ];
@@ -40,6 +42,8 @@ class LeaseContract extends Model
         'total_amount' => 'float',
         'deposit_amount' => 'float',
         'period_amount' => 'float',
+        'discount_amount' => 'float',
+        'settled_at' => 'datetime',
     ];
 
     public function customer(): BelongsTo
@@ -65,6 +69,15 @@ class LeaseContract extends Model
     public function allocations(): HasMany
     {
         return $this->hasMany(LeasePaymentAllocation::class, 'lease_contract_id', 'id')->orderBy('id', 'desc');
+    }
+
+    public function activeAllocations(): HasMany
+    {
+        return $this->hasMany(LeasePaymentAllocation::class, 'lease_contract_id', 'id')
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', LeasePaymentAllocation::STATUS_ACTIVE);
+            })
+            ->orderBy('id', 'desc');
     }
 
     public function debtNotes(): HasMany

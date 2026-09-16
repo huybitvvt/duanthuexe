@@ -3,6 +3,8 @@
 namespace App\Http\Services;
 
 use App\Models\ContractAmendment;
+use App\Models\Bank;
+use App\Models\Cash;
 use App\Support\PilotAccess;
 use App\Models\Order;
 use App\Models\OrderVehicleDetail;
@@ -12,6 +14,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleLocationEvent;
 use App\Models\VehicleTransfer;
 use App\Models\VehicleTransferItem;
+use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -283,26 +286,45 @@ class VehicleTransferService
             if (!in_array($order->order_status, ['completed', 'wait_payment'])) {
                 throw ValidationException::withMessages(['order_id' => 'Hoàn tất trả xe qua luồng trả xe trước khi xác nhận nhập kho khác cơ sở.']);
             }
-            $existing = VehicleTransfer::where('order_id', $orderId)->where('type', VehicleTransfer::TYPE_RETURN_DIFFERENT_STORE)->first();
-            if ($existing) { throw ValidationException::withMessages(['order_id' => 'Đơn đã được ghi nhận trả khác cơ sở.']); }
-            if (OrderVehicleDetail::where('order_id', $orderId)->count() !== 1) {
-                throw ValidationException::withMessages(['order_id' => 'Đơn nhiều xe cần nhập kho theo từng xe; không thể tự chọn xe đầu tiên.']);
+            $orderVehicleQuery = OrderVehicleDetail::where('order_id', $orderId);
+            $totalVehiclesInOrder = $orderVehicleQuery->count();
+
+            $specifiedVehicleId = data_get($details, 'vehicle_id');
+            if ($specifiedVehicleId) {
+                $orderVehicleDetail = OrderVehicleDetail::where('order_id', $orderId)->where('vehicle_id', $specifiedVehicleId)->first();
+                if (!$orderVehicleDetail) {
+                    throw ValidationException::withMessages(['vehicle_id' => 'Xe được chỉ định không thuộc đơn thuê này.']);
+                }
+                $vehicleId = (int) $orderVehicleDetail->vehicle_id;
+            } else {
+                if ($totalVehiclesInOrder > 1) {
+                    throw ValidationException::withMessages(['vehicle_id' => 'Đơn thuê nhiều xe: vui lòng chỉ định cụ thể xe (vehicle_id) cần nhập kho khác cơ sở.']);
+                }
+                $orderVehicleDetail = $orderVehicleQuery->first();
+                $vehicleId = $orderVehicleDetail ? (int) $orderVehicleDetail->vehicle_id : null;
             }
-
-            $orderStoreId = (int)$order->store_id;
-            $odometer = data_get($details, 'odometer');
-            $conditionNotes = (string)data_get($details, 'condition_notes', 'Khách trả xe tại chi nhánh khác');
-            $returnedAt = data_get($details, 'returned_at') ? Carbon::parse($details['returned_at']) : Carbon::now();
-
-            // Find vehicle from order
-            $orderVehicleDetail = OrderVehicleDetail::where('order_id', $order->id)->first();
-            $vehicleId = $orderVehicleDetail ? $orderVehicleDetail->vehicle_id : null;
 
             if (!$vehicleId) {
                 throw ValidationException::withMessages([
                     'order_id' => ['Không tìm thấy thông tin xe trong đơn thuê.']
                 ]);
             }
+
+            // Kiểm tra xe này đã được trả khác cơ sở chưa
+            $existing = VehicleTransfer::where('order_id', $orderId)
+                ->where('type', VehicleTransfer::TYPE_RETURN_DIFFERENT_STORE)
+                ->whereHas('items', function ($q) use ($vehicleId) {
+                    $q->where('vehicle_id', $vehicleId);
+                })
+                ->first();
+            if ($existing) {
+                throw ValidationException::withMessages(['vehicle_id' => 'Xe này trong đơn đã được ghi nhận nhập kho khác cơ sở trước đó.']);
+            }
+
+            $orderStoreId = (int)$order->store_id;
+            $odometer = data_get($details, 'odometer');
+            $conditionNotes = (string)data_get($details, 'condition_notes', 'Khách trả xe tại chi nhánh khác');
+            $returnedAt = data_get($details, 'returned_at') ? Carbon::parse($details['returned_at']) : Carbon::now();
 
             $vehicle = Vehicle::where('id', $vehicleId)->lockForUpdate()->firstOrFail();
             if ($vehicle->status !== Vehicle::STATUS_READY) {
@@ -385,13 +407,10 @@ class VehicleTransferService
                 ]);
             }
 
-            PilotAccess::store($user, $order->store_id);
-            if ($order->order_status !== 'renting' || !OrderVehicleDetail::where('order_id', $orderId)->where('vehicle_id', $oldVehicleId)->exists()) {
-                throw ValidationException::withMessages(['order_id' => 'Xe cũ phải thuộc hợp đồng đang thuê.']);
-            }
-            if ((float)data_get($details, 'price_difference', 0) != 0) {
-                throw ValidationException::withMessages(['price_difference' => 'Chênh lệch giá cần được hạch toán qua phụ lục trước khi đổi xe.']);
-            }
+            $allowedStores = array_unique([
+                (int)$order->store_id,
+                (int)($oldVehicleId ? ($lockedVehicles = Vehicle::whereIn('id', [$oldVehicleId, $newVehicleId])->get()->keyBy('id') ? 0 : 0) : 0),
+            ]);
             // Lock vehicles in consistent ID order to prevent deadlocks
             $lockIds = [$oldVehicleId, $newVehicleId];
             sort($lockIds);
@@ -406,15 +425,27 @@ class VehicleTransferService
                 ]);
             }
 
+            $allowedStores = array_unique(array_filter([
+                (int)$order->store_id,
+                (int)($oldVehicle->current_store_id ?: $order->store_id),
+                (int)($newVehicle->current_store_id ?: $newVehicle->store_id),
+            ]));
+            $isAdmin = $user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien');
+            if (!$isAdmin && !in_array((int)$user->store_id, $allowedStores)) {
+                throw new \Illuminate\Auth\Access\AuthorizationException('Nhân viên không có quyền thực hiện đổi xe tại cơ sở này.');
+            }
+
+            if ($order->order_status !== 'renting' || !OrderVehicleDetail::where('order_id', $orderId)->where('vehicle_id', $oldVehicleId)->exists()) {
+                throw ValidationException::withMessages(['order_id' => 'Xe cũ phải thuộc hợp đồng đang thuê.']);
+            }
+
             if ($newVehicle->status !== Vehicle::STATUS_READY) {
                 throw ValidationException::withMessages([
                     'new_vehicle_id' => ["Xe thay thế {$newVehicle->license} đang ở trạng thái '{$newVehicle->status}', không sẵn sàng để bàn giao."]
                 ]);
             }
 
-            if (($newVehicle->current_store_id ?: $newVehicle->store_id) != ($oldVehicle->current_store_id ?: $order->store_id)) {
-                throw ValidationException::withMessages(['new_vehicle_id' => 'Hoàn thành phiếu điều chuyển xe mới về cơ sở nhận trước khi đổi xe.']);
-            }
+            $exchangeStoreId = (int)(data_get($details, 'exchange_store_id') ?: ($newVehicle->current_store_id ?: $newVehicle->store_id));
             $reason = (string)data_get($details, 'reason', 'Đổi xe sự cố');
             $conditionNotes = (string)data_get($details, 'condition_notes', '');
             $priceDiff = (float)data_get($details, 'price_difference', 0);
@@ -422,19 +453,78 @@ class VehicleTransferService
             $oldOdometer = data_get($details, 'old_vehicle_odometer');
             $newOdometer = data_get($details, 'new_vehicle_odometer');
 
-            // 1. Update old vehicle: mark repairing
+            // Capture origin store IDs before updating vehicle locations
+            $oldOriginStoreId = (int) ($oldVehicle->current_store_id ?: ($order->store_id ?: $oldVehicle->store_id));
+            $newOriginStoreId = (int) ($newVehicle->current_store_id ?: $newVehicle->store_id);
+
+            $exchangeStore = Store::find($exchangeStoreId);
+            if (!$exchangeStore || in_array(strtolower((string)$exchangeStore->status), ['closing', 'closed', 'inactive'], true)) {
+                throw ValidationException::withMessages(['exchange_store_id' => 'Cơ sở bàn giao không tồn tại hoặc đã ngừng hoạt động.']);
+            }
+            if (!in_array($exchangeStoreId, $allowedStores, true)) {
+                throw ValidationException::withMessages(['exchange_store_id' => 'Cơ sở bàn giao không thuộc hợp đồng hoặc vị trí hiện tại của hai xe.']);
+            }
+            PilotAccess::store($user, $exchangeStoreId);
+
+            $rawMethod = data_get($details, 'payment_method');
+            $methodInt = null;
+            $cashId = null;
+            $bankId = null;
+            $bankOwnerType = null;
+            if (abs($priceDiff) > 0.00001) {
+                if ($rawMethod === null || $rawMethod === '') {
+                    throw ValidationException::withMessages(['payment_method' => 'Phải chọn phương thức thu hoặc hoàn chênh lệch giá đổi xe.']);
+                }
+
+                if ($rawMethod === 'TM' || $rawMethod === 'cash' || $rawMethod === 1 || $rawMethod === '1') {
+                    $methodInt = 1;
+                } elseif ($rawMethod === 'CK' || $rawMethod === 'bank' || $rawMethod === 2 || $rawMethod === '2') {
+                    $methodInt = 2;
+                } else {
+                    throw ValidationException::withMessages(['payment_method' => 'Phương thức thanh toán chênh lệch không hợp lệ.']);
+                }
+
+                if ($methodInt === 1) {
+                    $cashQuery = Cash::where('store_id', $exchangeStoreId)->where('status', 'Active');
+                    $requestedCashId = data_get($details, 'cash_id');
+                    $cash = $requestedCashId
+                        ? (clone $cashQuery)->where('id', $requestedCashId)->first()
+                        : $cashQuery->orderBy('id')->first();
+                    if (!$cash) {
+                        throw ValidationException::withMessages(['cash_id' => 'Quỹ tiền mặt phải đang hoạt động và thuộc cơ sở bàn giao.']);
+                    }
+                    $cashId = $cash->id;
+                } else {
+                    $requestedBankId = data_get($details, 'bank_id');
+                    if (!$requestedBankId) {
+                        throw ValidationException::withMessages(['bank_id' => 'Phải chọn tài khoản ngân hàng cho khoản chênh lệch.']);
+                    }
+                    $bank = Bank::where('id', $requestedBankId)
+                        ->where('store_id', $exchangeStoreId)
+                        ->where('status', 'Active')
+                        ->first();
+                    if (!$bank) {
+                        throw ValidationException::withMessages(['bank_id' => 'Tài khoản ngân hàng phải đang hoạt động và thuộc cơ sở bàn giao.']);
+                    }
+                    $bankId = $bank->id;
+                    $bankOwnerType = $bank->owner_type ?: Bank::OWNER_UNKNOWN;
+                }
+            }
+
+            // 1. Update old vehicle: mark repairing at exchange store
             $oldUpdates = [
                 'status' => Vehicle::STATUS_REPAIRING,
+                'current_store_id' => $exchangeStoreId,
             ];
             if ($oldOdometer) {
                 $oldUpdates['odometer'] = (int)$oldOdometer;
             }
             $oldVehicle->update($oldUpdates);
 
-            // 2. Update new vehicle: mark using, inherit physical store of old vehicle
+            // 2. Update new vehicle: mark using at exchange store
             $newUpdates = [
                 'status' => Vehicle::STATUS_USING,
-                'current_store_id' => $oldVehicle->current_store_id ?: $order->store_id,
+                'current_store_id' => $exchangeStoreId,
             ];
             if ($newOdometer) {
                 $newUpdates['odometer'] = (int)$newOdometer;
@@ -467,11 +557,30 @@ class VehicleTransferService
                 'created_by' => $user->id,
             ]);
 
-            // 5. Create immutable location events for both vehicles
+            // 5. Post financial transaction if price difference and payment method provided
+            if ($priceDiff != 0) {
+                $isThu = $priceDiff > 0;
+                Transaction::create([
+                    'order_id' => $order->id,
+                    'type' => $isThu ? Transaction::THU : Transaction::CHI,
+                    'name' => ($isThu ? "Thu" : "Hoàn") . " chênh lệch giá đổi xe (Phụ lục #{$amendmentCode})",
+                    'value' => abs($priceDiff),
+                    'payment_method' => $methodInt,
+                    'cash_id' => $cashId,
+                    'bank_id' => $bankId,
+                    'bank_owner_type' => $bankOwnerType,
+                    'note' => ($isThu ? "Thu" : "Hoàn") . " chênh lệch giá đổi xe (Phụ lục #{$amendmentCode})",
+                    'user_id' => $user->id,
+                    'store_id' => $exchangeStoreId,
+                    'status' => 1,
+                ]);
+            }
+
+            // 6. Create immutable location events for both vehicles
             VehicleLocationEvent::create([
                 'vehicle_id' => $oldVehicle->id,
-                'from_store_id' => $oldVehicle->current_store_id ?: $order->store_id,
-                'to_store_id' => $oldVehicle->current_store_id ?: $order->store_id,
+                'from_store_id' => $oldOriginStoreId,
+                'to_store_id' => $exchangeStoreId,
                 'event_type' => VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_OUT,
                 'ref_type' => 'contract_amendments',
                 'ref_id' => $amendment->id,
@@ -482,8 +591,8 @@ class VehicleTransferService
 
             VehicleLocationEvent::create([
                 'vehicle_id' => $newVehicle->id,
-                'from_store_id' => $newVehicle->current_store_id ?: $order->store_id,
-                'to_store_id' => $oldVehicle->current_store_id ?: $order->store_id,
+                'from_store_id' => $newOriginStoreId,
+                'to_store_id' => $exchangeStoreId,
                 'event_type' => VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_IN,
                 'ref_type' => 'contract_amendments',
                 'ref_id' => $amendment->id,

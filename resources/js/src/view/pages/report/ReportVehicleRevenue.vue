@@ -119,21 +119,13 @@
                                     <th scope="col">Tên</th>
                                     <th scope="col">Biển số</th>
                                     <th @click="changeSort('count_order')" scope="col">Tổng order
-                                        <span class="ml-1 ">
-                                            <i v-if="this.query.sort_type == 'asc' && this.query.sort_by == 'count_order'"
-                                                class="text-success   fa fa-arrow-up"></i> <i
-                                                v-if="this.query.sort_type == 'desc' && this.query.sort_by == 'count_order'"
-                                                class="text-success  fa fa-arrow-down"></i>
-
+                                        <span class="ml-1 text-success">
+                                            {{ this.query.sort_by == 'count_order' ? (this.query.sort_type == 'asc' ? 'Tăng' : 'Giảm') : '' }}
                                         </span>
                                     </th>
                                     <th @click="changeSort('revenue')" scope="col">Doanh thu
-                                        <span class="text-success ml-1 ">
-                                            <i v-if="this.query.sort_type == 'asc' && this.query.sort_by == 'revenue'"
-                                                class="text-success  fa fa-arrow-up"></i> <i
-                                                v-if="this.query.sort_type == 'desc' && this.query.sort_by == 'revenue'"
-                                                class="text-success  fa fa-arrow-down"></i>
-
+                                        <span class="text-success ml-1">
+                                            {{ this.query.sort_by == 'revenue' ? (this.query.sort_type == 'asc' ? 'Tăng' : 'Giảm') : '' }}
                                         </span>
                                     </th>
                                     <th scope="col" class="min-w-120px">
@@ -178,11 +170,10 @@
                                     </td>
                                     <td>
                                         <button v-b-modal.modal-show-car-rental
-                                            class="btn btn-xs btn-icon btn-outline-info" title="Xem chi tiết"
+                                            class="btn btn-xs btn-outline-info font-weight-bold" title="Xem chi tiết"
                                             @click="showPopup(item)">
-                                            <i class="far fa-eye"></i>
+                                            Xem
                                         </button>
-
                                     </td>
                                 </tr>
                             </tbody>

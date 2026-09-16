@@ -3,9 +3,9 @@
         <div class="row">
             <div class="col-md-3">
                 <div class="form-group">
-                    <label>Chọn xe <i class="fas fa-minus-circle text-danger cursor-pointer"
+                    <label>Chọn xe <button type="button" class="btn btn-xs btn-outline-danger font-weight-bold ml-1 py-0 px-1"
                                       title="Xóa sản phẩm" @click="minusItem"
-                    ></i></label>
+                    >Xóa</button></label>
                     <ValidationProvider
                         vid="store_id"
                         name="Xe"

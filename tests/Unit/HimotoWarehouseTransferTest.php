@@ -13,6 +13,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleLocationEvent;
 use App\Models\VehicleTransfer;
 use App\Models\VehicleTransferItem;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -50,6 +51,11 @@ class HimotoWarehouseTransferTest extends TestCase
             'kind' => Store::KIND_PHYSICAL,
             'code' => 'CS-DD',
             'status' => 'active'
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('cash')->insert([
+            ['store_id' => $this->storeA->id, 'status' => 'Active'],
+            ['store_id' => $this->storeB->id, 'status' => 'Active'],
         ]);
 
         // Users
@@ -228,6 +234,45 @@ class HimotoWarehouseTransferTest extends TestCase
             $table->text('reason')->nullable();
             $table->text('notes')->nullable();
             $table->integer('created_by')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::dropIfExists('transactions');
+        Schema::create('transactions', function ($table) {
+            $table->increments('id');
+            $table->integer('order_id')->nullable();
+            $table->integer('order_item_id')->nullable();
+            $table->string('name')->nullable();
+            $table->string('type')->nullable();
+            $table->decimal('value', 15, 2)->default(0);
+            $table->decimal('amount', 15, 2)->default(0);
+            $table->string('payment_method')->nullable();
+            $table->string('note')->nullable();
+            $table->integer('status')->default(1);
+            $table->integer('user_id')->nullable();
+            $table->integer('store_id')->nullable();
+            $table->integer('bank_id')->nullable();
+            $table->string('bank_owner_type')->nullable();
+            $table->integer('cash_id')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::dropIfExists('cash');
+        Schema::create('cash', function ($table) {
+            $table->increments('id');
+            $table->integer('store_id');
+            $table->string('status')->default('Active');
+            $table->timestamps();
+        });
+
+        Schema::dropIfExists('banks');
+        Schema::create('banks', function ($table) {
+            $table->increments('id');
+            $table->integer('store_id');
+            $table->string('bank_name')->nullable();
+            $table->string('account_number')->nullable();
+            $table->string('owner_type')->nullable();
+            $table->string('status')->default('Active');
             $table->timestamps();
         });
     }
@@ -514,5 +559,92 @@ class HimotoWarehouseTransferTest extends TestCase
         $newEvents = VehicleLocationEvent::where('vehicle_id', $newVehicle->id)->get();
         $this->assertEquals(VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_OUT, $oldEvents->last()->event_type);
         $this->assertEquals(VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_IN, $newEvents->last()->event_type);
+    }
+
+    /**
+     * R12: Multi-vehicle return different store allows specifying vehicle_id.
+     */
+    public function test_r12_multi_vehicle_return_different_store_with_vehicle_id()
+    {
+        $veh1 = Vehicle::create(['name' => 'Xe 1', 'license' => '29A-11111', 'status' => Vehicle::STATUS_READY, 'store_id' => $this->storeA->id, 'current_store_id' => $this->storeA->id]);
+        $veh2 = Vehicle::create(['name' => 'Xe 2', 'license' => '29A-22222', 'status' => Vehicle::STATUS_READY, 'store_id' => $this->storeA->id, 'current_store_id' => $this->storeA->id]);
+
+        $order = Order::create([
+            'order_type' => 'car_rental',
+            'order_status' => 'completed',
+            'store_id' => $this->storeA->id,
+            'contract_number' => 'HĐ-TEST-MULTI',
+            'customer_id' => 1,
+        ]);
+
+        OrderVehicleDetail::create(['order_id' => $order->id, 'vehicle_id' => $veh1->id]);
+        OrderVehicleDetail::create(['order_id' => $order->id, 'vehicle_id' => $veh2->id]);
+
+        // Attempting to return without specifying vehicle_id on multi-vehicle order throws validation error
+        $failed = false;
+        try {
+            $this->transferService->processReturnDifferentStore($order->id, $this->storeB->id, [], $this->staffUserB);
+        } catch (ValidationException $e) {
+            $failed = true;
+            $this->assertArrayHasKey('vehicle_id', $e->errors());
+        }
+        $this->assertTrue($failed, 'Must require vehicle_id on multi-vehicle return.');
+
+        // Returning specific vehicle_id succeeds
+        $result = $this->transferService->processReturnDifferentStore($order->id, $this->storeB->id, ['vehicle_id' => $veh1->id], $this->staffUserB);
+        $this->assertEquals($veh1->id, $result['vehicle_id']);
+        $this->assertEquals($this->storeB->id, $veh1->fresh()->current_store_id);
+
+        // Cannot return the same vehicle twice
+        $failedDuplicate = false;
+        try {
+            $this->transferService->processReturnDifferentStore($order->id, $this->storeB->id, ['vehicle_id' => $veh1->id], $this->staffUserB);
+        } catch (ValidationException $e) {
+            $failedDuplicate = true;
+        }
+        $this->assertTrue($failedDuplicate, 'Cannot return the same vehicle twice.');
+    }
+
+    /**
+     * R12: Vehicle exchange supports price difference and cross-store exchange.
+     */
+    public function test_r12_vehicle_exchange_with_price_difference_and_cross_store()
+    {
+        $oldVeh = Vehicle::create(['name' => 'Xe cũ', 'license' => '29A-OLD', 'status' => Vehicle::STATUS_USING, 'store_id' => $this->storeA->id, 'current_store_id' => $this->storeA->id]);
+        $newVeh = Vehicle::create(['name' => 'Xe mới', 'license' => '29A-NEW', 'status' => Vehicle::STATUS_READY, 'store_id' => $this->storeB->id, 'current_store_id' => $this->storeB->id]);
+
+        $order = Order::create([
+            'order_type' => 'car_rental',
+            'order_status' => 'renting',
+            'store_id' => $this->storeA->id,
+            'contract_number' => 'HĐ-EXCHANGE',
+            'customer_id' => 1,
+        ]);
+
+        OrderVehicleDetail::create(['order_id' => $order->id, 'vehicle_id' => $oldVeh->id]);
+
+        $result = $this->transferService->processVehicleExchange(
+            $order->id,
+            $oldVeh->id,
+            $newVeh->id,
+            [
+                'reason' => 'Hỏng máy đổi xe chi nhánh B',
+                'price_difference' => 500000,
+                'payment_method' => 'TM',
+                'exchange_store_id' => $this->storeB->id,
+            ],
+            $this->adminUser
+        );
+
+        $this->assertEquals(500000, $result['price_difference']);
+        $this->assertEquals(Vehicle::STATUS_REPAIRING, $oldVeh->fresh()->status);
+        $this->assertEquals($this->storeB->id, $oldVeh->fresh()->current_store_id);
+        $this->assertEquals(Vehicle::STATUS_USING, $newVeh->fresh()->status);
+        $this->assertEquals($this->storeB->id, $newVeh->fresh()->current_store_id);
+
+        // Financial transaction created
+        $tx = Transaction::where('order_id', $order->id)->where('type', Transaction::THU)->first();
+        $this->assertNotNull($tx);
+        $this->assertEquals(500000, $tx->value);
     }
 }

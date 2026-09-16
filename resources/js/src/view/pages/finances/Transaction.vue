@@ -137,7 +137,7 @@
                             </div>
                             <div class="row mb-2 justify-self-end">
                                 <div class="col-md-4 text-right">
-                                    <el-button :loading="loading" icon="fa fa-search"
+                                    <el-button :loading="loading"
                                         class="btn btn-primary font-weight-bold" @click="search">
                                         Tìm kiếm
                                     </el-button>
@@ -204,12 +204,6 @@
                                             </el-tooltip>
                                         </td>
                                         <td>{{ item.status }}</td>
-                                        <!-- <td>
-                                        <button
-                                            class="btn btn-xs btn btn-xs btn-icon  btn-outline-info">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </td> -->
                                     </tr>
                                 </tbody>
                             </table>

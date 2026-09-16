@@ -2,11 +2,9 @@
     <div class="list-vehicles">
         <div class="d-flex justify-content-between">
             <div class="mb-7">
-                <span style="font-size: 14px" class="font-weight-bold">Thông tin xe thuê số {{ index + 1 }}</span>
-
-                <span title="Xóa" @click="deleteVehicle(index)">
-                    <i class="fas fa-minus-circle text-danger cursor-pointer" title="Xóa sản phẩm"></i>
-                </span>
+                <span style="font-size: 14px" class="font-weight-bold">Thông tin xe thuê số {{ index + 1 }}</span>                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 ml-2" @click="deleteVehicle(index)" title="Xóa xe">
+                    [Xóa xe]
+                </button>
             </div>
             <el-switch v-model="local_order_item.is_all_in_one" @change="changeIsAllInOne" active-text="Thuê tháng"
                 inactive-text="Thuê theo ngày">
@@ -63,10 +61,10 @@
             <!-- Thông số xe tự động lấy từ danh mục để đối chiếu mẫu hợp đồng -->
             <div v-if="selectedVehicleDetails" class="col-12 mb-3">
                 <div class="p-2 px-3 rounded bg-light d-flex flex-wrap align-items-center text-muted" style="font-size: 12px; border: 1px dashed #c0c4cc;">
-                    <span class="mr-4"><i class="fas fa-tag mr-1 text-primary"></i> <strong>Nhãn hiệu:</strong> {{ selectedVehicleDetails.brand || '—' }}</span>
-                    <span class="mr-4"><i class="fas fa-motorcycle mr-1 text-primary"></i> <strong>Loại xe:</strong> {{ selectedVehicleDetails.type || '—' }}</span>
-                    <span class="mr-4"><i class="fas fa-palette mr-1 text-primary"></i> <strong>Màu sắc:</strong> {{ selectedVehicleDetails.color || '—' }}</span>
-                    <span><i class="fas fa-calendar-alt mr-1 text-primary"></i> <strong>Năm SX:</strong> {{ selectedVehicleDetails.year || '—' }}</span>
+                    <span class="mr-4"><strong>[Nhãn hiệu]</strong> {{ selectedVehicleDetails.brand || '—' }}</span>
+                    <span class="mr-4"><strong>[Loại xe]</strong> {{ selectedVehicleDetails.type || '—' }}</span>
+                    <span class="mr-4"><strong>[Màu sắc]</strong> {{ selectedVehicleDetails.color || '—' }}</span>
+                    <span><strong>[Năm SX]</strong> {{ selectedVehicleDetails.year || '—' }}</span>
                 </div>
             </div>
 
@@ -118,7 +116,7 @@
 					<label for="account">
 						<strong>Phí thuê xe</strong>
 						<span>(mặc định<span v-if="local_order_item.default_unit_price > 0">: <strong>{{ local_order_item.default_unit_price | formatPrice }}</strong></span> <span v-if="local_order_item.rental_days > 0">x <strong>{{ local_order_item.rental_days }}</strong> ngày</span>)</span>
-						<span style="display:inline-block;width: 16px;cursor: pointer;" @click="editingCustomHiringFee"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" data-v-d2e47025=""><path fill="currentColor" d="m199.04 672.64 193.984 112 224-387.968-193.92-112-224 388.032zm-23.872 60.16 32.896 148.288 144.896-45.696zM455.04 229.248l193.92 112 56.704-98.112-193.984-112-56.64 98.112zM104.32 708.8l384-665.024 304.768 175.936L409.152 884.8h.064l-248.448 78.336zm384 254.272v-64h448v64h-448z"></path></svg></span>
+						<button type="button" class="btn btn-sm btn-link py-0 px-1 font-weight-bold" @click="editingCustomHiringFee">[Sửa giá]</button>
 					</label>
 					<money v-if="editing_custom_hiring_fee" id="account" v-model="custom_hiring_fee" v-bind="money" class="form-control"></money>
 					<!-- <money v-else id="account" :value="(order_id && local_order_item.hiring_fee) ? local_order_item.hiring_fee : local_order_item.hiringFee" v-bind="money" class="form-control" disabled></money> -->
@@ -130,11 +128,7 @@
                     <label for="substitute_unit_price"> <el-tooltip
                             content="Là giá thuê tùy chỉnh của 1 ngày, thay cho đơn giá mặc định trong bảng giá. Vẫn nhân lên với số ngày như bình thường, và tính quá hạn như bình thường">
                             <span>
-								<strong>Đơn Giá Khác</strong>(tùy chỉnh)
-                                <i class="fa fa-question" style="
-                                    font-size: 8px;
-                                    vertical-align: text-top;
-                                "></i>
+								<strong>Đơn Giá Khác</strong>(tùy chỉnh) [?]
                             </span></el-tooltip>
                     </label>
 
@@ -150,10 +144,7 @@
                     <label v-if="local_order_item.money_out_date > 0" for="money_out_date"><strong>Phí quá hạn</strong></label>
                     <label v-if="local_order_item.money_out_date < 0" for="money_out_date"><strong>Số tiền hoàn cho khách do trả sớm</strong>
 						<el-tooltip content="Giá này do app tính toán theo thời gian hoàn thành hợp đồng.">
-							<i class="fa fa-question" style="
-								font-size: 8px;
-								vertical-align: text-top;
-							"></i>
+							<span>[?]</span>
 						</el-tooltip>
 					</label>
 					
@@ -165,11 +156,7 @@
                 <div class="form-group">
                     <label for="handler_price">
                         <el-tooltip content="Là giá chốt cuối cùng(tổng tiền cuối cùng mà khách phải trả theo thỏa thuận cho hợp đồng này, không tính thêm bất kì khoản phí nào kể cả phí quá giờ), quá hạn cũng không tính thêm tiền.">
-							<span><strong>Giá Tổng Khác</strong> <i class="fa fa-question" style="
-                                    font-size: 8px;
-                                    vertical-align: text-top;
-                                "></i>
-                            </span></el-tooltip>
+							<span><strong>Giá Tổng Khác</strong> [?]</span></el-tooltip>
                     </label>
 
                     <money id="handler_price" v-model="handlerPriceInput" v-bind="money" class="form-control"></money>
@@ -211,7 +198,7 @@
             <el-collapse accordion style="display: none" data-note="Temporary disabled by TuyenDev">
                 <el-collapse-item name="1">
                     <template slot="title">
-                        <b>Xem chi phí khác </b><i class="ml-1 header-icon el-icon-info"></i>
+                        <b>Xem chi phí khác </b>
                     </template>
                     <el-tabs type="card">
                         <div>
@@ -255,19 +242,12 @@
                             <div :style="{
                                 'pointer-events': order_status === 'completed' ? 'none' : 'auto'
                             }" @click="addFee()">
-                                <span class="mr-4 flex-shrink-0 text-center">
-                                    <i class="icon-xl text-success fas fa-plus"></i>
-                                </span>
-
-                                <span class="text-success">Thêm chi phí khác cho xe {{ index + 1 }}</span>
-                            </div>
-                        </div>
+                                <button type="button" class="btn btn-sm btn-outline-success">
+                                    Thêm chi phí khác cho xe {{ index + 1 }}
+                                </button>
                     </el-tabs>
                 </el-collapse-item>
             </el-collapse>
-
-
-
         </div>
         <el-divider></el-divider>
     </div>

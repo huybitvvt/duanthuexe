@@ -12,20 +12,20 @@
                         <el-input clearable placeholder="Nhập Tên hoặc SĐT" v-model="query.keyword"
                             @change="handleKeywordChange($event)" @keyup.enter.native="search"></el-input>
                     </div>
-                    <el-button :loading="loading" icon="fa fa-search" class="btn btn-primary font-weight-bold"
-                        @click="search"></el-button>
+                    <el-button :loading="loading" class="btn btn-primary font-weight-bold"
+                        @click="search">Tìm kiếm</el-button>
                 </div>
                 <!-- Ends Search box -->
 
                 <div class="card-title mr-2">
-                    <router-link :to="{ name: 'customers-create' }" class="btn btn-success">
-                        <i class="fa fa-plus mr-1"></i> Thêm mới
+                    <router-link :to="{ name: 'customers-create' }" class="btn btn-success font-weight-bold">
+                        Thêm mới
                     </router-link>
                 </div>
 
                 <div class="card-title">
-                    <button @click="exportCustomers" class="btn btn-outline-secondary">
-                        <i class="fa fa-file-export mr-1"></i> Export
+                    <button @click="exportCustomers" class="btn btn-outline-secondary font-weight-bold">
+                        Xuất file
                     </button>
                 </div>
             </div>
@@ -66,15 +66,17 @@
                                         </span>
                                     </td>
                                     <td class="text-right">
-                                        <button v-b-modal.modal-show-car-rental class="btn btn-xs btn-icon btn-outline-info mr-1"
+                                        <button v-b-modal.modal-show-car-rental class="btn btn-xs btn-outline-info font-weight-bold mr-1"
                                             title="Xem chi tiết" @click="showPopup(item)">
-                                            <i class="far fa-eye"></i>
+                                            Xem
                                         </button>
                                         <router-link :to="{ name: 'customers-update', params: { id: item.id } }" title="Sửa"
-                                            class="btn btn-xs btn-icon mr-1 btn-outline-info"><i class="fas fa-pen-nib"></i>
+                                            class="btn btn-xs btn-outline-info font-weight-bold mr-1">
+                                            Sửa
                                         </router-link>
                                         <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteCustomer(item.id)" href="javascript:"
-                                            class="btn btn-xs btn-icon btn-outline-danger"><i class="fas fa-trash"></i>
+                                            class="btn btn-xs btn-outline-danger font-weight-bold">
+                                            Xóa
                                         </a>
                                     </td>
                                 </tr>
@@ -82,7 +84,7 @@
                         </table>
                     </div>
                 </div>
-                <HimotoEmptyState v-else icon="far fa-user" title="Không tìm thấy khách hàng nào" description="Thử thay đổi từ khóa tìm kiếm hoặc thêm khách hàng mới vào hệ thống." actionText="Thêm mới khách hàng" @action="$router.push({ name: 'customers-create' })" />
+                <HimotoEmptyState v-else title="Không tìm thấy khách hàng nào" description="Thử thay đổi từ khóa tìm kiếm hoặc thêm khách hàng mới vào hệ thống." actionText="Thêm mới khách hàng" @action="$router.push({ name: 'customers-create' })" />
             </div>
             <ModalShowCustomer :customer="customer_show"></ModalShowCustomer>
             <div class="edu-paginate mx-auto text-center" v-if="!loading && customers.length">

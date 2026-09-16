@@ -123,7 +123,7 @@
     <template #modal-footer="{ cancel }">
       <b-button variant="secondary" @click="cancel">Đóng</b-button>
       <b-button variant="primary" :disabled="loading" @click="handleSubmit">
-        <i class="fas fa-file-contract mr-1"></i> Tạo hợp đồng & Sinh lịch trả góp
+        Tạo hợp đồng & Sinh lịch trả góp
       </b-button>
     </template>
   </b-modal>

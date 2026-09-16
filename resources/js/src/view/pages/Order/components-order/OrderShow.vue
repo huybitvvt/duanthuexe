@@ -17,7 +17,7 @@
                     </span>
                 </h4>
                 <button v-if="order" type="button" class="btn btn-sm btn-info font-weight-bold mr-2" @click="printContract">
-                    <i class="fas fa-print mr-1"></i> In hợp đồng
+                    In hợp đồng
                 </button>
             </div>
         </div>
@@ -197,7 +197,7 @@
         <el-collapse accordion>
             <el-collapse-item name="1">
                 <template slot="title">
-                    Xem lịch sử<i class="header-icon el-icon-info"></i>
+                    Xem lịch sử
                 </template>
                 <el-tabs type="card">
                     <el-tab-pane label="Lịch sử thanh toán">

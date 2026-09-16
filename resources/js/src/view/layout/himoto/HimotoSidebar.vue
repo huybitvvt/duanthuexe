@@ -19,7 +19,7 @@
       <div class="sidebar-brand">
         <router-link to="/dashboard" class="brand-link" @click.native="onNavClick">
           <img
-            src="/images/branding/logo-himoto.svg"
+            src="/images/branding/logo-himoto-pdf.png"
             alt="HIMOTO Logo"
             class="brand-logo-img"
           />
@@ -33,7 +33,7 @@
           @click="$emit('close-mobile-sidebar')"
           aria-label="Đóng menu"
         >
-          &times;
+          Đóng
         </button>
       </div>
 
@@ -48,8 +48,7 @@
             :class="{ active: isRouteActive('/leads') }"
             @click.native="onNavClick"
           >
-            <span class="nav-item-icon">📥</span>
-            <span v-if="!collapsed" class="nav-item-label">Lead khách hàng</span>
+              <span v-if="!collapsed" class="nav-item-label">Lead khách hàng</span>
           </router-link>
         </div>
 
@@ -64,7 +63,6 @@
               :class="{ active: isRouteActive('/dashboard') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">📊</span>
               <span v-if="!collapsed" class="nav-item-label">Dashboard</span>
             </router-link>
             <router-link
@@ -73,7 +71,6 @@
               :class="{ active: isRouteActive('/car-rental') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🛵</span>
               <span v-if="!collapsed" class="nav-item-label">Đơn thuê xe</span>
               <span v-if="!collapsed && activeRentalCount" class="nav-badge-pill">
                 {{ activeRentalCount }}
@@ -85,8 +82,23 @@
               :class="{ active: isRouteActive('/lease-to-own') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🤝</span>
               <span v-if="!collapsed" class="nav-item-label">Thuê sở hữu</span>
+            </router-link>
+            <router-link
+              to="/warehouses"
+              class="sidebar-nav-item"
+              :class="{ active: isRouteActive('/warehouses') }"
+              @click.native="onNavClick"
+            >
+              <span v-if="!collapsed" class="nav-item-label">Kho xe & Điều chuyển</span>
+            </router-link>
+            <router-link
+              to="/customer-reminders"
+              class="sidebar-nav-item"
+              :class="{ active: isRouteActive('/customer-reminders') }"
+              @click.native="onNavClick"
+            >
+              <span v-if="!collapsed" class="nav-item-label">Nhắc nợ khách</span>
             </router-link>
             <router-link
               to="/leads"
@@ -94,7 +106,6 @@
               :class="{ active: isRouteActive('/leads') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">📥</span>
               <span v-if="!collapsed" class="nav-item-label">Nguồn Lead</span>
             </router-link>
           </div>
@@ -108,7 +119,6 @@
               :class="{ active: isRouteActive('/vehicles') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🏍️</span>
               <span v-if="!collapsed" class="nav-item-label">Danh sách xe</span>
             </router-link>
             <router-link
@@ -117,7 +127,6 @@
               :class="{ active: isRouteActive('/maintenance-schedule') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">📅</span>
               <span v-if="!collapsed" class="nav-item-label">Lịch hẹn bảo dưỡng</span>
             </router-link>
             <router-link
@@ -126,7 +135,6 @@
               :class="{ active: isRouteActive('/maintenance-log') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🔧</span>
               <span v-if="!collapsed" class="nav-item-label">Lịch sử bảo dưỡng</span>
             </router-link>
             <router-link
@@ -135,7 +143,6 @@
               :class="{ active: isRouteActive('/maintenance-rule') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">⚙️</span>
               <span v-if="!collapsed" class="nav-item-label">Tần suất bảo dưỡng</span>
             </router-link>
             <router-link
@@ -144,7 +151,6 @@
               :class="{ active: isRouteActive('/maintenance-type') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🔩</span>
               <span v-if="!collapsed" class="nav-item-label">Các loại bảo dưỡng</span>
             </router-link>
           </div>
@@ -158,7 +164,6 @@
               :class="{ active: isRouteActive('/customers') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">👥</span>
               <span v-if="!collapsed" class="nav-item-label">Khách hàng</span>
             </router-link>
             <router-link
@@ -167,8 +172,15 @@
               :class="{ active: isRouteActive('/stores') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🏪</span>
               <span v-if="!collapsed" class="nav-item-label">Cửa hàng</span>
+            </router-link>
+            <router-link
+              to="/hr/duty-schedule"
+              class="sidebar-nav-item"
+              :class="{ active: isRouteActive('/hr/duty-schedule') }"
+              @click.native="onNavClick"
+            >
+              <span v-if="!collapsed" class="nav-item-label">Lịch trực cơ sở</span>
             </router-link>
           </div>
 
@@ -176,12 +188,19 @@
           <div class="nav-group">
             <div v-if="!collapsed" class="nav-group-heading">TÀI CHÍNH & THU CHI</div>
             <router-link
+              to="/finances/daily-cash-register"
+              class="sidebar-nav-item"
+              :class="{ active: isRouteActive('/finances/daily-cash-register') }"
+              @click.native="onNavClick"
+            >
+              <span v-if="!collapsed" class="nav-item-label">Sổ két ngày</span>
+            </router-link>
+            <router-link
               to="/banks"
               class="sidebar-nav-item"
               :class="{ active: isRouteActive('/banks') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🏦</span>
               <span v-if="!collapsed" class="nav-item-label">Tài khoản ngân hàng</span>
             </router-link>
             <router-link
@@ -190,7 +209,6 @@
               :class="{ active: isRouteActive('/cash') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">💵</span>
               <span v-if="!collapsed" class="nav-item-label">Quỹ tiền mặt</span>
             </router-link>
             <router-link
@@ -199,7 +217,6 @@
               :class="{ active: isRouteActive('/transactions') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">📜</span>
               <span v-if="!collapsed" class="nav-item-label">Lịch sử thu chi</span>
             </router-link>
             <router-link
@@ -208,7 +225,6 @@
               :class="{ active: isRouteActive('/receipt') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🧾</span>
               <span v-if="!collapsed" class="nav-item-label">Phiếu thu chi</span>
             </router-link>
           </div>
@@ -222,7 +238,6 @@
               :class="{ active: isRouteActive('/report/detail-report') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">📈</span>
               <span v-if="!collapsed" class="nav-item-label">Báo cáo tổng quan</span>
             </router-link>
             <router-link
@@ -231,7 +246,6 @@
               :class="{ active: isRouteActive('/report/vehicle-revenue') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">💰</span>
               <span v-if="!collapsed" class="nav-item-label">Doanh thu theo xe</span>
             </router-link>
           </div>
@@ -245,7 +259,6 @@
               :class="{ active: isRouteActive('/pricing') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">💲</span>
               <span v-if="!collapsed" class="nav-item-label">Bảng giá thuê</span>
             </router-link>
             <router-link
@@ -254,7 +267,6 @@
               :class="{ active: isRouteActive('/user') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🛡️</span>
               <span v-if="!collapsed" class="nav-item-label">Quản lý người dùng</span>
             </router-link>
           </div>
@@ -299,8 +311,8 @@ export default {
     ...mapGetters(["currentUser"])
   },
   methods: {
-    isRouteActive(path) {
-      return this.$route.path === path || this.$route.path.startsWith(path + "/");
+    isRouteActive(routePath) {
+      return this.$route.path.startsWith(routePath);
     },
     onNavClick() {
       if (this.mobileOpen) {
@@ -313,210 +325,192 @@ export default {
 
 <style scoped>
 .himoto-sidebar {
-  width: var(--sidebar-width, 248px);
-  min-width: var(--sidebar-width, 248px);
-  height: 100vh;
   position: fixed;
   top: 0;
+  bottom: 0;
   left: 0;
-  z-index: var(--z-sidebar, 100);
-  background: linear-gradient(180deg, #ed1c24 0%, #c81018 100%);
-  color: #ffffff;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
-  transition: width 250ms cubic-bezier(0.4, 0, 0.2, 1), transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 4px 0 20px rgba(200, 16, 24, 0.18);
-  user-select: none;
+  width: var(--sidebar-width, 248px);
+  min-width: var(--sidebar-width, 248px);
+  overflow: hidden;
+  background: #f7f8fa;
+  border-right: 1px solid #d9dee7;
+  box-shadow: 5px 0 20px rgba(23, 32, 42, 0.08);
+  transition: width 250ms ease, min-width 250ms ease, transform 250ms ease;
 }
+
+.sidebar-brand {
+  flex: 0 0 auto;
+  background: #ed1c24;
+  padding: 16px 14px 12px;
+}
+
+.brand-link {
+  display: block;
+}
+
+.brand-logo-img {
+  display: block;
+  width: min(190px, 100%);
+  height: auto;
+  max-height: 42px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.brand-subtext {
+  display: block;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.himoto-sidebar.collapsed .sidebar-brand {
+  padding: 14px 8px;
+}
+
+.himoto-sidebar.collapsed .brand-logo-img {
+  width: 56px;
+  max-height: 22px;
+  object-fit: cover;
+  object-position: left center;
+}
+
 .himoto-sidebar.collapsed {
   width: var(--sidebar-collapsed-width, 72px);
   min-width: var(--sidebar-collapsed-width, 72px);
 }
-.sidebar-brand {
-  height: var(--header-height, 64px);
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
-}
-.brand-link {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-decoration: none;
-  overflow: hidden;
-}
-.brand-logo-img {
-  height: 24px;
-  width: auto;
-  max-width: 130px;
-  object-fit: contain;
-}
-.brand-subtext {
-  font-size: 9px;
-  color: var(--brand-yellow, #fff200);
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  margin-top: 2px;
-}
-.btn-close-sidebar-mobile {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  font-size: 26px;
-  line-height: 1;
-  cursor: pointer;
-}
+
 .sidebar-nav-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px 8px;
+  padding: 12px 9px 18px;
+  scrollbar-color: #b9bec8 transparent;
+  scrollbar-width: thin;
 }
+
 .sidebar-nav-container::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
+
+.sidebar-nav-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .sidebar-nav-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: #b9bec8;
+  border-radius: 999px;
 }
-.nav-group {
-  margin-bottom: 16px;
-}
-.nav-group-heading {
-  padding: 6px 12px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
-  white-space: nowrap;
-}
-.sidebar-nav-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 13.5px;
-  font-weight: 500;
-  text-decoration: none;
-  margin-bottom: 2px;
-  position: relative;
-  transition: all 150ms ease;
-}
-.sidebar-nav-item:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  text-decoration: none;
-}
-.sidebar-nav-item.active {
-  background: rgba(0, 0, 0, 0.22);
-  color: #ffffff;
-  font-weight: 700;
-}
-.sidebar-nav-item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 4px;
-  background-color: var(--brand-yellow, #fff200);
-  border-radius: 0 4px 4px 0;
-  box-shadow: 0 0 8px rgba(255, 242, 0, 0.8);
-}
-.nav-item-icon {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 15px;
-}
-.nav-item-label {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.nav-badge-pill {
-  padding: 2px 7px;
-  font-size: 10.5px;
-  font-weight: 700;
-  border-radius: 9999px;
-  background: var(--brand-yellow, #fff200);
-  color: #990000;
-}
-.sidebar-operator-footer {
-  padding: 12px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.12);
-}
-.operator-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.op-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #2ecc71;
-  box-shadow: 0 0 6px #2ecc71;
-  flex-shrink: 0;
-}
-.op-info {
+
+.nav-groups-wrapper {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
-  overflow: hidden;
+  gap: 9px;
 }
-.op-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+.nav-group {
+  margin: 0;
+  padding: 7px 6px 8px;
+  background: #ffffff;
+  border: 1px solid #e8ebf0;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(23, 32, 42, 0.04);
 }
-.op-status {
+
+.nav-group-heading {
+  margin: 0 4px 5px;
+  padding: 3px 6px 7px;
+  border-bottom: 1px solid #eef0f3;
+  color: #8f1b21;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.7);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.65px;
+  text-transform: uppercase;
 }
+
 .sidebar-mobile-backdrop {
   display: none;
 }
 
-@media (max-width: 768px) {
-  .himoto-sidebar {
-    transform: translateX(-100%);
-    width: 260px;
-    min-width: 260px;
-  }
-  .himoto-sidebar.mobile-open {
-    transform: translateX(0);
-  }
-  .sidebar-mobile-backdrop {
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 99;
+.sidebar-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 37px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  margin: 2px 0;
+  color: #344054;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.sidebar-nav-item:hover {
+  background-color: #fff4f4;
+  border-color: #f5d7d9;
+  color: #a41119;
+  text-decoration: none;
+}
+.sidebar-nav-item.active {
+  background-color: #fff0f1;
+  border-color: #efc3c6;
+  color: #b30f18;
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 #d70f19, 0 2px 6px rgba(200, 16, 24, 0.08);
+}
+
+.sidebar-nav-item .nav-item-label {
+  min-width: 0;
+  color: inherit !important;
+  font-weight: inherit !important;
+}
+
+.nav-badge-pill {
+  margin-left: auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fce0e2;
+  color: #a41119;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .himoto-sidebar:not(.collapsed) {
+    width: 248px;
+    min-width: 248px;
   }
 }
-</style>
 
-<style scoped>
-.himoto-sidebar.collapsed .sidebar-brand { padding: 0 6px; justify-content: center; }
-.himoto-sidebar.collapsed .brand-link { width: 100%; min-width: 0; align-items: center; }
-.himoto-sidebar.collapsed .brand-logo-img { width: 100%; max-width: 100%; height: auto; object-fit: contain; }
+@media (max-width: 768px) {
+  .himoto-sidebar,
+  .himoto-sidebar.collapsed {
+    width: min(82vw, 300px);
+    min-width: min(82vw, 300px);
+    transform: translateX(-105%);
+    box-shadow: none;
+  }
+
+  .himoto-sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.28);
+  }
+
+  .sidebar-mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: block;
+    background: rgba(23, 32, 42, 0.5);
+  }
+}
 </style>
