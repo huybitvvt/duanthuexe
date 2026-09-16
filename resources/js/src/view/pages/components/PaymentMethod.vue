@@ -34,8 +34,12 @@
 						:disabled="!hasBankTransfer"
 						clearable
 					>
-						<el-option v-for="item in banks" :key="item.id" :label="item.bank_name + ' - ' + item.owner_name + ' - ' + item.account_number" :value="item.id">
-							<span style="float: left">{{ showAccType(item.account_type) }}: {{ item.bank_name }} - {{ item.owner_name }} - {{ item.account_number }}</span>
+						<el-option v-for="item in banks" :key="item.id" :label="item.bank_name + ' - ' + item.owner_name + ' - ' + item.account_number + (item.owner_type === 'company' ? ' [Công ty]' : (item.owner_type === 'personal' ? ' [Cá nhân]' : ''))" :value="item.id">
+							<span style="float: left">
+								{{ showAccType(item.account_type) }}: {{ item.bank_name }} - {{ item.owner_name }} - {{ item.account_number }}
+								<span v-if="item.owner_type === 'company'" class="badge badge-light-primary ml-1" style="font-size: 10px;">Công ty</span>
+								<span v-else-if="item.owner_type === 'personal'" class="badge badge-light-info ml-1" style="font-size: 10px;">Cá nhân</span>
+							</span>
 						</el-option>
 					</el-select>
 					<error-message :errors="errors" field="bank_id"></error-message>
@@ -240,12 +244,25 @@ export default {
 		hasBankTransfer() {
 			return this.amount(this.settings.bank_transfer_amount) > 0;
 		},
+		selectedBank() {
+			if (!this.settings.bank_id || !this.banks || !this.banks.length) {
+				return null;
+			}
+			return this.banks.find(b => b.id === this.settings.bank_id) || null;
+		},
+		bankTypeLabel() {
+			if (this.selectedBank) {
+				if (this.selectedBank.owner_type === 'company') return 'CK công ty';
+				if (this.selectedBank.owner_type === 'personal') return 'CK cá nhân';
+			}
+			return 'Chuyển khoản';
+		},
 		paymentMethodLabel() {
 			if (Number(this.settings.payment_method) === 3) {
-				return "Tự xác định: Tiền mặt & Chuyển khoản";
+				return `Tự xác định: Tiền mặt & ${this.bankTypeLabel}`;
 			}
 			if (Number(this.settings.payment_method) === 2) {
-				return "Tự xác định: Chuyển khoản";
+				return `Tự xác định: ${this.bankTypeLabel}`;
 			}
 			return "Tự xác định: Tiền mặt";
 		},

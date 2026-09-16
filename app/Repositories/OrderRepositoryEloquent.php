@@ -116,6 +116,33 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
             }
             
         }
+        if (isset($params['today_filter']) && !empty($params['today_filter'])) {
+            $now = \Carbon\Carbon::now('Asia/Ho_Chi_Minh');
+            $todayStart = $now->copy()->startOfDay();
+            $todayEnd = $now->copy()->endOfDay();
+
+            switch ($params['today_filter']) {
+                case 'created_today':
+                    $query->whereBetween('orders.created_at', [$todayStart, $todayEnd]);
+                    break;
+                case 'pickup_today':
+                    $query->whereHas('orderItems', function ($items) use ($todayStart, $todayEnd) {
+                        $items->whereBetween('rent_at', [$todayStart, $todayEnd]);
+                    });
+                    break;
+                case 'return_today':
+                    $query->whereHas('orderItems', function ($items) use ($todayStart, $todayEnd) {
+                        $items->whereBetween('return_at', [$todayStart, $todayEnd]);
+                    });
+                    break;
+                case 'transaction_today':
+                    $query->whereHas('transactions', function ($trans) use ($todayStart, $todayEnd) {
+                        $trans->whereBetween('created_at', [$todayStart, $todayEnd]);
+                    });
+                    break;
+            }
+        }
+
         if (isset($params['keyword'])) {
             $this->applyKeywordFilter($query, (string) $params['keyword']);
         }

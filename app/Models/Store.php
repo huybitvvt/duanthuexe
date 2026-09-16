@@ -8,12 +8,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Store extends Model
 {
     use \App\Traits\HandlesPostgresDates;
+    const KIND_PHYSICAL = 'physical';
+    const KIND_LEASE_TO_OWN = 'lease_to_own';
+
     protected $fillable = [
         'store_name',
         'store_phone',
         'store_address',
         'user_id',
-        'status'
+        'status',
+        'kind',
+        'code'
     ];
     public function banks()
     {
@@ -22,5 +27,13 @@ class Store extends Model
     public function leads(): HasMany
     {
         return $this->hasMany(Lead::class, 'store_id', 'id');
+    }
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class, 'store_id', 'id');
+    }
+    public function currentVehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class, 'current_store_id', 'id');
     }
 }

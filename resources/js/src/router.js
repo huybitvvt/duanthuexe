@@ -23,6 +23,12 @@ export default new Router({
                         import("@/view/pages/vehicles/VehicleIndex.vue"),
                 },
                 {
+                    path: "/warehouses",
+                    name: "warehouse",
+                    component: () =>
+                        import("@/view/pages/warehouse/WarehouseIndex.vue"),
+                },
+                {
                     path: "/leads",
                     name: "leads",
                     component: () => import("@/view/pages/lead/LeadIndex.vue"),
@@ -180,6 +186,12 @@ export default new Router({
                     name: "car-sell",
                     component: () =>
                         import("@/view/pages/order-sell/OrderSellIndex.vue"),
+                },
+                {
+                    path: "/lease-to-own",
+                    name: "lease-to-own",
+                    component: () =>
+                        import("@/view/pages/lease-to-own/LeaseIndex.vue"),
                 },
                 {
                     path: "/report/detail-report",

@@ -80,13 +80,13 @@
               </span>
             </router-link>
             <router-link
-              to="/car-sell"
+              to="/lease-to-own"
               class="sidebar-nav-item"
-              :class="{ active: isRouteActive('/car-sell') }"
+              :class="{ active: isRouteActive('/lease-to-own') }"
               @click.native="onNavClick"
             >
-              <span class="nav-item-icon">🏷️</span>
-              <span v-if="!collapsed" class="nav-item-label">Đơn bán xe</span>
+              <span class="nav-item-icon">🤝</span>
+              <span v-if="!collapsed" class="nav-item-label">Thuê sở hữu</span>
             </router-link>
             <router-link
               to="/leads"

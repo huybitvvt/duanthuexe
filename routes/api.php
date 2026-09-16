@@ -26,6 +26,8 @@ use App\Http\Controllers\MaintenanceRuleController;
 use App\Http\Controllers\MaintenanceLogController;
 use App\Http\Controllers\MaintenanceTypeController;
 use App\Http\Controllers\MaintenanceScheduleController;
+use App\Http\Controllers\WarehouseController;
+use App\Http\Controllers\LeaseContractController;
 
 /*
 |--------------------------------------------------------------------------
@@ -105,6 +107,8 @@ Route::group(['middleware' => 'api'], function ($router) {
 				Route::post('/close-deposit-order', [Order\OrderController::class, 'closeDeposit']);
 				Route::post('/calc_return_early_amount', [Order\OrderController::class, 'calc_return_early_amount']);
 				Route::post('/calc_order_before_complete', [Order\OrderController::class, 'calc_order_before_complete']);
+				Route::post('/car-rental/preview', [Order\OrderController::class, 'preview']);
+				Route::get('/car-rental/{order}/document', [Order\OrderController::class, 'document']);
 				Route::post('/car-rental/lock-contract/{order}', [Order\OrderController::class, 'lockContract']);
             });
         
@@ -235,6 +239,37 @@ Route::group(['middleware' => 'api'], function ($router) {
 			Route::group(['prefix' => 'file'], function ($router) {
                 Route::post('/upload-images', [FileController::class, 'uploadImages']);
 				Route::delete('/{file_id}', [FileController::class, 'destroy']); 
+            });
+
+            Route::group(['prefix' => 'warehouses'], function () {
+                Route::get('/summary', [WarehouseController::class, 'summary']);
+                Route::get('/{storeId}/vehicles', [WarehouseController::class, 'vehicles']);
+                Route::post('/transfers', [WarehouseController::class, 'dispatchTransfer']);
+                Route::post('/transfers/{id}/receive', [WarehouseController::class, 'receiveTransfer']);
+                Route::post('/transfers/{id}/cancel', [WarehouseController::class, 'cancelTransfer']);
+                Route::post('/return-different-store', [WarehouseController::class, 'returnDifferentStore']);
+                Route::post('/vehicle-exchange', [WarehouseController::class, 'exchangeVehicle']);
+            });
+            Route::get('/vehicles/{vehicleId}/movement-history', [WarehouseController::class, 'movementHistory']);
+
+            Route::group(['prefix' => 'lease-contracts'], function () {
+                Route::get('/', [LeaseContractController::class, 'index']);
+                Route::get('/stats', [LeaseContractController::class, 'stats']);
+                Route::get('/export', [LeaseContractController::class, 'export']);
+                Route::get('/{id}', [LeaseContractController::class, 'show']);
+                Route::post('/', [LeaseContractController::class, 'store']);
+                Route::post('/{id}/payments', [LeaseContractController::class, 'allocatePayment']);
+                Route::post('/{id}/notes', [LeaseContractController::class, 'addNote']);
+            });
+
+            Route::group(['prefix' => 'customer-reminders'], function () {
+                Route::get('/action-list', [CustomerReminderController::class, 'actionList']);
+                Route::post('/scan', [CustomerReminderController::class, 'scan']);
+                Route::post('/dispatch', [CustomerReminderController::class, 'dispatchOutbox']);
+            });
+
+            Route::group(['prefix' => 'gps'], function () {
+                Route::get('/overview', [CustomerReminderController::class, 'gpsOverview']);
             });
 
         });

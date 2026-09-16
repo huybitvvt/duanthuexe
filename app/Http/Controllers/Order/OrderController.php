@@ -474,6 +474,30 @@ class OrderController extends Controller
 		return $this->errorResponse('Có lỗi xảy ra', 500);
 	}
 
+	public function preview(Request $request) {
+		try {
+			$data = $request->all();
+			$store = null;
+			if ($request->has('store_id')) {
+				$store = \App\Models\Store::find($request->get('store_id'));
+			}
+			$documentDto = \App\Http\Services\ContractDocumentBuilder::buildFromFormData($data, $store);
+			return $this->successResponse($documentDto, 'Tạo bản xem trước hợp đồng thành công');
+		} catch (\Exception $exception) {
+			return $this->errorResponse($exception->getMessage(), 422);
+		}
+	}
+
+	public function document(Order $order) {
+		try {
+			$order->loadMissing(['customer', 'store', 'orderItems.vehicle', 'responsibleUser', 'transactions']);
+			$documentDto = \App\Http\Services\ContractDocumentBuilder::buildFromOrder($order);
+			return $this->successResponse($documentDto, 'Lấy tài liệu hợp đồng thành công');
+		} catch (\Exception $exception) {
+			return $this->errorResponse($exception->getMessage(), 422);
+		}
+	}
+
 	public function lockContract(Order $order) {
 		try {
 			$lockedOrder = $this->orderService->lockContract($order);

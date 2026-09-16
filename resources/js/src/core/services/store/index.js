@@ -25,6 +25,8 @@ import exports from "./exports.module";
 import lead from './lead.module';
 import navigate from './navigate.module';
 import file from './file.module';
+import warehouse from './warehouse.module';
+import lease from './lease.module';
 
 Vue.use(Vuex);
 
@@ -54,5 +56,7 @@ export default new Vuex.Store({
         lead,
         navigate,
 		file,
+        warehouse,
+        lease,
     },
 });

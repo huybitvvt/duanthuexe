@@ -15,6 +15,8 @@ export const CALC_ORDER_RETURN_EARLY_AMOUNT = "calc_order_return_early_amount";
 export const CALC_ORDER_BEFORE_COMPLETE = "calc_order_before_complete";
 export const CLOSE_DEPOSIT_ORDER = "destroy_deposit_order";
 export const LOCK_ORDER_CONTRACT = "lock_order_contract";
+export const PREVIEW_ORDER_CONTRACT = "preview_order_contract";
+export const GET_ORDER_DOCUMENT = "get_order_document";
 
 // set
 
@@ -217,6 +219,30 @@ const actions = {
     [DELETE_ORDER](context, id) {
         return new Promise((resolve, reject) => {
             ApiService.delete(`/api/auth/order/car-rental/${id}`)
+                .then(({data}) => {
+                    resolve(data);
+                })
+                .catch(({response}) => {
+                    reject(response);
+                });
+        });
+    },
+
+    [PREVIEW_ORDER_CONTRACT](context, payload) {
+        return new Promise((resolve, reject) => {
+            ApiService.post("/api/auth/order/car-rental/preview", payload)
+                .then(({data}) => {
+                    resolve(data);
+                })
+                .catch(({response}) => {
+                    reject(response);
+                });
+        });
+    },
+
+    [GET_ORDER_DOCUMENT](context, id) {
+        return new Promise((resolve, reject) => {
+            ApiService.get(`/api/auth/order/car-rental/${id}/document`)
                 .then(({data}) => {
                     resolve(data);
                 })

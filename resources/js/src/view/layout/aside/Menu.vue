@@ -22,12 +22,12 @@
                     </a>
                 </li>
             </router-link>
-            <router-link to="/car-sell" v-slot="{ href, isActive }"  @click.native="handleClick">
+            <router-link to="/lease-to-own" v-slot="{ href, isActive }"  @click.native="handleClick">
                 <li aria-haspopup="true" data-menu-toggle="hover"
                     :class="[isActive && 'menu-item-active', 'menu-item']">
                     <a :href="href" class="menu-link">
-                        <i class="menu-icon fas fa-shopping-cart"></i>
-                        <span class="menu-text">Bán xe</span>
+                        <i class="menu-icon fas fa-hand-holding-usd"></i>
+                        <span class="menu-text">Thuê sở hữu</span>
                     </a>
                 </li>
             </router-link>
@@ -37,6 +37,15 @@
                     <a :href="href" class="menu-link">
                         <i class="menu-icon fas fa-inbox"></i>
                         <span class="menu-text">Lead</span>
+                    </a>
+                </li>
+            </router-link>
+            <router-link to="/warehouses" v-slot="{ href, isActive }" @click.native="handleClick">
+                <li aria-haspopup="true" data-menu-toggle="hover"
+                    :class="[isActive && 'menu-item-active', 'menu-item']">
+                    <a :href="href" class="menu-link">
+                        <i class="menu-icon fas fa-warehouse"></i>
+                        <span class="menu-text">Kho xe</span>
                     </a>
                 </li>
             </router-link>

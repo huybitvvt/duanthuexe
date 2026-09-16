@@ -18,6 +18,7 @@ class Vehicle extends Model
     const STATUS_SOLD = 'sold';
     const STATUS_BAD_DEBT = 'bad_debt';
     const STATUS_BROKEN = 'broken';
+    const STATUS_IN_TRANSIT = 'in_transit';
 
     const TYPE_XESO = 'xeso';
     const TYPE_XEGA = 'xega';
@@ -30,6 +31,7 @@ class Vehicle extends Model
         'type',
         'year',
         'store_id',
+        'current_store_id',
         'license',
         'chassis',
         'engine',
@@ -48,6 +50,16 @@ class Vehicle extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class, 'store_id', 'id');
+    }
+
+    public function currentStore(): BelongsTo
+    {
+        return $this->belongsTo(Store::class, 'current_store_id', 'id');
+    }
+
+    public function locationEvents(): HasMany
+    {
+        return $this->hasMany(VehicleLocationEvent::class, 'vehicle_id', 'id')->orderBy('id', 'desc');
     }
 
     public function orders(): BelongsToMany

@@ -30,7 +30,7 @@ class Transaction extends Model implements Transformable
      *
      * @var array
      */
-    protected $fillable = ['order_id', 'order_item_id','name', 'type', 'value', 'note', 'status', 'user_id', 'store_id','payment_method','bank_id','cash_id', 'created_at', 'updated_at', 'desc', 'object_name', 'object_type', 'object_id'];
+    protected $fillable = ['order_id', 'order_item_id','name', 'type', 'value', 'note', 'status', 'user_id', 'store_id','payment_method','bank_id','bank_owner_type','cash_id', 'created_at', 'updated_at', 'desc', 'object_name', 'object_type', 'object_id'];
     protected static function boot()
         {
             parent::boot();

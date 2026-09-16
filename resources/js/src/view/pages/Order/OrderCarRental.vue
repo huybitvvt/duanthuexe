@@ -33,7 +33,50 @@
                     </dl></div>
                 </section>
                 <div class="example">
-
+                    <!-- Tabs Lọc Đơn Trong Ngày (P2) -->
+                    <div class="today-filter-tabs d-flex flex-wrap align-items-center mb-3">
+                        <span class="font-weight-bold text-muted mr-3 font-size-sm">ĐƠN TRONG NGÀY:</span>
+                        <button
+                            type="button"
+                            class="btn btn-sm mr-2 mb-1"
+                            :class="!query.today_filter ? 'btn-primary' : 'btn-light'"
+                            @click="setTodayFilter('')"
+                        >
+                            Tất cả
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-sm mr-2 mb-1"
+                            :class="query.today_filter === 'created_today' ? 'btn-primary' : 'btn-light-primary'"
+                            @click="setTodayFilter('created_today')"
+                        >
+                            <i class="fas fa-file-alt mr-1"></i> Tạo hôm nay
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-sm mr-2 mb-1"
+                            :class="query.today_filter === 'pickup_today' ? 'btn-success' : 'btn-light-success'"
+                            @click="setTodayFilter('pickup_today')"
+                        >
+                            <i class="fas fa-motorcycle mr-1"></i> Nhận xe hôm nay
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-sm mr-2 mb-1"
+                            :class="query.today_filter === 'return_today' ? 'btn-warning' : 'btn-light-warning'"
+                            @click="setTodayFilter('return_today')"
+                        >
+                            <i class="fas fa-clock mr-1"></i> Hẹn trả hôm nay
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-sm mr-2 mb-1"
+                            :class="query.today_filter === 'transaction_today' ? 'btn-info' : 'btn-light-info'"
+                            @click="setTodayFilter('transaction_today')"
+                        >
+                            <i class="fas fa-money-bill-wave mr-1"></i> Giao dịch hôm nay
+                        </button>
+                    </div>
 
                     <div class="row filter-row-2">
                         <div class="col-md-3 ">
@@ -236,6 +279,10 @@
 												@click="openShowOrder(item)">
 												<i class="far fa-eye"></i>
 											</button>
+											<button class="btn btn-xs btn-icon btn-outline-primary" title="In hợp đồng"
+												@click="printOrderContract(item)">
+												<i class="fas fa-print"></i>
+											</button>
 											<button class="btn btn-xs btn-icon  btn-danger" title="Xóa hợp đồng"
 												@click="deleteOrder(item.id)"><i class="fas fa-trash"></i></button>
 
@@ -278,6 +325,7 @@
                     :next-class="'page-link'" :page-class="'page-item'">
                 </paginate>
             </div>
+            <ModalContractPreview v-model="showPrintModal" :doc="printDocumentDto" />
         </div>
     </div>
 </template>
@@ -288,15 +336,15 @@ import { LEAD_UNIQUE_USERS } from "@/core/services/store/lead.module";
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import { EXPORT_ORDERS } from "@/core/services/store/exports.module";
 import { mapGetters, mapState } from "vuex";
-import { SHOW_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL_REPORT } from "@/core/services/store/order.module";
+import { SHOW_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL_REPORT, DELETE_ORDER, GET_ORDER_DOCUMENT } from "@/core/services/store/order.module";
 import { REPORT_CAR_RENTAL, REPORT_CAR_RENTAL_NEW } from '../../../core/services/store/report.module';
 import OrderUpdate from "./components-order/OrderUpdate";
 import OrderShow from "./components-order/OrderShow";
 import OrderPayment from "./components-order/OrderPayment";
+import ModalContractPreview from "./components-order/ModalContractPreview";
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import { ORDER_STATUS } from "@/option/orderOption";
 import { ORDER_STATUS_DEFINE, ORDER_STATUS_DEFINE_CSS, STATUS_COMPLETED, ORDER_OUTDATE_FILTERS } from "../../../option/orderOption";
-import { DELETE_ORDER } from "../../../core/services/store/order.module";
 import { getTextShort } from '../../../utils';
 import queryMixin from '@/utils/queryMixin.js';
 import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";
@@ -337,6 +385,7 @@ export default {
                 start_date: '',
                 end_date: '',
                 is_out_of_date: '',
+                today_filter: '',
                 ...(restQuery || {}),
             },
             pickerStartOptions: {
@@ -348,12 +397,15 @@ export default {
             orderId: 0,
             order_status_prop: '',
             lastFetchedAt: 0,
+            showPrintModal: false,
+            printDocumentDto: null,
         }
     },
     components: {
         OrderShow,
         OrderUpdate,
         OrderPayment,
+        ModalContractPreview,
         HimotoTableSkeleton,
         HimotoEmptyState,
         HimotoErrorState
@@ -411,6 +463,22 @@ export default {
         }
     },
     methods: {
+        setTodayFilter(filter) {
+            this.query.today_filter = filter;
+            this.page = 1;
+            this.getList();
+            this.getReport();
+        },
+		async printOrderContract(item) {
+			try {
+				const res = await this.$store.dispatch(GET_ORDER_DOCUMENT, item.id);
+				this.printDocumentDto = res.data || res;
+				this.showPrintModal = true;
+			} catch (err) {
+				const msg = getApiMessage(err, "Không thể tải tài liệu hợp đồng");
+				this.$message.error(msg);
+			}
+		},
 		calcTotalDeposit(item) {
 			if (item?.created_without_collect_deposit && item.created_without_collect_deposit) {
 				return 0;

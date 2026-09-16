@@ -12,7 +12,11 @@ class Bank extends Model
 {
     use \App\Traits\HandlesPostgresDates;
     //
-    protected $fillable = ['bank_name', 'account_number', 'account_type', 'owner_name', 'store_id', 'opening_balance'];
+    const OWNER_PERSONAL = 'personal';
+    const OWNER_COMPANY = 'company';
+    const OWNER_UNKNOWN = 'unknown';
+
+    protected $fillable = ['bank_name', 'account_number', 'account_type', 'owner_type', 'owner_name', 'store_id', 'opening_balance'];
     // public function store()
     // {
     //     return $this->belongsTo(Store::class);

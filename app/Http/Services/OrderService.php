@@ -825,6 +825,10 @@ class OrderService
 			}
 			if (is_array($snapshot)) {
 				$snapshot['is_locked'] = true;
+				$snapshot['contract_number'] = $order->contract_number;
+				if (empty($snapshot['issued_at'])) {
+					$snapshot['issued_at'] = $order->contract_issued_at ? Carbon::parse($order->contract_issued_at)->format('Y-m-d H:i:s') : Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d H:i:s');
+				}
 				$order->contract_snapshot = $snapshot;
 				$order->save();
 			}

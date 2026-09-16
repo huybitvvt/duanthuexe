@@ -474,6 +474,12 @@
 							@addOnSuccess="addOnSuccess" @calc_before_order_complete="calc_before_order_complete">
 						</ModalComplete>
 
+						<button type="button" class="btn btn-sm btn-outline-primary mr-2 font-weight-bold" :disabled="previewLoading" @click="onPreviewContract">
+							<i class="far fa-eye mr-1"></i>
+							<span v-if="previewLoading">Đang chuẩn bị...</span>
+							<span v-else>Xem trước hợp đồng</span>
+						</button>
+
 						<el-button v-if="!id" native-type="submit" class="btn btn-sm btn-success mr-2"
 							style="color: #fff" :loading="loading">
 							Lưu hợp đồng
@@ -488,6 +494,10 @@
 							<span v-else-if="order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))"><i class="fas fa-lock mr-1"></i>Hợp đồng đã chốt</span>
 							<span v-else>Cập nhật</span>
 						</el-button>
+
+						<button v-if="id" type="button" class="btn btn-sm btn-info mr-2 font-weight-bold" @click="onPrintOfficialContract">
+							<i class="fas fa-print mr-1"></i> In hợp đồng
+						</button>
 						<ModalAddOnPrice v-if="id && order.order_status == 'renting'" :order="order" :banks="banks" @addOnSuccess="addOnSuccess"></ModalAddOnPrice>
 
 						<ModalCloseDeposit v-if="id && order && order.order_status == 'deposit_contract'" :order_id="id" @onSuccess="onCloseDepositOrderSuccess"></ModalCloseDeposit>
@@ -496,6 +506,8 @@
                 </div>
             </form>
         </ValidationObserver>
+
+		<ModalContractPreview v-model="showPreviewModal" :doc="previewDocumentDto" />
     </div>
 </template>
 
@@ -517,6 +529,8 @@ import {
     SHOW_ORDER_CAR_RENTAL,
     UPDATE_ORDER_CAR_RENTAL,
     LOCK_ORDER_CONTRACT,
+    PREVIEW_ORDER_CONTRACT,
+    GET_ORDER_DOCUMENT,
 } from "../../../../core/services/store/order.module";
 import { HOAN_THANH } from "../../../../option/orderOption";
 import ActivityHistory from "./ActivityHistory";
@@ -525,6 +539,7 @@ import ModalComplete from "./ModalComplete";
 import ModalCloseDeposit from "./ModalCloseDeposit";
 import ModalStart from "./ModalStart";
 import TransactionHistory from "./TransactionHistory";
+import ModalContractPreview from "./ModalContractPreview";
 import { CUSTOMER_INDEX } from "@/core/services/store/customers.module";
 import { LEAD_INDEX } from "@/core/services/store/lead.module";
 import Swal from "sweetalert2";
@@ -532,6 +547,19 @@ import PaymentMethod from "../../components/PaymentMethod";
 
 export default {
     name: "OrderUpdate",
+    components: {
+        ItemsOrder,
+        ActivityHistory,
+        ModalAddOnPrice,
+        ModalComplete,
+        ModalCloseDeposit,
+        ModalStart,
+        TransactionHistory,
+        PaymentMethod,
+        ModalContractPreview,
+        ErrorMessage,
+        Money,
+    },
     props: {
         parent: {
             type: String,
@@ -551,6 +579,9 @@ export default {
         return {
             HOAN_THANH: HOAN_THANH,
             loadingLock: false,
+            showPreviewModal: false,
+            previewDocumentDto: null,
+            previewLoading: false,
             banks: [],
 			bank_outs: [], // Bank dùng để trả tiền thừa cho khách.
             hiringFeeAllItems: 0,
@@ -937,6 +968,81 @@ export default {
 		},
     },
     methods: {
+		async onPreviewContract() {
+			if (!this.order.customer_name || !this.order.customer_id_card) {
+				Swal.fire({
+					title: "Thiếu thông tin khách hàng",
+					text: "Vui lòng nhập họ tên và số CCCD của khách thuê trước khi xem trước hợp đồng.",
+					icon: "warning",
+					confirmButtonText: "Đã hiểu",
+				});
+				const customerEl = document.getElementById("customer_name") || document.querySelector("input[name='Tên khách hàng']");
+				if (customerEl) customerEl.focus();
+				return;
+			}
+			if (!this.order.order_items || this.order.order_items.length === 0 || !this.order.order_items[0].vehicle_id) {
+				Swal.fire({
+					title: "Chưa chọn xe thuê",
+					text: "Vui lòng chọn ít nhất 1 xe thuê để xem trước hợp đồng.",
+					icon: "warning",
+					confirmButtonText: "Đã hiểu",
+				});
+				return;
+			}
+
+			this.previewLoading = true;
+			try {
+				const payload = {
+					...this.order,
+					customer_name: this.order.customer_name,
+					customer_phone: this.order.customer_phone,
+					customer_id_card: this.order.customer_id_card,
+					customer_id_card_issued_on: this.order.customer_id_card_issued_on,
+					customer_id_card_issued_by: this.order.customer_id_card_issued_by,
+					customer_address: this.order.customer_address,
+					customer_relatives: this.order.relatives,
+					order_items: this.order.order_items,
+					store_id: this.order.store_id,
+					contract_signed_on: this.order.contract_signed_on,
+					contract_signer_a_name: this.order.contract_signer_a_name,
+					contract_signer_b_name: this.order.contract_signer_b_name || this.order.customer_name,
+					contract_responsible_user_id: this.order.contract_responsible_user_id,
+					contract_responsible_user_name: this.currentUser ? this.currentUser.name : '',
+					contract_authorization_date: this.order.contract_authorization_date,
+					contract_authorization_party_name: this.order.contract_authorization_party_name,
+					contract_collateral_description: this.order.contract_collateral_description,
+					deposit_amount: this.firstDepositValInput || this.order.first_deposit_amount,
+					total_rental_fees: this.order.total_rental_fees || this.order.total,
+					total_rental_payment_method: this.order.total_rental_payment_method,
+					deposit_payment_method: this.order.first_deposit_payment_method || 1,
+					unit_price: this.hiringFeeAllItems || null,
+				};
+				const res = await this.$store.dispatch(PREVIEW_ORDER_CONTRACT, payload);
+				this.previewDocumentDto = res.data || res;
+				this.showPreviewModal = true;
+			} catch (err) {
+				const msg = (err && err.data && err.data.message) || "Không thể tải bản xem trước hợp đồng";
+				Swal.fire("Lỗi", msg, "error");
+			} finally {
+				this.previewLoading = false;
+			}
+		},
+
+		async onPrintOfficialContract() {
+			if (!this.id) return;
+			this.previewLoading = true;
+			try {
+				const res = await this.$store.dispatch(GET_ORDER_DOCUMENT, this.id);
+				this.previewDocumentDto = res.data || res;
+				this.showPreviewModal = true;
+			} catch (err) {
+				const msg = (err && err.data && err.data.message) || "Không thể tải tài liệu hợp đồng";
+				Swal.fire("Lỗi", msg, "error");
+			} finally {
+				this.previewLoading = false;
+			}
+		},
+
 		async onCloseDepositOrderSuccess() {
 			await this.getOrder();
 		},

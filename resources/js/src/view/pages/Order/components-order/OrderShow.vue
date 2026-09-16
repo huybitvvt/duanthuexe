@@ -9,13 +9,20 @@
             </div>
         </div>
         <div class="row">
-            <div class="col-md-6">
-                <h4 class="my-5 ml-2" v-if="order">
+            <div class="col-md-6 d-flex justify-content-between align-items-center">
+                <h4 class="my-5 ml-2 mb-0" v-if="order">
                     Hợp đồng #{{ order.id }}
                     <span v-if="order.contract_number" class="badge badge-success ml-2 font-weight-bolder" style="font-size: 13px;">
                         Số HĐ: {{ order.contract_number }}
                     </span>
                 </h4>
+                <button v-if="order" type="button" class="btn btn-sm btn-info font-weight-bold mr-2" @click="printContract">
+                    <i class="fas fa-print mr-1"></i> In hợp đồng
+                </button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
                 <table class="table table-bordered" v-if="order">
                     <tbody v-for="(item, index) in displayOrderItems" :key="index">
                         <tr class="text-primary">
@@ -204,6 +211,7 @@
                 </el-tabs>
             </el-collapse-item>
         </el-collapse>
+        <ModalContractPreview v-model="showPrintModal" :doc="printDocumentDto" />
     </div>
 </template>
 
@@ -214,7 +222,8 @@ import {
 } from "../../../../option/orderOption";
 import ActivityHistory from "./ActivityHistory";
 import TransactionHistory from "./TransactionHistory";
-import { SHOW_ORDER_CAR_RENTAL } from "../../../../core/services/store/order.module";
+import ModalContractPreview from "./ModalContractPreview";
+import { SHOW_ORDER_CAR_RENTAL, GET_ORDER_DOCUMENT } from "../../../../core/services/store/order.module";
 import moment from "moment";
 
 export default {
@@ -336,10 +345,22 @@ export default {
                     }
                 });
         },
+
+        async printContract() {
+            if (!this.order) return;
+            try {
+                const res = await this.$store.dispatch(GET_ORDER_DOCUMENT, this.order.id);
+                this.printDocumentDto = res.data || res;
+                this.showPrintModal = true;
+            } catch (err) {
+                this.$message.error("Không thể tải tài liệu hợp đồng");
+            }
+        },
     },
     components: {
         ActivityHistory,
         TransactionHistory,
+        ModalContractPreview,
     },
     data() {
         return {
@@ -347,6 +368,8 @@ export default {
             ORDER_STATUS_DEFINE_CSS: ORDER_STATUS_DEFINE_CSS,
             loading: false,
             otherFees: [],
+            showPrintModal: false,
+            printDocumentDto: null,
         };
     },
     async created() {
