@@ -78,7 +78,15 @@ try {
     $checksumMismatches = [];
     foreach ($requiredMigrations as $migration) {
         $path = dirname(__DIR__) . '/database/migrations/' . $migration . '.php';
-        $migrationChecksums[$migration] = is_file($path) ? hash_file('sha256', $path) : null;
+        if (is_file($path)) {
+            // Git may check text files out as CRLF on Windows. Hash canonical LF
+            // content so the approved migration checksum is platform-independent.
+            $contents = file_get_contents($path);
+            $canonicalContents = str_replace(["\r\n", "\r"], "\n", $contents);
+            $migrationChecksums[$migration] = hash('sha256', $canonicalContents);
+        } else {
+            $migrationChecksums[$migration] = null;
+        }
         $approved = $approvedChecksums[$migration] ?? null;
         if (!$approved || !hash_equals($approved, (string) $migrationChecksums[$migration])) {
             $checksumMismatches[] = $migration;

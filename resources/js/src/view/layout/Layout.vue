@@ -17,6 +17,7 @@
       <!-- Topbar Header -->
       <HimotoHeader
         :drawer-active="drawerOpen"
+        :sidebar-collapsed="sidebarCollapsed"
         @toggle-desktop-sidebar="toggleDesktopSidebar"
         @toggle-mobile-sidebar="mobileSidebarOpen = !mobileSidebarOpen"
         @search-select="onSelectSearchResult"

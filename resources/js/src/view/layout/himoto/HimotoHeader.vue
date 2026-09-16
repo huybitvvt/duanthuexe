@@ -18,10 +18,19 @@
         class="header-action-btn desktop-menu-toggle"
         id="btnSidebarToggleDesktop"
         @click="$emit('toggle-desktop-sidebar')"
-        title="Thu gọn menu"
-        aria-label="Thu gọn menu"
+        :title="sidebarCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'"
+        :aria-label="sidebarCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'"
       >
-        <span class="btn-text-label">Thu gọn</span>
+        <svg
+          class="sidebar-toggle-icon"
+          :class="{ 'is-collapsed': sidebarCollapsed }"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M5 4v16" />
+          <path d="m15 7-5 5 5 5" />
+        </svg>
       </button>
 
       <!-- Store / Branch Selector -->
@@ -311,6 +320,10 @@ export default {
   name: "HimotoHeader",
   props: {
     drawerActive: {
+      type: Boolean,
+      default: false
+    },
+    sidebarCollapsed: {
       type: Boolean,
       default: false
     }
@@ -647,6 +660,19 @@ export default {
 .header-action-btn:hover {
   background: var(--surface-alt, #f0f3f7);
   border-color: #d1d7df;
+}
+.sidebar-toggle-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--transition-fast, 150ms);
+}
+.sidebar-toggle-icon.is-collapsed {
+  transform: scaleX(-1);
 }
 .store-selector-wrapper {
   display: flex;

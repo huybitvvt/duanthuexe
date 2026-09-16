@@ -157,7 +157,9 @@ class OperationalSchemaMigrationTest extends TestCase
         foreach ($manifest as $migration => $approvedChecksum) {
             $path = database_path('migrations/' . $migration . '.php');
             $this->assertFileExists($path);
-            $this->assertSame($approvedChecksum, hash_file('sha256', $path), $migration);
+            $contents = file_get_contents($path);
+            $canonicalContents = str_replace(["\r\n", "\r"], "\n", $contents);
+            $this->assertSame($approvedChecksum, hash('sha256', $canonicalContents), $migration);
         }
     }
 }
