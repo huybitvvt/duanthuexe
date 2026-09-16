@@ -19,61 +19,24 @@
                 </div>
 
             </div>
-            <div class="alert alert-custom alert-white alert-shadow fade show gutter-b" role="alert">
-                <div class="alert-icon font-weight-bolder text-primary">Tổng hợp</div>
-                <div class="alert-text">
-                    <div class="row">
-                        <div class="col-md-3">
-                            <p>
-                                Số lượng xe:
-                                <span class="font-weight-bold">{{
-                                    reports.total_vehicle
-                                    }}</span>
-                            </p>
-                            <p>
-                                Phí đầu tư:
-                                <span class="font-weight-bold">{{
-                                    reports.total_price | formatPrice
-                                    }}</span>
-                            </p>
-                        </div>
-                        <div class="col-md-3">
-                            <p>
-                                Sẵn sàng:
-                                <span class="font-weight-bold">{{
-                                    reports.total_vehicle_ready
-                                    }}</span>
-                            </p>
-                            <p>
-                                Đang sử dụng:
-                                <span class="font-weight-bold">{{
-                                    reports.total_vehicle_using
-                                    }}</span>
-                            </p>
-                        </div>
-                        <div class="col-md-3">
-                            <p>
-                                Xe ga:
-                                <span class="font-weight-bold">{{
-                                    reports.total_vehicle_ga
-                                    }}</span>
-                            </p>
-                            <p>
-                                Xe số:
-                                <span class="font-weight-bold">{{
-                                    reports.total_vehicle_so
-                                    }}</span>
-                            </p>
-                        </div>
-                        <div class="col-md-3">
-                            <p>
-                                Xe côn:
-                                <span class="font-weight-bold">{{
-                                    reports.total_vehicle_con
-                                    }}</span>
-                            </p>
-                        </div>
+            <div class="vehicle-summary-panel" aria-label="Tổng hợp đội xe">
+                <div class="vehicle-summary-title">Tổng hợp</div>
+                <div class="vehicle-summary-grid">
+                    <div class="vehicle-summary-item">
+                        <span>Số lượng xe</span><strong>{{ reports.total_vehicle || 0 }}</strong>
                     </div>
+                    <div class="vehicle-summary-item wide">
+                        <span>Phí đầu tư</span><strong>{{ reports.total_price | formatPrice }}</strong>
+                    </div>
+                    <div class="vehicle-summary-item success">
+                        <span>Sẵn sàng</span><strong>{{ reports.total_vehicle_ready || 0 }}</strong>
+                    </div>
+                    <div class="vehicle-summary-item primary">
+                        <span>Đang sử dụng</span><strong>{{ reports.total_vehicle_using || 0 }}</strong>
+                    </div>
+                    <div class="vehicle-summary-item"><span>Xe ga</span><strong>{{ reports.total_vehicle_ga || 0 }}</strong></div>
+                    <div class="vehicle-summary-item"><span>Xe số</span><strong>{{ reports.total_vehicle_so || 0 }}</strong></div>
+                    <div class="vehicle-summary-item"><span>Xe côn</span><strong>{{ reports.total_vehicle_con || 0 }}</strong></div>
                 </div>
             </div>
 
@@ -181,7 +144,13 @@
                 <!-- Content Area -->
                 <div v-else class="example mb-10 mt-4">
                     <!-- Table View -->
-                    <div v-if="viewMode === 'table'" class="example-preview table-responsive">
+                    <div
+                        v-if="viewMode === 'table'"
+                        v-drag-scroll
+                        class="example-preview table-responsive"
+                        role="region"
+                        aria-label="Danh sách xe, có thể kéo ngang bằng chuột"
+                    >
                         <table class="table table-hover">
                             <thead>
                                 <tr>
@@ -265,8 +234,7 @@
                                                 Xem
                                             </button>
                                             <button v-b-modal.modal-vehicle-edit @click="item_current = item"
-                                                class="btn btn-xs btn-outline-info font-weight-bold" title="Sửa"
-                                                class="btn btn-xs btn-outline-info font-weight-bold">
+                                                class="btn btn-xs btn-outline-info font-weight-bold" title="Sửa">
                                                 Sửa
                                             </button>
                                             <button class="btn btn-xs btn-outline-primary font-weight-bold" title="Tạo đơn thuê"
@@ -288,7 +256,7 @@
                     <div v-else class="himoto-vehicle-grid">
                         <div v-for="(item, index) in vehicles.data" :key="item.id || index" class="vehicle-card-item">
                             <div class="vehicle-card-thumb">
-                                <img :src="getFirstImage(item) || '/media/vehicles/default-moto.png'" alt="Vehicle Image" class="vehicle-img" />
+                                <img :src="getFirstImage(item) || '/media/vehicles/default-moto.svg'" alt="Ảnh xe" class="vehicle-img" />
                                 <span class="status-badge" :class="item.status_css || item.status">
                                     {{ item.status_label || status_define[item.status] || item.status }}
                                 </span>
@@ -600,6 +568,55 @@ export default {
 </script>
 
 <style scoped>
+.vehicle-summary-panel {
+  margin: 0 24px;
+  padding: 14px 16px;
+  border: 1px solid #e2e7ee;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.vehicle-summary-title {
+  margin-bottom: 10px;
+  color: #8f1b21;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.vehicle-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.vehicle-summary-item {
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 12px;
+  border: 1px solid #e5e9ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.vehicle-summary-item span { color: #667085; font-size: 12px; }
+.vehicle-summary-item strong { color: #243043; font-size: 16px; }
+.vehicle-summary-item.success strong { color: #12805c; }
+.vehicle-summary-item.primary strong { color: #1677c8; }
+
+@media (max-width: 1200px) {
+  .vehicle-summary-grid { grid-template-columns: repeat(4, minmax(120px, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .vehicle-summary-panel { margin: 0 12px; }
+  .vehicle-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 .mx-datepicker {
     width: 100% !important;
 }

@@ -9,9 +9,20 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Models\LeadLog;
+use App\Support\PilotAccess;
+use App\Support\OperationalSchema;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class LeadController extends Controller
 {
+    private $operationalSchema;
+
+    public function __construct(OperationalSchema $operationalSchema)
+    {
+        $this->operationalSchema = $operationalSchema;
+    }
+
    public function index(Request $request){
     
         $params = $request->query();
@@ -19,13 +30,13 @@ class LeadController extends Controller
        
         $user = auth()->user();
         $role_id = $user->role_id;
-        if ($role_id === 1){
+        if ((int) $role_id === 1){
             $items = Lead::withTrashed();
             
             if (isset($params['store_id'])){
                 $items->where('leads.store_id','=',  $params['store_id']);
             }
-        } else if ($role_id === 4){
+        } else if ((int) $role_id === 4){
             $items = Lead::whereNull('deleted_at');
             if (isset($params['store_id'])){
                 $items->where('leads.store_id','=',  $params['store_id']);
@@ -67,9 +78,11 @@ class LeadController extends Controller
 
         
         if (isset($params['keyword'])){
-
-            $items->where('leads.customer_name','LIKE', '%' . $params['keyword'] . '%')
-            ->orWhere('leads.customer_phone', 'LIKE', '%' . $params['keyword'] . '%');
+            $keyword = $params['keyword'];
+            $items->where(function ($query) use ($keyword) {
+                $query->where('leads.customer_name', 'LIKE', '%' . $keyword . '%')
+                    ->orWhere('leads.customer_phone', 'LIKE', '%' . $keyword . '%');
+            });
         }
           
         if (isset($params['leads_for_order'])){
@@ -99,11 +112,14 @@ class LeadController extends Controller
     }
 
     public function show(Request $request, $id){
-        $lead = Lead::find($id)->load('leadLogs.user:name,id');
+        $lead = Lead::with('leadLogs.user:name,id')->find($id);
+        if ($lead && !$this->canAccessLead(auth()->user(), $lead)) {
+            return $this->errorResponse('Bạn không có quyền xem lead của cơ sở khác.', 403);
+        }
         if ($lead){
             return $this->successResponse($lead,'Successfully get lead');
         } else {
-            return $this->errorResponse('No lead');
+            return $this->errorResponse('Không tìm thấy lead.', 404);
         }
        
     }
@@ -114,25 +130,44 @@ class LeadController extends Controller
         return $this->successResponse($uniqueUsers,"Successfully get lead's unique users");
     }
     public function update(Request $request, Lead $lead){
-        $data = $request->input();
+        if (!$this->canAccessLead(auth()->user(), $lead)) {
+            return $this->errorResponse('Bạn không có quyền cập nhật lead của cơ sở khác.', 403);
+        }
+        $data = $this->validateLeadPayload($request->all(), false);
+        $user = auth()->user();
+        if (!PilotAccess::isAdmin($user) && (int) $user->role_id !== 4) {
+            $data['store_id'] = $user->store_id;
+        }
+        if (!PilotAccess::isAdmin($user)) {
+            $data['user_id'] = $user->id;
+        }
         try {
             $result = $lead->update($data);
             return $this->successResponse($lead,'Successfully updated lead');
         } catch( \Exception $e){
-        
-            return $this->errorResponse('Error when updating lead',200,$e->getMessage());
+            Log::error('Unable to update lead.', [
+                'lead_id' => $lead->id,
+                'exception' => get_class($e),
+            ]);
+            return $this->errorResponse('Không thể cập nhật lead.', 500);
         } 
         
        
         
     }
     public function destroy(  Lead $lead, Request $request){
-        $user = User::find(Auth::id());
+        if (!$this->canAccessLead(auth()->user(), $lead)) {
+            return $this->errorResponse('Bạn không có quyền xóa lead của cơ sở khác.', 403);
+        }
+        $validated = $request->validate([
+            'note' => 'nullable|string|max:500',
+        ]);
+        $user = User::findOrFail(Auth::id());
         $data = [
             'lead_id' => $lead->id,
             'user_id' => Auth::id(),
             'content' => 'Xóa bởi '
-            . $user->name .'. Lý do xóa: '. $request->note
+            . $user->name .'. Lý do xóa: '. ($validated['note'] ?? 'Không ghi lý do')
             , 
             'metadata' => json_encode([]),
         ];
@@ -150,13 +185,37 @@ class LeadController extends Controller
         return $this->successResponse($res,'Successfully deleted lead');
     }
     public function create(Request $request){
-        $data = $request->input();
+        $isBatch = isset($request->all()[0]) && is_array($request->all()[0]);
+        $data = $this->validateLeadPayload($request->all(), $isBatch);
+        $user = auth()->user();
+        if (!PilotAccess::isAdmin($user) && (int) $user->role_id !== 4) {
+            if (isset($data[0]) && is_array($data[0])) {
+                foreach ($data as &$leadData) {
+                    $leadData['store_id'] = $user->store_id;
+                }
+                unset($leadData);
+            } else {
+                $data['store_id'] = $user->store_id;
+            }
+        }
+        if (!PilotAccess::isAdmin($user)) {
+            if ($isBatch) {
+                foreach ($data as &$leadData) {
+                    $leadData['user_id'] = $user->id;
+                }
+                unset($leadData);
+            } else {
+                $data['user_id'] = $user->id;
+            }
+        }
         try {
             $result =  $this->createFromArray($data);
             return $this->successResponse($result,'Successfully created lead');
         } catch( \Exception $e){
-        
-            return $this->errorResponse('Error when creating lead',200,$e->getMessage());
+            Log::error('Unable to create lead.', [
+                'exception' => get_class($e),
+            ]);
+            return $this->errorResponse('Không thể tạo lead.', 500);
         } 
        
     }
@@ -173,8 +232,7 @@ class LeadController extends Controller
         }
        
       
-        $result = json_encode($createdLeads);
-        return $result ;
+        return $createdLeads;
         
     }
 
@@ -185,16 +243,14 @@ class LeadController extends Controller
             $existingLead = Lead::where('entry_id', $leadData['entry_id'])->first();
             if ($existingLead) {
                 $existingLead->update($leadData);
-                $results[] = $existingLead;
-                return $results;
+                return $existingLead;
             }  
         }      
         if (!isset($leadData['status'])){
             $leadData['status'] = 'pending';
         }
         $createdLead = Lead::create($leadData);
-        $results[] = $createdLead;
-        return $results;
+        return $createdLead;
     }
      
     public function insertIgnoreMany($data){
@@ -230,6 +286,64 @@ class LeadController extends Controller
             $results[] = $createdLead;
         }
         return $results;
+    }
+
+    private function canAccessLead($user, Lead $lead): bool
+    {
+        if (!$user) {
+            return false;
+        }
+        if (PilotAccess::isAdmin($user) || (int) $user->role_id === 4) {
+            return true;
+        }
+
+        return $user->store_id && (int) $user->store_id === (int) $lead->store_id;
+    }
+
+    private function validateLeadPayload(array $payload, bool $isBatch): array
+    {
+        $prefix = $isBatch ? '*.' : '';
+        $validator = Validator::make($payload, [
+            $prefix . 'entry_id' => 'nullable|integer',
+            $prefix . 'customer_name' => 'nullable|string|max:255',
+            $prefix . 'customer_phone' => 'required|string|max:30',
+            $prefix . 'vehicle_name' => 'nullable|string|max:255',
+            $prefix . 'store_id' => 'nullable|integer|exists:stores,id',
+            $prefix . 'pickup_location' => 'nullable|string|max:255',
+            $prefix . 'rent_at' => 'nullable|date',
+            $prefix . 'return_at' => 'nullable|date|after_or_equal:' . $prefix . 'rent_at',
+            $prefix . 'status' => 'nullable|string|max:50',
+            $prefix . 'note' => 'nullable|string|max:2000',
+            $prefix . 'user_id' => 'nullable|integer|exists:users,id',
+            $prefix . 'source_channel' => 'nullable|string|max:100',
+            $prefix . 'campaign_name' => 'nullable|string|max:150',
+            $prefix . 'utm_source' => 'nullable|string|max:150',
+            $prefix . 'utm_campaign' => 'nullable|string|max:150',
+            $prefix . 'created_at' => 'nullable|date',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        $validated = $validator->validated();
+        if (!$this->operationalSchema->isReady('kpi')) {
+            $attributionFields = ['source_channel', 'campaign_name', 'utm_source', 'utm_campaign'];
+            if ($isBatch) {
+                foreach ($validated as &$leadData) {
+                    foreach ($attributionFields as $field) {
+                        unset($leadData[$field]);
+                    }
+                }
+                unset($leadData);
+            } else {
+                foreach ($attributionFields as $field) {
+                    unset($validated[$field]);
+                }
+            }
+        }
+
+        return $validated;
     }
 }
 

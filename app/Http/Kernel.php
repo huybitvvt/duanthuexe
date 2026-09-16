@@ -70,6 +70,7 @@ class Kernel extends HttpKernel
         'admin' => AdminMiddleware::class,
         'non.sale' => NonSale::class,
         'check.status' => \App\Http\Middleware\CheckUserStatus::class,
+        'schema.ready' => \App\Http\Middleware\EnsureOperationalSchema::class,
     ];
 
     /**

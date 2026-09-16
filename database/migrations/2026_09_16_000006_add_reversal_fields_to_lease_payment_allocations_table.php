@@ -53,25 +53,25 @@ class AddReversalFieldsToLeasePaymentAllocationsTable extends Migration
     public function down()
     {
         if (Schema::hasTable('lease_payment_allocations')) {
-            Schema::table('lease_payment_allocations', function (Blueprint $table) {
-                $columns = ['status', 'reversal_transaction_id', 'reversal_reason', 'reversed_at', 'reversed_by'];
-                foreach ($columns as $col) {
-                    if (Schema::hasColumn('lease_payment_allocations', $col)) {
+            $columns = ['status', 'reversal_transaction_id', 'reversal_reason', 'reversed_at', 'reversed_by'];
+            foreach ($columns as $col) {
+                if (Schema::hasColumn('lease_payment_allocations', $col)) {
+                    Schema::table('lease_payment_allocations', function (Blueprint $table) use ($col) {
                         $table->dropColumn($col);
-                    }
+                    });
                 }
-            });
+            }
         }
 
         if (Schema::hasTable('lease_contracts')) {
-            Schema::table('lease_contracts', function (Blueprint $table) {
-                $columns = ['discount_amount', 'settled_at'];
-                foreach ($columns as $col) {
-                    if (Schema::hasColumn('lease_contracts', $col)) {
+            $columns = ['discount_amount', 'settled_at'];
+            foreach ($columns as $col) {
+                if (Schema::hasColumn('lease_contracts', $col)) {
+                    Schema::table('lease_contracts', function (Blueprint $table) use ($col) {
                         $table->dropColumn($col);
-                    }
+                    });
                 }
-            });
+            }
         }
     }
 }

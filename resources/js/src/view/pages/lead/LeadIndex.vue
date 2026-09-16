@@ -100,7 +100,13 @@
 
                             <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách Lead" :message="errorMessage" @retry="getLeads" />
                             <HimotoTableSkeleton v-else-if="loading" :rows="6" :columns="11" />
-                            <div v-else-if="leads.length" class="example-preview table-responsive">
+                            <div
+                                v-else-if="leads.length"
+                                v-drag-scroll
+                                class="example-preview table-responsive"
+                                role="region"
+                                aria-label="Danh sách Lead, có thể kéo ngang bằng chuột"
+                            >
                                 <table class="table">
                                     <thead>
                                         <tr>
@@ -235,7 +241,7 @@
 
             <lead-modal-delete :id="leadIdToDelete" @delete-success="getLeads"></lead-modal-delete>
             <lead-view :lead="lead_show" :stores="stores" @storeLeadSuccess="getLeads"></lead-view>
-            <b-modal :title='"Xem hợp đồng  "' id="order-show" size="xl" :centered="true" :scrollable="true">
+            <b-modal :title='"Xem hợp đồng  "' id="order-show" size="xl" modal-class="contract-modal-wide" :centered="true" :scrollable="true">
                 <order-show :order="order_show" :stores="stores"></order-show>
             </b-modal>
 
@@ -261,7 +267,6 @@ import LeadModalDelete from "./LeadModalDelete";
 import OrderShow from "@/view/pages/Order/components-order/OrderShow";
 import LeadView from "./LeadView";
 import { mapGetters } from "vuex";
-import Swal from "sweetalert2";
 import { SHOW_ORDER_CAR_RENTAL } from "@/core/services/store/order.module";
 import queryMixin from '@/utils/queryMixin.js';
 import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";

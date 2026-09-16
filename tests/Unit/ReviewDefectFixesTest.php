@@ -250,6 +250,46 @@ class ReviewDefectFixesTest extends HimotoCashRegisterAndHrTest
         $this->assertEquals(250000, $after['other_expense_bank_company']);
     }
 
+    public function testN03OtherBankIncomeIsNotMisclassifiedAsRentalIncome()
+    {
+        Transaction::create([
+            'store_id' => $this->store->id,
+            'type' => Transaction::THU,
+            'value' => 175000,
+            'payment_method' => 2,
+            'bank_owner_type' => 'company',
+            'name' => 'Thu khác thanh lý phụ kiện',
+            'created_at' => '2026-09-16 13:00:00',
+        ]);
+
+        $summary = $this->cashRegisterService->getDailySummary($this->store->id, '2026-09-16');
+
+        $this->assertEquals(175000, $summary['other_income_bank_company']);
+        $this->assertEquals(0, $summary['rental_bank_company']);
+        $this->assertEquals(175000, $summary['total_bank_company']);
+    }
+
+    public function testN03UnclassifiedBankTransactionBlocksCashRegisterClose()
+    {
+        Transaction::create([
+            'store_id' => $this->store->id,
+            'type' => Transaction::THU,
+            'value' => 99000,
+            'payment_method' => 2,
+            'bank_owner_type' => 'unknown',
+            'name' => 'Thu chuyển khoản chưa đối soát',
+            'created_at' => '2026-09-16 14:00:00',
+        ]);
+
+        $summary = $this->cashRegisterService->getDailySummary($this->store->id, '2026-09-16');
+        $this->assertEquals(99000, $summary['unclassified_bank_income']);
+        $this->assertEquals(0, $summary['total_bank_personal']);
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('chưa xác định tài khoản cá nhân/công ty');
+        $this->cashRegisterService->closeDailyRegister($this->store->id, '2026-09-16', 0, null, $this->adminUser->id);
+    }
+
     /**
      * N04: Duty schedule endpoint does not expose plaintext staff id_card.
      */

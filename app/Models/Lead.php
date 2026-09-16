@@ -96,13 +96,22 @@ class Lead extends Model
         'status',
         'note',
         'user_id',
+        'source_channel',
+        'campaign_name',
+        'utm_source',
+        'utm_campaign',
         'created_at'
     ];
 
 
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class, 'store_id', 'id');
+    }
+
     public function stores(): BelongsTo
     {
-        return $this->belongsTo(Transaction::class, 'store_id', 'id');
+        return $this->store();
     }
     
     public function leadLogs(){

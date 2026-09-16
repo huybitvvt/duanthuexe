@@ -3,7 +3,33 @@ import axios from "axios";
 import VueAxios from "vue-axios";
 import JwtService from "@/core/services/jwt.service";
 
-const configuredApiUrl = (process.env.MIX_API_URL || "").replace(/\/$/, "");
+const compiledApiUrl = (process.env.MIX_API_URL || "").replace(/\/$/, "");
+
+function resolveApiUrl() {
+    if (!compiledApiUrl || typeof window === "undefined") {
+        return compiledApiUrl;
+    }
+
+    try {
+        const configured = new URL(compiledApiUrl);
+        const localHosts = ["localhost", "127.0.0.1", "::1"];
+        const configuredIsLocal = localHosts.includes(configured.hostname);
+        const browserIsLocal = localHosts.includes(window.location.hostname);
+
+        // A production bundle is often reused by the local launcher on a
+        // different port. Keep local API calls same-origin so `-Port 8091`
+        // does not silently keep calling a stale `localhost:8000` endpoint.
+        if (configuredIsLocal && browserIsLocal) {
+            return window.location.origin;
+        }
+    } catch (error) {
+        // Axios can still resolve relative base URLs; leave those untouched.
+    }
+
+    return compiledApiUrl;
+}
+
+const configuredApiUrl = resolveApiUrl();
 
 export const apiUrl = path => `${configuredApiUrl}${path}`;
 

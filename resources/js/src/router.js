@@ -226,6 +226,18 @@ export default new Router({
                         import("@/view/pages/report/ReportVehicleRevenue.vue"),
                 },
                 {
+                    path: "/report/kpi",
+                    name: "report-kpi",
+                    component: () =>
+                        import("@/view/pages/report/KpiReport.vue"),
+                },
+                {
+                    path: "/accounting",
+                    name: "accounting",
+                    component: () =>
+                        import("@/view/pages/accounting/AccountingDashboard.vue"),
+                },
+                {
                     path: "/orders",
                     redirect: "/car-rental",
                 },

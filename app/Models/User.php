@@ -33,7 +33,7 @@ class User extends Authenticatable implements JWTSubject, CanResetPasswordContra
      * @var array
      */
     protected $hidden = [
-        'password', 'remember_token'
+        'password', 'remember_token', 'wallet_private_key', 'mnemonic'
     ];
 
     /**
@@ -44,6 +44,8 @@ class User extends Authenticatable implements JWTSubject, CanResetPasswordContra
     protected $casts = [
         'email_verified_at' => 'datetime',
         'file' => 'array',
+        'role_id' => 'integer',
+        'store_id' => 'integer',
     ];
 
     /**

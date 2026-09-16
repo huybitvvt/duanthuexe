@@ -45,13 +45,12 @@
     <!-- Desktop Global Search Bar -->
     <div class="header-search-wrapper" ref="searchContainer">
       <div class="search-input-box">
-        <span class="search-label-text">Tìm:</span>
         <input
           type="text"
           id="globalSearchInput"
           ref="desktopSearchInput"
           class="global-search-input"
-          placeholder="Tìm nhanh (Xe, Khách, Đơn)..."
+          placeholder="Tìm: xe, khách hàng, hợp đồng..."
           v-model="searchQuery"
           @input="onSearchInput"
           @focus="onSearchFocus"
@@ -195,13 +194,12 @@
     <!-- Mobile Search Bar Drawer/Bar -->
     <div v-if="searchMobileOpen" class="mobile-search-bar show" ref="mobileSearchContainer">
       <div class="search-input-box">
-        <span class="search-label-text">Tìm:</span>
         <input
           type="text"
           id="globalSearchInputMobile"
           ref="mobileSearchInput"
           class="global-search-input"
-          placeholder="Tìm xe, khách, đơn..."
+          placeholder="Tìm: xe, khách hàng, hợp đồng..."
           v-model="searchQuery"
           @input="onSearchInput"
           @focus="onSearchFocus"
@@ -692,7 +690,7 @@ export default {
 .global-search-input {
   width: 100%;
   height: 38px;
-  padding: 0 68px 0 38px;
+  padding: 0 68px 0 16px;
   border-radius: var(--radius-full, 9999px);
   border: 1px solid var(--border, #e7ebf0);
   background: var(--surface-alt, #f0f3f7);

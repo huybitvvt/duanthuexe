@@ -5,7 +5,7 @@
    */
 
 /*!
- * ApexCharts v3.45.2
+ * ApexCharts v3.54.1
  * (c) 2018-2024 ApexCharts
  * Released under the MIT License.
  */
@@ -18,8 +18,8 @@
  */
 
 /*!
- * perfect-scrollbar v1.5.3
- * Copyright 2021 Hyunje Jun, MDBootstrap and Contributors
+ * perfect-scrollbar v1.5.6
+ * Copyright 2024 Hyunje Jun, MDBootstrap and Contributors
  * Licensed under MIT
  */
 
@@ -34,6 +34,11 @@
  * (c) 2021 Evan You
  * @license MIT
  */
+
+/*!
+* sweetalert2 v11.4.4
+* Released under the MIT License.
+*/
 
 /*! 
   * portal-vue © Thorsten Lünborg, 2019 
@@ -61,7 +66,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ***************************************************************************** */
 
-/*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */
+/*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */
 
 /*! svg.draggable.js - v2.2.2 - 2019-01-08
   * https://github.com/svgdotjs/svg.draggable.js

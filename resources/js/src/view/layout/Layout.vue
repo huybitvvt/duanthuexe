@@ -17,7 +17,7 @@
       <!-- Topbar Header -->
       <HimotoHeader
         :drawer-active="drawerOpen"
-        @toggle-desktop-sidebar="sidebarCollapsed = !sidebarCollapsed"
+        @toggle-desktop-sidebar="toggleDesktopSidebar"
         @toggle-mobile-sidebar="mobileSidebarOpen = !mobileSidebarOpen"
         @search-select="onSelectSearchResult"
         @select-result="onSelectSearchResult"
@@ -178,6 +178,8 @@ export default {
   data() {
     return {
       sidebarCollapsed: false,
+      sidebarAutoCollapsed: false,
+      isTabletViewport: false,
       mobileSidebarOpen: false,
       drawerOpen: false,
       drawerTitle: "Chi tiết",
@@ -212,8 +214,30 @@ export default {
     }
     // Remove old legacy loading classes immediately (Zero artificial lag)
     this.$store.dispatch(REMOVE_BODY_CLASSNAME, "page-loading");
+    this.syncResponsiveSidebar();
+    window.addEventListener("resize", this.syncResponsiveSidebar);
+  },
+  beforeDestroy() {
+    window.removeEventListener("resize", this.syncResponsiveSidebar);
   },
   methods: {
+    syncResponsiveSidebar() {
+      const isTablet = window.innerWidth >= 769 && window.innerWidth <= 1024;
+
+      if (isTablet && !this.isTabletViewport) {
+        this.sidebarCollapsed = true;
+        this.sidebarAutoCollapsed = true;
+      } else if (!isTablet && this.sidebarAutoCollapsed) {
+        this.sidebarCollapsed = false;
+        this.sidebarAutoCollapsed = false;
+      }
+
+      this.isTabletViewport = isTablet;
+    },
+    toggleDesktopSidebar() {
+      this.sidebarCollapsed = !this.sidebarCollapsed;
+      this.sidebarAutoCollapsed = false;
+    },
     onSelectSearchResult(item) {
       if (!item) return;
       if (!item.data) item.data = item.raw || item;

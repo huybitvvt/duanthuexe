@@ -158,7 +158,13 @@
 
                     <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách hợp đồng" :message="errorMessage" @retry="getList" />
                     <HimotoTableSkeleton v-else-if="loading" :rows="6" :columns="10" />
-                    <div v-else-if="orders.length" class="table-responsive">
+                    <div
+                        v-else-if="orders.length"
+                        v-drag-scroll
+                        class="table-responsive"
+                        role="region"
+                        aria-label="Danh sách hợp đồng, có thể kéo ngang bằng chuột"
+                    >
                         <table class="table table-vertical-center table-hover table-bordered">
                             <thead>
                                 <tr>
@@ -177,7 +183,7 @@
 
                                             <span class="checkbox-wrapper">
                                                 <input type="checkbox" class="checkbox-input" v-model="selectAll"
-                                                    @change="toggleSelectAll" @click="">
+                                                    @change="toggleSelectAll">
 
                                             </span>
                                         </div>
@@ -236,9 +242,11 @@
                                         </el-tooltip>
                                     </td>
                                     <td>
-                                        <p v-for="lead in item.leads" v-if="item.leads.length > 0">
-                                            {{ lead.user ? lead.user.name : 'Landing page Himoto' }}
-                                        </p>
+                                        <template v-if="item.leads && item.leads.length">
+                                            <p v-for="lead in item.leads" :key="lead.id">
+                                                {{ lead.user ? lead.user.name : 'Landing page Himoto' }}
+                                            </p>
+                                        </template>
                                     </td>
                                     <td>
                                         <div v-if="item.deposit_closed">
@@ -334,9 +342,9 @@ import moment from 'moment-timezone';
 import { LEAD_UNIQUE_USERS } from "@/core/services/store/lead.module";
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import { EXPORT_ORDERS } from "@/core/services/store/exports.module";
-import { mapGetters, mapState } from "vuex";
+import { mapGetters } from "vuex";
 import { SHOW_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL_REPORT, DELETE_ORDER, GET_ORDER_DOCUMENT } from "@/core/services/store/order.module";
-import { REPORT_CAR_RENTAL, REPORT_CAR_RENTAL_NEW } from '../../../core/services/store/report.module';
+import { REPORT_CAR_RENTAL_NEW } from '../../../core/services/store/report.module';
 import OrderUpdate from "./components-order/OrderUpdate";
 import OrderShow from "./components-order/OrderShow";
 import OrderPayment from "./components-order/OrderPayment";
@@ -419,8 +427,8 @@ export default {
         },
         checkedItemsArr() {
             return Object.entries(this.checkedItems)
-                .filter(([key, value]) => value === true)
-                .map(([key, value]) => key);
+                .filter(([, value]) => value === true)
+                .map(([key]) => key);
         },
         profitDetails() {
 
@@ -431,7 +439,11 @@ export default {
             return str;
         },
 		totalIn() {
-			return parseInt(this.money_stats.total_deposit) + parseInt(this.money_stats.total_renew) + parseInt(this.money_stats.total_rental_fees);
+			return [
+				this.money_stats.total_deposit,
+				this.money_stats.total_renew,
+				this.money_stats.total_rental_fees,
+			].reduce((total, value) => total + (Number(value) || 0), 0);
 		},
     },
     created() {

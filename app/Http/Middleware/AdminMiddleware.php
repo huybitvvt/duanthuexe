@@ -18,6 +18,12 @@ class AdminMiddleware
     public function handle($request, Closure $next)
     {
         $user = auth()->user();
+        if (!$user) {
+            return response()->json([
+                'error' => true,
+                'message' => 'Chưa đăng nhập.'
+            ], 401);
+        }
         if ($user->role_id !== 1) {
             return response()->json([
                 'error' => true,

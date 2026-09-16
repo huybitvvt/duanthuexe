@@ -732,7 +732,7 @@
 /* ==========================================================================
    Modal Component
    ========================================================================== */
-.modal-backdrop {
+.himoto-modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(23, 32, 42, 0.5);
@@ -747,12 +747,12 @@
   padding: 20px;
 }
 
-.modal-backdrop.active {
+.himoto-modal-overlay.active {
   opacity: 1;
   visibility: visible;
 }
 
-.modal-dialog {
+.himoto-modal-dialog {
   width: 580px;
   max-width: 100%;
   background: #ffffff;
@@ -765,11 +765,11 @@
   overflow: hidden;
 }
 
-.modal-backdrop.active .modal-dialog {
+.himoto-modal-overlay.active .himoto-modal-dialog {
   transform: scale(1) translateY(0);
 }
 
-.modal-header {
+.himoto-modal-header {
   padding: 20px 24px;
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -777,13 +777,13 @@
   justify-content: space-between;
 }
 
-.modal-body {
+.himoto-modal-body {
   padding: 24px;
   max-height: 75vh;
   overflow-y: auto;
 }
 
-.modal-footer {
+.himoto-modal-footer {
   padding: 16px 24px;
   border-top: 1px solid var(--border);
   display: flex;
@@ -791,6 +791,46 @@
   justify-content: flex-end;
   gap: 12px;
   background: #fafbfc;
+}
+
+/* BootstrapVue modals used by the core workflows. The previous unscoped
+   .modal-dialog rule forced every XL dialog back to 580px. */
+.contract-modal-wide .modal-dialog {
+  width: min(1280px, calc(100vw - 40px)) !important;
+  max-width: min(1280px, calc(100vw - 40px)) !important;
+  margin: 20px auto;
+}
+
+.contract-modal-wide .modal-content {
+  max-height: calc(100vh - 40px);
+}
+
+.contract-modal-wide .modal-body {
+  padding: 18px 22px;
+  font-size: 14px;
+}
+
+.himoto-lead-detail-modal .modal-dialog {
+  width: min(1080px, calc(100vw - 40px)) !important;
+  max-width: min(1080px, calc(100vw - 40px)) !important;
+  margin: 20px auto;
+}
+
+.himoto-drag-scroll {
+  cursor: grab;
+  scrollbar-width: thin;
+  scrollbar-color: #aeb7c5 #eef1f5;
+  overscroll-behavior-x: contain;
+}
+
+.himoto-drag-scroll.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.himoto-drag-scroll:focus-visible {
+  outline: 2px solid #b30f18;
+  outline-offset: 2px;
 }
 
 /* Form Groups */

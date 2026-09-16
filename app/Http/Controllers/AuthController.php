@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
@@ -87,7 +88,10 @@ class AuthController extends Controller
             }
             return $this->createNewToken($token);
         } catch (\Exception $exception) {
-            return response()->json(['error' => $exception->getMessage()], 500);
+            Log::error('User registration failed.', [
+                'exception' => get_class($exception),
+            ]);
+            return response()->json(['error' => 'Không thể tạo tài khoản.'], 500);
         }
     }
 

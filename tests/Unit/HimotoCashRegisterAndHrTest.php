@@ -208,12 +208,14 @@ class HimotoCashRegisterAndHrTest extends TestCase
             $table->decimal('renewal_bank_personal', 15, 2)->default(0);
             $table->decimal('refund_deposit_bank_personal', 15, 2)->default(0);
             $table->decimal('penalty_bank_personal', 15, 2)->default(0);
+            $table->decimal('other_income_bank_personal', 15, 2)->default(0);
             $table->decimal('other_expense_bank_personal', 15, 2)->default(0);
             $table->decimal('deposit_bank_company', 15, 2)->default(0);
             $table->decimal('rental_bank_company', 15, 2)->default(0);
             $table->decimal('renewal_bank_company', 15, 2)->default(0);
             $table->decimal('refund_deposit_bank_company', 15, 2)->default(0);
             $table->decimal('penalty_bank_company', 15, 2)->default(0);
+            $table->decimal('other_income_bank_company', 15, 2)->default(0);
             $table->decimal('other_expense_bank_company', 15, 2)->default(0);
             $table->decimal('system_cash_balance', 15, 2)->default(0);
             $table->decimal('actual_cash_counted', 15, 2)->nullable();
@@ -343,6 +345,22 @@ class HimotoCashRegisterAndHrTest extends TestCase
             $table->text('notes')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
+        });
+
+        Schema::dropIfExists('staff_attendances');
+        Schema::create('staff_attendances', function ($table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('staff_id');
+            $table->unsignedBigInteger('store_id')->nullable();
+            $table->date('attendance_date');
+            $table->dateTime('clock_in_at')->nullable();
+            $table->dateTime('clock_out_at')->nullable();
+            $table->unsignedInteger('work_minutes')->default(0);
+            $table->string('status', 20)->default('present');
+            $table->text('notes')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->timestamps();
+            $table->unique(['staff_id', 'attendance_date']);
         });
 
         Schema::dropIfExists('order_vehicle_details');
@@ -670,5 +688,37 @@ class HimotoCashRegisterAndHrTest extends TestCase
         $this->assertCount(1, $roster[0]['schedules']);
         $this->assertEquals('Lê Văn Trọng', $roster[0]['schedules'][0]['staff_name']);
         $this->assertEquals('0933444555', $roster[0]['schedules'][0]['staff_phone']);
+    }
+
+    public function testAttendanceCalculatesWorkMinutesAndUpdatesSameDay()
+    {
+        $staff = $this->hrService->saveStaffProfile([
+            'full_name' => 'Nhân viên Chấm Công',
+            'phone' => '0911002200',
+            'store_id' => $this->store->id,
+        ]);
+
+        $attendance = $this->hrService->saveAttendance([
+            'staff_id' => $staff->id,
+            'attendance_date' => '2026-09-16',
+            'clock_in' => '08:00',
+            'clock_out' => '17:30',
+            'status' => 'present',
+            'notes' => 'Đủ ca',
+        ], $this->adminUser->id);
+
+        $this->assertEquals(570, $attendance->work_minutes);
+        $this->assertEquals(1, DB::table('staff_attendances')->count());
+
+        $updated = $this->hrService->saveAttendance([
+            'staff_id' => $staff->id,
+            'attendance_date' => '2026-09-16',
+            'status' => 'leave',
+        ], $this->adminUser->id);
+
+        $this->assertEquals($attendance->id, $updated->id);
+        $this->assertEquals(0, $updated->work_minutes);
+        $this->assertNull($updated->clock_in_at);
+        $this->assertCount(1, $this->hrService->getAttendanceRows('2026-09-16', $this->store->id));
     }
 }

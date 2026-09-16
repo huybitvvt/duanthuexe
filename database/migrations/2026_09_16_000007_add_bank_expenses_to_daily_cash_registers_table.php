@@ -39,19 +39,19 @@ class AddBankExpensesToDailyCashRegistersTable extends Migration
     public function down()
     {
         if (Schema::hasTable('daily_cash_registers')) {
-            Schema::table('daily_cash_registers', function (Blueprint $table) {
-                $columns = [
-                    'other_expense_bank_personal',
-                    'other_income_bank_personal',
-                    'other_expense_bank_company',
-                    'other_income_bank_company',
-                ];
-                foreach ($columns as $col) {
-                    if (Schema::hasColumn('daily_cash_registers', $col)) {
+            $columns = [
+                'other_expense_bank_personal',
+                'other_income_bank_personal',
+                'other_expense_bank_company',
+                'other_income_bank_company',
+            ];
+            foreach ($columns as $col) {
+                if (Schema::hasColumn('daily_cash_registers', $col)) {
+                    Schema::table('daily_cash_registers', function (Blueprint $table) use ($col) {
                         $table->dropColumn($col);
-                    }
+                    });
                 }
-            });
+            }
         }
     }
 }

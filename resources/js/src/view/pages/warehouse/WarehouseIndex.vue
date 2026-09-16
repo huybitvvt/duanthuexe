@@ -223,7 +223,12 @@
 
         <!-- Bảng danh sách xe -->
         <div v-else v-loading="loadingVehicles">
-          <div class="table-responsive">
+          <div
+            v-drag-scroll
+            class="table-responsive"
+            role="region"
+            aria-label="Danh sách xe trong kho, có thể kéo ngang bằng chuột"
+          >
             <table class="table table-head-custom table-vertical-center table-hover">
               <thead>
                 <tr>
@@ -541,6 +546,12 @@ export default {
   transition: all 0.2s ease-in-out;
   border: 2px solid transparent;
 }
+.store-card .card-body { min-height: 185px; }
+.store-card h5 { font-size: 16px !important; line-height: 1.35; }
+.store-card .small { font-size: 12.5px !important; }
+.store-card .badge { padding: 5px 9px; font-size: 12px; }
+.store-card .font-size-h2 { font-size: 28px !important; }
+.store-card .border-top span { line-height: 1.7; }
 .store-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);

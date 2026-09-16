@@ -56,6 +56,33 @@
                     </div>
 
                     <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Kênh nguồn</label>
+                                <el-input clearable placeholder="Facebook, Website, Giới thiệu..." v-model="lead.source_channel" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Tên chiến dịch</label>
+                                <el-input clearable placeholder="Tên chiến dịch" v-model="lead.campaign_name" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>UTM source</label>
+                                <el-input clearable placeholder="utm_source" v-model="lead.utm_source" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>UTM campaign</label>
+                                <el-input clearable placeholder="utm_campaign" v-model="lead.utm_campaign" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
                         <div class="col-md-4">
                             <div class="form-group">
                                 <label>Địa điểm nhận xe</label>
@@ -143,7 +170,6 @@ import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import { VEHICLE_GET_ALL } from "@/core/services/store/vehicle.module";
 import { brands } from "@/option/vehicle";
 import ErrorMessage from "@/view/pages/common/ErrorMessage";
-import moment from "moment-timezone";
 import { mapGetters } from "vuex";
 
 
@@ -173,6 +199,10 @@ export default {
                 customer_name: "",
                 customer_phone: "",
                 vehicle_name: "",
+                source_channel: "",
+                campaign_name: "",
+                utm_source: "",
+                utm_campaign: "",
 
                 note: "",
             }
@@ -276,6 +306,10 @@ export default {
                 return_at: this.lead.return_at,
                 status: this.lead.status,
                 note: this.lead.note,
+                source_channel: this.lead.source_channel,
+                campaign_name: this.lead.campaign_name,
+                utm_source: this.lead.utm_source,
+                utm_campaign: this.lead.utm_campaign,
                 id: this.lead.id,
             };
 

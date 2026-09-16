@@ -46,4 +46,9 @@ class StaffProfile extends Model
     {
         return $this->hasMany(StoreDutySchedule::class, 'staff_id');
     }
+
+    public function attendances()
+    {
+        return $this->hasMany(StaffAttendance::class, 'staff_id');
+    }
 }

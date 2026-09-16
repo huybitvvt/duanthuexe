@@ -101,6 +101,7 @@ class CashRegisterService
                 'renewal_bank_personal' => (float) $register->renewal_bank_personal,
                 'refund_deposit_bank_personal' => (float) $register->refund_deposit_bank_personal,
                 'penalty_bank_personal' => (float) $register->penalty_bank_personal,
+                'other_income_bank_personal' => (float) ($register->other_income_bank_personal ?? 0),
                 'other_expense_bank_personal' => (float) ($register->other_expense_bank_personal ?? 0),
                 // Bank Company
                 'deposit_bank_company' => (float) $register->deposit_bank_company,
@@ -108,12 +109,15 @@ class CashRegisterService
                 'renewal_bank_company' => (float) $register->renewal_bank_company,
                 'refund_deposit_bank_company' => (float) $register->refund_deposit_bank_company,
                 'penalty_bank_company' => (float) $register->penalty_bank_company,
+                'other_income_bank_company' => (float) ($register->other_income_bank_company ?? 0),
                 'other_expense_bank_company' => (float) ($register->other_expense_bank_company ?? 0),
                 // Aggregates
                 'total_cash_in' => (float) ($register->deposit_cash + $register->rental_cash + $register->renewal_cash + $register->penalty_cash + $register->other_income_cash),
                 'total_cash_out' => (float) ($register->refund_deposit_cash + $register->other_expense_cash),
-                'total_bank_personal' => (float) ($register->deposit_bank_personal + $register->rental_bank_personal + $register->renewal_bank_personal + $register->penalty_bank_personal - $register->refund_deposit_bank_personal - ($register->other_expense_bank_personal ?? 0)),
-                'total_bank_company' => (float) ($register->deposit_bank_company + $register->rental_bank_company + $register->renewal_bank_company + $register->penalty_bank_company - $register->refund_deposit_bank_company - ($register->other_expense_bank_company ?? 0)),
+                'total_bank_personal' => (float) ($register->deposit_bank_personal + $register->rental_bank_personal + $register->renewal_bank_personal + $register->penalty_bank_personal + ($register->other_income_bank_personal ?? 0) - $register->refund_deposit_bank_personal - ($register->other_expense_bank_personal ?? 0)),
+                'total_bank_company' => (float) ($register->deposit_bank_company + $register->rental_bank_company + $register->renewal_bank_company + $register->penalty_bank_company + ($register->other_income_bank_company ?? 0) - $register->refund_deposit_bank_company - ($register->other_expense_bank_company ?? 0)),
+                'unclassified_bank_income' => 0,
+                'unclassified_bank_expense' => 0,
                 'system_cash_balance' => (float) $register->system_cash_balance,
                 'actual_cash_counted' => (float) $register->actual_cash_counted,
                 'cash_difference' => (float) $register->cash_difference,
@@ -156,6 +160,7 @@ class CashRegisterService
         $renewalBankPersonal = 0;
         $refundDepositBankPersonal = 0;
         $penaltyBankPersonal = 0;
+        $otherIncomeBankPersonal = 0;
         $otherExpenseBankPersonal = 0;
 
         $depositBankCompany = 0;
@@ -163,7 +168,10 @@ class CashRegisterService
         $renewalBankCompany = 0;
         $refundDepositBankCompany = 0;
         $penaltyBankCompany = 0;
+        $otherIncomeBankCompany = 0;
         $otherExpenseBankCompany = 0;
+        $unclassifiedBankIncome = 0;
+        $unclassifiedBankExpense = 0;
 
         foreach ($transactions as $t) {
             $val = (float) $t->value;
@@ -175,40 +183,48 @@ class CashRegisterService
             $combinedText = $name . ' ' . $desc;
 
             if ($t->type === Transaction::THU) {
-                if (str_contains($combinedText, 'cọc') || str_contains($combinedText, 'deposit')) {
+                if (strpos($combinedText, 'cọc') !== false || strpos($combinedText, 'deposit') !== false) {
                     if ($isCash) $depositCash += $val;
                     elseif ($isCompany) $depositBankCompany += $val;
-                    else $depositBankPersonal += $val;
-                } elseif (str_contains($combinedText, 'gia hạn') || str_contains($combinedText, 'renewal')) {
+                    elseif ($isPersonal) $depositBankPersonal += $val;
+                    else $unclassifiedBankIncome += $val;
+                } elseif (strpos($combinedText, 'gia hạn') !== false || strpos($combinedText, 'renewal') !== false) {
                     if ($isCash) $renewalCash += $val;
                     elseif ($isCompany) $renewalBankCompany += $val;
-                    else $renewalBankPersonal += $val;
-                } elseif (str_contains($combinedText, 'phạt') || str_contains($combinedText, 'penalty')) {
+                    elseif ($isPersonal) $renewalBankPersonal += $val;
+                    else $unclassifiedBankIncome += $val;
+                } elseif (strpos($combinedText, 'phạt') !== false || strpos($combinedText, 'penalty') !== false) {
                     if ($isCash) $penaltyCash += $val;
                     elseif ($isCompany) $penaltyBankCompany += $val;
-                    else $penaltyBankPersonal += $val;
-                } elseif (str_contains($combinedText, 'thuê') || str_contains($combinedText, 'rent')) {
+                    elseif ($isPersonal) $penaltyBankPersonal += $val;
+                    else $unclassifiedBankIncome += $val;
+                } elseif (strpos($combinedText, 'thuê') !== false || strpos($combinedText, 'rent') !== false) {
                     if ($isCash) $rentalCash += $val;
                     elseif ($isCompany) $rentalBankCompany += $val;
-                    else $rentalBankPersonal += $val;
+                    elseif ($isPersonal) $rentalBankPersonal += $val;
+                    else $unclassifiedBankIncome += $val;
                 } else {
                     if ($isCash) $otherIncomeCash += $val;
-                    elseif ($isCompany) $rentalBankCompany += $val;
-                    else $rentalBankPersonal += $val;
+                    elseif ($isCompany) $otherIncomeBankCompany += $val;
+                    elseif ($isPersonal) $otherIncomeBankPersonal += $val;
+                    else $unclassifiedBankIncome += $val;
                 }
             } elseif ($t->type === Transaction::CHI) {
-                if (str_contains($combinedText, 'hoàn cọc') || str_contains($combinedText, 'refund')) {
+                if (strpos($combinedText, 'hoàn cọc') !== false || strpos($combinedText, 'refund') !== false) {
                     if ($isCash) $refundDepositCash += $val;
                     elseif ($isCompany) $refundDepositBankCompany += $val;
-                    else $refundDepositBankPersonal += $val;
+                    elseif ($isPersonal) $refundDepositBankPersonal += $val;
+                    else $unclassifiedBankExpense += $val;
                 } else {
                     // Chi vận hành, sửa xe, đảo thu, chi phí khác
                     if ($isCash) {
                         $otherExpenseCash += $val;
                     } elseif ($isCompany) {
                         $otherExpenseBankCompany += $val;
-                    } else {
+                    } elseif ($isPersonal) {
                         $otherExpenseBankPersonal += $val;
+                    } else {
+                        $unclassifiedBankExpense += $val;
                     }
                 }
             }
@@ -219,8 +235,8 @@ class CashRegisterService
         $totalCashOut = $refundDepositCash + $otherExpenseCash;
         $systemCashBalance = $openingBalance + $totalCashIn - $totalCashOut;
 
-        $totalBankPersonal = $depositBankPersonal + $rentalBankPersonal + $renewalBankPersonal + $penaltyBankPersonal - $refundDepositBankPersonal - $otherExpenseBankPersonal;
-        $totalBankCompany = $depositBankCompany + $rentalBankCompany + $renewalBankCompany + $penaltyBankCompany - $refundDepositBankCompany - $otherExpenseBankCompany;
+        $totalBankPersonal = $depositBankPersonal + $rentalBankPersonal + $renewalBankPersonal + $penaltyBankPersonal + $otherIncomeBankPersonal - $refundDepositBankPersonal - $otherExpenseBankPersonal;
+        $totalBankCompany = $depositBankCompany + $rentalBankCompany + $renewalBankCompany + $penaltyBankCompany + $otherIncomeBankCompany - $refundDepositBankCompany - $otherExpenseBankCompany;
 
         $store = $storeId ? Store::find($storeId) : null;
 
@@ -246,6 +262,7 @@ class CashRegisterService
             'renewal_bank_personal' => $renewalBankPersonal,
             'refund_deposit_bank_personal' => $refundDepositBankPersonal,
             'penalty_bank_personal' => $penaltyBankPersonal,
+            'other_income_bank_personal' => $otherIncomeBankPersonal,
             'other_expense_bank_personal' => $otherExpenseBankPersonal,
             // Bank company breakdown
             'deposit_bank_company' => $depositBankCompany,
@@ -253,7 +270,10 @@ class CashRegisterService
             'renewal_bank_company' => $renewalBankCompany,
             'refund_deposit_bank_company' => $refundDepositBankCompany,
             'penalty_bank_company' => $penaltyBankCompany,
+            'other_income_bank_company' => $otherIncomeBankCompany,
             'other_expense_bank_company' => $otherExpenseBankCompany,
+            'unclassified_bank_income' => $unclassifiedBankIncome,
+            'unclassified_bank_expense' => $unclassifiedBankExpense,
             // Combined totals
             'total_cash_in' => $totalCashIn,
             'total_cash_out' => $totalCashOut,
@@ -314,6 +334,10 @@ class CashRegisterService
             // Tính toán snapshot số liệu thực tế tại thời điểm chốt
             $summary = $this->getDailySummary($storeId, $dateStr, $userId);
 
+            if (($summary['unclassified_bank_income'] ?? 0) > 0 || ($summary['unclassified_bank_expense'] ?? 0) > 0) {
+                throw new \Exception('Còn giao dịch chuyển khoản chưa xác định tài khoản cá nhân/công ty. Hãy phân loại giao dịch trước khi chốt két.');
+            }
+
             $systemCashBalance = (float) $summary['system_cash_balance'];
             $cashDifference = $actualCashCounted - $systemCashBalance;
 
@@ -336,12 +360,14 @@ class CashRegisterService
                 'renewal_bank_personal' => $summary['renewal_bank_personal'],
                 'refund_deposit_bank_personal' => $summary['refund_deposit_bank_personal'],
                 'penalty_bank_personal' => $summary['penalty_bank_personal'],
+                'other_income_bank_personal' => $summary['other_income_bank_personal'] ?? 0,
                 'other_expense_bank_personal' => $summary['other_expense_bank_personal'] ?? 0,
                 'deposit_bank_company' => $summary['deposit_bank_company'],
                 'rental_bank_company' => $summary['rental_bank_company'],
                 'renewal_bank_company' => $summary['renewal_bank_company'],
                 'refund_deposit_bank_company' => $summary['refund_deposit_bank_company'],
                 'penalty_bank_company' => $summary['penalty_bank_company'],
+                'other_income_bank_company' => $summary['other_income_bank_company'] ?? 0,
                 'other_expense_bank_company' => $summary['other_expense_bank_company'] ?? 0,
                 'system_cash_balance' => $systemCashBalance,
                 'actual_cash_counted' => $actualCashCounted,

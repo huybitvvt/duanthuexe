@@ -1,19 +1,33 @@
 # Devop
 Một số điều cần lưu ý
 - Sau khi git push, phải clear cache của VPS và cloudfare, nếu không thì phần front-end của app sẽ bị lỗi
-## Install local
+## Chạy local an toàn với Supabase
 
-Step 1: Change database config in .env + create database.
+1. Sao chép cấu hình mẫu vào `.env`; không commit `.env`, `.env.supabase` hoặc `.env.cloudinary`.
+2. Tạo `.env.supabase` với `SUPABASE_DATABASE_URL` đã được rotate và URL-encode đúng.
+3. Nếu cần upload ảnh, tạo `.env.cloudinary` với các biến `CLOUDINARY_*` đã được rotate.
+4. Chỉ định PHP bằng `HIMOTO_PHP_BIN` nếu máy chưa có `php` trong `PATH`, sau đó chạy:
 
-Step 2: Import .sql demo data
+```powershell
+$env:HIMOTO_PHP_BIN = "C:\duong-dan\php.exe"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\serve-local.ps1 -Port 8091
+```
 
-Step 3: Run project `php artisan serve` and access server via: http://127.0.0.1:8000
+Script chỉ nạp secret vào tiến trình hiện tại, ánh xạ `SUPABASE_DATABASE_URL` sang `DATABASE_URL`, xóa config cache và không ghi secret trở lại `.env`.
+Khi dùng Supabase, script cũng mặc định `DB_SCHEMA=himoto` và `DB_SSLMODE=require` nếu hai giá trị này đang trống; nhờ đó ứng dụng và script kiểm tra schema cùng truy cập đúng namespace.
 
-Admin user: `dung@gmail.com / Bfc@123123`
+Trước khi bật các luồng tất toán, đảo thu, chốt két, chấm công, KPI hoặc kế toán, chạy kiểm tra chỉ đọc:
 
-## Dev server
+```powershell
+. .\scripts\import-local-env.ps1
+& $env:HIMOTO_PHP_BIN .\scripts\check_operational_schema.php
+```
 
-Access dev server: https://happyride.merchbridge.com, with admin account: `dung@gmail.com / Bfc@123123`
+Bộ kiểm tra xác minh cả cột thực tế, bản ghi migration và SHA-256 của migration `000006` đến `000010` so với `database/migrations/operational-checksums.json`. Chỉ chạy migration trên bản backup/clone staging trước; các API liên quan sẽ trả `503 SCHEMA_NOT_READY` nếu schema chưa đủ, không thực hiện giao dịch nửa chừng.
+
+Các secret Supabase/Cloudinary từng xuất hiện trong ảnh hoặc chat phải được rotate trên dashboard của nhà cung cấp trước khi phát hành. Repository không tự rotate được credential và không tự chạy migration production.
+
+Mã đăng nhập không được lưu trong repository. Tài khoản local/staging do quản trị môi trường cấp riêng.
 
 
 <p align="center"><img src="https://res.cloudinary.com/dtfbvvkyp/image/upload/v1566331377/laravel-logolockup-cmyk-red.svg" width="400"></p>

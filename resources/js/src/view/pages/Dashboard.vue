@@ -215,7 +215,16 @@
           </div>
           <div class="himoto-card-body">
             <div class="chart-container-wrapper">
-              <zingchart :data="chartData" :theme="chartTheme" height="320"></zingchart>
+              <zingchart
+                v-if="hasRevenueChartData"
+                :data="chartData"
+                :theme="chartTheme"
+                height="320"
+              ></zingchart>
+              <div v-else class="chart-empty-state" role="status">
+                <strong>Chưa có doanh thu trong kỳ</strong>
+                <span>Biểu đồ sẽ hiển thị khi phát sinh giao dịch thu hợp lệ.</span>
+              </div>
             </div>
           </div>
         </div>
@@ -386,11 +395,15 @@ export default {
       return Math.round((using / total) * 100);
     },
     totalMonthRevenueFormatted() {
-      const sum = (this.values || []).reduce((acc, v) => acc + (Number(v) || 0), 0);
+      const values = Array.isArray(this.values) ? this.values : [];
+      const sum = values.reduce((acc, v) => acc + (Number(v) || 0), 0);
       return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(sum);
     },
     hasLoadedAnyData() {
       return !!(this.reports && Object.keys(this.reports).length > 0);
+    },
+    hasRevenueChartData() {
+      return Array.isArray(this.values) && this.values.some(value => Number(value) !== 0);
     }
   },
   watch: {
@@ -410,7 +423,7 @@ export default {
   methods: {
     fetchStores() {
       return this.$store.dispatch(STORE_GET_ALL, {}).then((res) => {
-        this.storeList = res?.data || [];
+        this.storeList = Array.isArray(res?.data) ? res.data : [];
       });
     },
     loadDashboardData() {
@@ -450,8 +463,8 @@ export default {
       return this.$store
         .dispatch(DASHBOARD_REPORT_CHART, params)
         .then((res) => {
-          this.labels = res.data?.labels || [];
-          this.values = res.data?.values || [];
+          this.labels = Array.isArray(res.data?.labels) ? res.data.labels : [];
+          this.values = Array.isArray(res.data?.values) ? res.data.values : [];
 
           this.chartData = {
             type: "line",
@@ -786,6 +799,26 @@ export default {
 
 .chart-container-wrapper {
   min-height: 320px;
+}
+
+.chart-empty-state {
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  border: 1px dashed #cfd6df;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #687386;
+  text-align: center;
+}
+
+.chart-empty-state strong {
+  color: #243043;
+  font-size: 15px;
 }
 
 /* Fleet distribution */

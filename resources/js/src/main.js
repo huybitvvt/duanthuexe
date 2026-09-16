@@ -70,6 +70,9 @@ import "@/core/plugins/treeselect";
 import "@/core/plugins/metronic";
 import "@mdi/font/css/materialdesignicons.css";
 import "@/core/plugins/formvalidation";
+import dragScroll from "@/directives/dragScroll";
+
+Vue.directive("drag-scroll", dragScroll);
 
 // API service init
 ApiService.init();

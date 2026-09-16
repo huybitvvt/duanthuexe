@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-labelledby="title desc">
+  <title id="title">Ảnh xe chưa được cập nhật</title>
+  <desc id="desc">Hình minh họa xe máy màu xám trên nền sáng</desc>
+  <rect width="640" height="400" rx="24" fill="#f1f4f8"/>
+  <circle cx="205" cy="290" r="62" fill="none" stroke="#667085" stroke-width="18"/>
+  <circle cx="455" cy="290" r="62" fill="none" stroke="#667085" stroke-width="18"/>
+  <path d="M205 290h105l55-108h70l20 108M310 290l-58-115h82l52 115M365 182l-28-44h52" fill="none" stroke="#98a2b3" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="320" y="365" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#475467">CHƯA CÓ ẢNH XE</text>
+</svg>

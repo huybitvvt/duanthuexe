@@ -30,6 +30,8 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\LeaseContractController;
 use App\Http\Controllers\DailyCashRegisterController;
 use App\Http\Controllers\HrController;
+use App\Http\Controllers\KpiReportController;
+use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\CustomerReminderController;
 
 /*
@@ -61,24 +63,24 @@ Route::get('/health', function () {
 	}
 });
 
-Route::get('/check-timezone', [Order\OrderController::class, 'check_timezone']);
+Route::get('/check-timezone', [Order\OrderController::class, 'check_timezone'])->middleware('auth.jwt');
 
 Route::group(['middleware' => 'api'], function ($router) {
     Route::group(['middleware' => 'check.status'],function () {
         Route::get('/verify-token', [AuthController::class, 'verifyToken'])->middleware('auth.jwt');
         Route::group(['prefix' => 'auth'], function ($router) {
             Route::post('/login', [AuthController::class, 'login']);
-            Route::post('/register', [AuthController::class, 'register']);
-            Route::post('/logout', [AuthController::class, 'logout']);
-            Route::post('/change-pass', [AuthController::class, 'changePassWord']);
-            Route::group(['prefix' => 'stores'], function () {
+            Route::post('/register', [AuthController::class, 'register'])->middleware(['auth.jwt', 'admin']);
+            Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth.jwt');
+            Route::post('/change-pass', [AuthController::class, 'changePassWord'])->middleware('auth.jwt');
+            Route::group(['prefix' => 'stores', 'middleware' => 'auth.jwt'], function () {
                 Route::get('/all', [StoreController::class, 'all']);
                 Route::get('/{store}', [StoreController::class, 'show']);
             });
-            Route::group(['prefix' => 'vehicle'], function ($router) {
+            Route::group(['prefix' => 'vehicle', 'middleware' => 'auth.jwt'], function ($router) {
                 Route::get('/vehicles', [VehicleController::class, 'index']);
             });
-            Route::group(['prefix' => 'leads'], function () {     
+            Route::group(['prefix' => 'leads', 'middleware' => 'auth.jwt'], function () {
                 Route::get('/', [LeadController::class, 'index']);
                 Route::get('/unique-users', [LeadController::class, 'uniqueUsers']);
                 Route::get('/{id}', [LeadController::class, 'show']);
@@ -91,7 +93,7 @@ Route::group(['middleware' => 'api'], function ($router) {
         Route::post('/reset-password', [UserController::class, 'resetPassword']);
 });
 });
-Route::group(['middleware' => 'api'], function ($router) {
+Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
     Route::group(['middleware' => 'non.sale'],function () {
         Route::get('/get-list-user', [AuthController::class, 'getListUser']);
         Route::group(['prefix' => 'auth'], function ($router) {
@@ -124,6 +126,7 @@ Route::group(['middleware' => 'api'], function ($router) {
                 Route::get('/detail-report', [ReportController::class, 'detailReport']);
                 Route::get('/detail-report-new', [ReportController::class, 'detailReportNew']);
                 Route::get('/detail-report-day-by-day', [ReportController::class, 'detailReportDayByDay']);
+                Route::get('/kpi', [KpiReportController::class, 'index'])->middleware('schema.ready:kpi');
             });
             Route::group(['prefix' => 'vehicle'], function ($router) {
                 
@@ -255,7 +258,7 @@ Route::group(['middleware' => 'api'], function ($router) {
             });
             Route::get('/vehicles/{vehicleId}/movement-history', [WarehouseController::class, 'movementHistory']);
 
-            Route::group(['prefix' => 'lease-contracts'], function () {
+            Route::group(['prefix' => 'lease-contracts', 'middleware' => 'schema.ready:lease'], function () {
                 Route::get('/', [LeaseContractController::class, 'index']);
                 Route::get('/stats', [LeaseContractController::class, 'stats']);
                 Route::get('/export', [LeaseContractController::class, 'export']);
@@ -267,7 +270,7 @@ Route::group(['middleware' => 'api'], function ($router) {
                 Route::post('/{id}/notes', [LeaseContractController::class, 'addNote']);
             });
 
-            Route::group(['prefix' => 'daily-cash-registers'], function () {
+            Route::group(['prefix' => 'daily-cash-registers', 'middleware' => 'schema.ready:cash_register'], function () {
                 Route::get('/summary', [DailyCashRegisterController::class, 'summary']);
                 Route::post('/close', [DailyCashRegisterController::class, 'close']);
                 Route::post('/reopen', [DailyCashRegisterController::class, 'reopen']);
@@ -277,9 +280,20 @@ Route::group(['middleware' => 'api'], function ($router) {
             Route::group(['prefix' => 'hr'], function () {
                 Route::get('/staff', [HrController::class, 'staffIndex']);
                 Route::post('/staff', [HrController::class, 'staffStore']);
+                Route::get('/organization-chart', [HrController::class, 'organizationChart']);
+                Route::get('/attendance', [HrController::class, 'attendanceIndex'])->middleware('schema.ready:attendance');
+                Route::post('/attendance', [HrController::class, 'attendanceStore'])->middleware('schema.ready:attendance');
                 Route::get('/duty-schedules', [HrController::class, 'dutySchedules']);
                 Route::post('/duty-schedules', [HrController::class, 'saveDutySchedule']);
                 Route::delete('/duty-schedules/{id}', [HrController::class, 'deleteDutySchedule']);
+            });
+
+            Route::group(['prefix' => 'accounting', 'middleware' => 'schema.ready:accounting'], function () {
+                Route::get('/', [AccountingController::class, 'index']);
+                Route::post('/vat-documents', [AccountingController::class, 'saveVatDocument']);
+                Route::delete('/vat-documents/{id}', [AccountingController::class, 'deleteVatDocument']);
+                Route::post('/assets', [AccountingController::class, 'saveAsset']);
+                Route::delete('/assets/{id}', [AccountingController::class, 'deleteAsset']);
             });
 
             Route::group(['prefix' => 'customer-reminders'], function () {
@@ -299,7 +313,7 @@ Route::group(['middleware' => 'api'], function ($router) {
 });
 
 
-Route::group(['middleware' => 'api'], function () {
+Route::group(['middleware' => ['api', 'auth.jwt']], function () {
     Route::group(['middleware' => 'admin'],function () {
       Route::group(['prefix' => 'auth'], function () {
         Route::group(['prefix' => 'banks'], function () {

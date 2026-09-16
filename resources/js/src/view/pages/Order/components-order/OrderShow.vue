@@ -1,25 +1,21 @@
 <template id="order-show">
     <div>
-        <div class="row mt-2">
-            <div class="col-md-6">
+        <div class="order-show-toolbar" v-if="order">
+            <div>
                 <span :class="order ? ORDER_STATUS_DEFINE_CSS[order.order_status] : ''
                     ">{{
                         order ? ORDER_STATUS_DEFINE[order.order_status] : ""
                     }}</span>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6 d-flex justify-content-between align-items-center">
-                <h4 class="my-5 ml-2 mb-0" v-if="order">
+                <h4 class="order-show-title">
                     Hợp đồng #{{ order.id }}
                     <span v-if="order.contract_number" class="badge badge-success ml-2 font-weight-bolder" style="font-size: 13px;">
                         Số HĐ: {{ order.contract_number }}
                     </span>
                 </h4>
-                <button v-if="order" type="button" class="btn btn-sm btn-info font-weight-bold mr-2" @click="printContract">
-                    In hợp đồng
-                </button>
             </div>
+            <button type="button" class="btn btn-sm btn-info font-weight-bold" @click="printContract">
+                In hợp đồng
+            </button>
         </div>
         <div class="row">
             <div class="col-md-6">
@@ -29,8 +25,8 @@
                             <td>Thuê xe</td>
                             <td>
                                 <p class="font-weight-bold mb-1">
-                                    {{ item.vehicle.name }} ({{
-                                        item.vehicle.license
+                                     {{ item.vehicle ? item.vehicle.name : "" }} ({{
+                                         item.vehicle ? item.vehicle.license : ""
                                     }})
                                 </p>
                             </td>
@@ -115,8 +111,13 @@
                         <tr>
                             <td>Nguồn lead</td>
 
-                            <td> <span v-if="order.leads.length" v-for=" lead in order.leads">{{ lead.user ?
-                                lead.user.name : 'Landing page Himoto' }} </span></td>
+                            <td>
+                                <template v-if="order.leads && order.leads.length">
+                                    <span v-for="lead in order.leads" :key="lead.id">
+                                        {{ lead.user ? lead.user.name : 'Landing page Himoto' }}
+                                    </span>
+                                </template>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -146,7 +147,7 @@
                         <tr v-if="displayCustomer && displayCustomer.relatives && displayCustomer.relatives.length">
                             <td>Người thân</td>
                             <td>
-                                <div v-for="(rel, rk) in displayCustomer.relatives" :key="rk" v-if="rel.name || rel.phone">
+                                <div v-for="(rel, rk) in displayRelatives" :key="rk">
                                     {{ rel.name }} <span v-if="rel.relationship">({{ rel.relationship }})</span>: {{ rel.phone }}
                                 </div>
                             </td>
@@ -175,7 +176,7 @@
                     </tbody>
                 </table>
 
-                <div v-if="order && order.order_items[0].order_item_fees.length > 0">
+                <div v-if="otherFees.length > 0">
                     <h4 class="my-5 ml-2">Chi phí khác</h4>
                     <table class="table table-bordered">
                         <tbody>
@@ -224,7 +225,6 @@ import ActivityHistory from "./ActivityHistory";
 import TransactionHistory from "./TransactionHistory";
 import ModalContractPreview from "./ModalContractPreview";
 import { SHOW_ORDER_CAR_RENTAL, GET_ORDER_DOCUMENT } from "../../../../core/services/store/order.module";
-import moment from "moment";
 
 export default {
     name: "OrderShow",
@@ -237,6 +237,12 @@ export default {
         },
     },
     computed: {
+        displayRelatives() {
+            const relatives = this.displayCustomer && Array.isArray(this.displayCustomer.relatives)
+                ? this.displayCustomer.relatives
+                : [];
+            return relatives.filter(relative => relative && (relative.name || relative.phone));
+        },
         snapshot() {
             return (this.order && this.order.contract_snapshot) ? this.order.contract_snapshot : null;
         },
@@ -372,12 +378,41 @@ export default {
             printDocumentDto: null,
         };
     },
-    async created() {
-        if (this.order?.id) {
-            await this.getOtherFees(this.order.id);
-        }
+    watch: {
+        "order.id": {
+            immediate: true,
+            handler(id) {
+                this.otherFees = [];
+                if (id) this.getOtherFees(id);
+            },
+        },
     },
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.order-show-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 4px 8px 14px;
+    border-bottom: 1px solid #e8ebef;
+}
+
+.order-show-title {
+    margin: 9px 0 0;
+    color: #243043;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.table { margin-bottom: 14px; font-size: 13.5px; }
+.table td, .table th { padding: 8px 10px; vertical-align: top; }
+h4.my-5 { margin-top: 16px !important; margin-bottom: 10px !important; font-size: 16px; }
+
+@media (max-width: 768px) {
+    .order-show-toolbar { align-items: flex-start; }
+    .order-show-title { font-size: 16px; }
+}
+</style>

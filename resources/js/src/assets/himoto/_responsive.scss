@@ -214,9 +214,26 @@
     max-width: 100vw !important;
   }
 
-  .modal-dialog {
-    width: 100% !important;
+  .himoto-modal-dialog {
+    width: calc(100% - 20px) !important;
     margin: 10px;
+  }
+
+  .contract-modal-wide .modal-dialog,
+  .himoto-lead-detail-modal .modal-dialog {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto;
+  }
+
+  .contract-modal-wide .modal-content,
+  .himoto-lead-detail-modal .modal-content {
+    max-height: calc(100vh - 16px);
+  }
+
+  .contract-modal-wide .modal-body,
+  .himoto-lead-detail-modal .modal-body {
+    padding: 12px;
   }
 }
 

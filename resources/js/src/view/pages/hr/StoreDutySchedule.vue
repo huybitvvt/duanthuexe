@@ -14,7 +14,7 @@
                 type="button"
                 class="nav-link btn btn-sm font-weight-bold px-4 py-2 mr-2"
                 :class="{ 'btn-primary active text-white': activeTab === 'schedule', 'btn-light text-dark': activeTab !== 'schedule' }"
-                @click="activeTab = 'schedule'"
+                @click="selectTab('schedule')"
               >
                 Lịch trực cơ sở theo ngày
               </button>
@@ -22,11 +22,31 @@
             <li class="nav-item">
               <button
                 type="button"
-                class="nav-link btn btn-sm font-weight-bold px-4 py-2"
+                class="nav-link btn btn-sm font-weight-bold px-4 py-2 mr-2"
                 :class="{ 'btn-primary active text-white': activeTab === 'staff', 'btn-light text-dark': activeTab !== 'staff' }"
-                @click="activeTab = 'staff'"
+                @click="selectTab('staff')"
               >
                 Danh bạ hồ sơ nhân sự (HCNS)
+              </button>
+            </li>
+            <li class="nav-item">
+              <button
+                type="button"
+                class="nav-link btn btn-sm font-weight-bold px-4 py-2 mr-2"
+                :class="{ 'btn-primary active text-white': activeTab === 'organization', 'btn-light text-dark': activeTab !== 'organization' }"
+                @click="selectTab('organization')"
+              >
+                Sơ đồ tổ chức
+              </button>
+            </li>
+            <li class="nav-item">
+              <button
+                type="button"
+                class="nav-link btn btn-sm font-weight-bold px-4 py-2"
+                :class="{ 'btn-primary active text-white': activeTab === 'attendance', 'btn-light text-dark': activeTab !== 'attendance' }"
+                @click="selectTab('attendance')"
+              >
+                Chấm công
               </button>
             </li>
           </ul>
@@ -219,7 +239,7 @@
               <tbody>
                 <tr v-for="(staff, idx) in staffList" :key="staff.id">
                   <td>{{ idx + 1 }}</td>
-                  <td class="font-weight-bold">{{ staff.employee_code || ('NV' + staff.id) }}</td>
+                  <td class="font-weight-bold">{{ staff.staff_code || ('NV' + staff.id) }}</td>
                   <td class="font-weight-bolder text-dark">{{ staff.full_name }}</td>
                   <td>{{ staff.position || '-' }}</td>
                   <td>{{ staff.store ? staff.store.store_name : (staff.store_id ? 'Cơ sở #' + staff.store_id : 'Văn phòng chính') }}</td>
@@ -260,6 +280,181 @@
                 <tr v-if="!staffList.length">
                   <td colspan="9" class="text-center text-muted py-5">
                     {{ loadingStaff ? 'Đang tải dữ liệu...' : 'Không tìm thấy hồ sơ nhân sự nào.' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ==================== TAB 3: SƠ ĐỒ TỔ CHỨC ==================== -->
+        <div v-show="activeTab === 'organization'">
+          <div class="row align-items-center mb-6 bg-light rounded p-4">
+            <div class="col-md-5 mb-2 mb-md-0">
+              <label class="font-weight-bold text-muted font-size-sm">CƠ SỞ / CHI NHÁNH:</label>
+              <el-select
+                v-model="orgStoreId"
+                placeholder="Toàn hệ thống"
+                class="w-100"
+                clearable
+                filterable
+                @change="fetchOrganizationChart"
+              >
+                <el-option
+                  v-for="s in stores"
+                  :key="s.id"
+                  :label="s.store_name"
+                  :value="s.id"
+                />
+              </el-select>
+            </div>
+            <div class="col-md-7 text-right pt-md-4">
+              <button
+                type="button"
+                class="btn btn-outline-primary font-weight-bold"
+                :disabled="loadingOrganization"
+                @click="fetchOrganizationChart"
+              >
+                {{ loadingOrganization ? 'Đang tải...' : 'Làm mới sơ đồ' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="loadingOrganization" class="text-center text-muted py-8">
+            Đang tải sơ đồ tổ chức...
+          </div>
+          <div v-else-if="!organizationUnits.length" class="text-center text-muted py-8">
+            Chưa có dữ liệu phòng ban hoặc nhân sự đang làm việc.
+          </div>
+          <div v-else class="organization-grid">
+            <section v-for="unit in organizationUnits" :key="unit.code || unit.id" class="organization-unit">
+              <header class="organization-unit-header">
+                <div>
+                  <div class="organization-unit-code">{{ unit.code || 'PHÒNG BAN' }}</div>
+                  <h4>{{ unit.name }}</h4>
+                  <p v-if="unit.description">{{ unit.description }}</p>
+                </div>
+                <span class="organization-count">{{ unit.staff_count }} nhân sự</span>
+              </header>
+
+              <div v-if="unit.manager" class="organization-manager">
+                <span class="organization-avatar" aria-hidden="true">QL</span>
+                <div>
+                  <strong>{{ unit.manager.full_name }}</strong>
+                  <div>{{ unit.manager.position || 'Quản lý phòng ban' }}</div>
+                  <a v-if="unit.manager.phone" :href="'tel:' + unit.manager.phone">{{ unit.manager.phone }}</a>
+                </div>
+              </div>
+
+              <div class="organization-members">
+                <div v-for="member in unit.members" :key="member.id" class="organization-member">
+                  <span class="organization-avatar" aria-hidden="true">{{ initials(member.full_name) }}</span>
+                  <div class="organization-member-info">
+                    <strong>{{ member.full_name }}</strong>
+                    <span>{{ member.position || 'Nhân viên' }}</span>
+                    <small>{{ member.store ? member.store.store_name : 'Chưa gán cơ sở' }}</small>
+                  </div>
+                  <a v-if="member.phone" :href="'tel:' + member.phone" class="organization-phone">
+                    {{ member.phone }}
+                  </a>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ==================== TAB 4: CHẤM CÔNG ==================== -->
+        <div v-show="activeTab === 'attendance'">
+          <div class="row align-items-center mb-6 bg-light rounded p-4">
+            <div class="col-md-3 mb-2 mb-md-0">
+              <label class="font-weight-bold text-muted font-size-sm">NGÀY CHẤM CÔNG:</label>
+              <el-date-picker
+                v-model="attendanceDate"
+                type="date"
+                format="yyyy-MM-dd"
+                value-format="yyyy-MM-dd"
+                class="w-100"
+                @change="fetchAttendance"
+              />
+            </div>
+            <div class="col-md-4 mb-2 mb-md-0">
+              <label class="font-weight-bold text-muted font-size-sm">CƠ SỞ / CHI NHÁNH:</label>
+              <el-select
+                v-model="attendanceStoreId"
+                placeholder="Toàn hệ thống"
+                class="w-100"
+                clearable
+                filterable
+                @change="fetchAttendance"
+              >
+                <el-option v-for="s in stores" :key="s.id" :label="s.store_name" :value="s.id" />
+              </el-select>
+            </div>
+            <div class="col-md-5 text-right pt-md-4">
+              <button
+                type="button"
+                class="btn btn-outline-primary font-weight-bold"
+                :disabled="loadingAttendance"
+                @click="fetchAttendance"
+              >
+                {{ loadingAttendance ? 'Đang tải...' : 'Làm mới bảng công' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="attendanceSchemaMessage" class="alert alert-warning" role="alert">
+            {{ attendanceSchemaMessage }}
+          </div>
+
+          <div
+            v-else
+            v-drag-scroll
+            class="table-responsive attendance-table"
+            role="region"
+            aria-label="Bảng chấm công, có thể kéo ngang bằng chuột"
+          >
+            <table class="table table-bordered table-hover">
+              <thead class="thead-light">
+                <tr>
+                  <th>Nhân sự</th>
+                  <th>Cơ sở</th>
+                  <th>Trạng thái</th>
+                  <th>Giờ vào</th>
+                  <th>Giờ ra</th>
+                  <th>Giờ công</th>
+                  <th>Ghi chú</th>
+                  <th class="text-center">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in attendanceRows" :key="row.staff_id">
+                  <td>
+                    <strong>{{ row.full_name }}</strong>
+                    <small class="d-block text-muted">{{ row.staff_code || ('NV' + row.staff_id) }} · {{ row.position || 'Nhân viên' }}</small>
+                  </td>
+                  <td>{{ row.store ? row.store.store_name : 'Chưa gán cơ sở' }}</td>
+                  <td>
+                    <select v-model="row.attendance_status" class="form-control form-control-sm attendance-control">
+                      <option value="not_recorded" disabled>Chưa ghi nhận</option>
+                      <option value="present">Có mặt</option>
+                      <option value="late">Đi muộn</option>
+                      <option value="absent">Vắng mặt</option>
+                      <option value="leave">Nghỉ phép</option>
+                    </select>
+                  </td>
+                  <td><input v-model="row.clock_in" type="time" class="form-control form-control-sm attendance-control" :disabled="attendanceHasNoHours(row)" /></td>
+                  <td><input v-model="row.clock_out" type="time" class="form-control form-control-sm attendance-control" :disabled="attendanceHasNoHours(row)" /></td>
+                  <td class="font-weight-bold">{{ formatWorkMinutes(row.work_minutes) }}</td>
+                  <td><input v-model="row.notes" type="text" class="form-control form-control-sm attendance-notes" maxlength="500" placeholder="Ghi chú" /></td>
+                  <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-primary font-weight-bold" :disabled="row._saving" @click="saveAttendance(row)">
+                      {{ row._saving ? 'Đang lưu...' : 'Lưu' }}
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="!attendanceRows.length">
+                  <td colspan="8" class="text-center text-muted py-5">
+                    {{ loadingAttendance ? 'Đang tải dữ liệu...' : 'Không có nhân sự phù hợp.' }}
                   </td>
                 </tr>
               </tbody>
@@ -403,7 +598,7 @@
         <div class="form-group mb-3">
           <label class="font-weight-bold">Mã nhân viên</label>
           <el-input
-            v-model="staffForm.employee_code"
+            v-model="staffForm.staff_code"
             placeholder="Ví dụ: NV001"
             class="w-100"
           />
@@ -520,6 +715,14 @@ export default {
       },
 
       staffList: [],
+      organizationUnits: [],
+      orgStoreId: null,
+      loadingOrganization: false,
+      attendanceRows: [],
+      attendanceDate: new Date().toISOString().slice(0, 10),
+      attendanceStoreId: null,
+      attendanceSchemaMessage: "",
+      loadingAttendance: false,
       loadingStaff: false,
       savingStaff: false,
       showStaffModal: false,
@@ -529,7 +732,7 @@ export default {
         store_id: null,
       },
       staffForm: {
-        employee_code: "",
+        staff_code: "",
         full_name: "",
         phone: "",
         email: "",
@@ -545,6 +748,102 @@ export default {
     this.fetchStaffList();
   },
   methods: {
+    selectTab(tab) {
+      this.activeTab = tab;
+      if (tab === "organization" && !this.organizationUnits.length) {
+        this.fetchOrganizationChart();
+      }
+      if (tab === "attendance" && !this.attendanceRows.length) {
+        this.fetchAttendance();
+      }
+    },
+
+    attendanceHasNoHours(row) {
+      return row.attendance_status === "absent" || row.attendance_status === "leave";
+    },
+
+    formatWorkMinutes(minutes) {
+      const value = Number(minutes) || 0;
+      if (!value) return "-";
+      return `${Math.floor(value / 60)} giờ ${value % 60} phút`;
+    },
+
+    async fetchAttendance() {
+      this.loadingAttendance = true;
+      this.attendanceSchemaMessage = "";
+      try {
+        const res = await ApiService.query("/api/auth/hr/attendance", {
+          date: this.attendanceDate,
+          store_id: this.attendanceStoreId || undefined,
+        });
+        const payload = res.data.data || [];
+        this.attendanceRows = (Array.isArray(payload) ? payload : []).map((row) => ({
+          ...row,
+          _saving: false,
+        }));
+      } catch (err) {
+        this.attendanceRows = [];
+        const payload = err.response?.data || {};
+        if (payload.code === "SCHEMA_NOT_READY") {
+          this.attendanceSchemaMessage = "Chức năng chấm công đang khóa an toàn. Cần chạy migration 000008 trên staging trước khi sử dụng.";
+        } else {
+          this.$message.error(payload.message || "Không thể tải bảng chấm công");
+        }
+      } finally {
+        this.loadingAttendance = false;
+      }
+    },
+
+    async saveAttendance(row) {
+      if (row.attendance_status === "not_recorded") {
+        this.$message.warning("Vui lòng chọn trạng thái chấm công");
+        return;
+      }
+
+      row._saving = true;
+      try {
+        await ApiService.post("/api/auth/hr/attendance", {
+          staff_id: row.staff_id,
+          attendance_date: this.attendanceDate,
+          clock_in: this.attendanceHasNoHours(row) ? null : (row.clock_in || null),
+          clock_out: this.attendanceHasNoHours(row) ? null : (row.clock_out || null),
+          status: row.attendance_status,
+          notes: row.notes || null,
+        });
+        this.$message.success(`Đã lưu chấm công cho ${row.full_name}`);
+        await this.fetchAttendance();
+      } catch (err) {
+        this.$message.error(err.response?.data?.message || "Không thể lưu chấm công");
+      } finally {
+        row._saving = false;
+      }
+    },
+
+    initials(name) {
+      return (name || "NV")
+        .trim()
+        .split(/\s+/)
+        .slice(-2)
+        .map((part) => part.charAt(0).toUpperCase())
+        .join("");
+    },
+
+    async fetchOrganizationChart() {
+      this.loadingOrganization = true;
+      try {
+        const res = await ApiService.query("/api/auth/hr/organization-chart", {
+          store_id: this.orgStoreId || undefined,
+        });
+        const payload = res.data.data || [];
+        this.organizationUnits = Array.isArray(payload) ? payload : [];
+      } catch (err) {
+        this.organizationUnits = [];
+        this.$message.error(err.response?.data?.message || "Không thể tải sơ đồ tổ chức");
+      } finally {
+        this.loadingOrganization = false;
+      }
+    },
+
     async fetchStores() {
       try {
         const res = await ApiService.query("/api/auth/stores/all", {});
@@ -563,7 +862,10 @@ export default {
           store_id: this.selectedStoreId || undefined,
         };
         const res = await ApiService.query("/api/auth/hr/duty-schedules", params);
-        this.dutyList = res.data.data || res.data || [];
+        const groups = res.data.data || [];
+        this.dutyList = Array.isArray(groups)
+          ? groups.reduce((items, group) => items.concat(group.schedules || []), [])
+          : [];
       } catch (err) {
         this.$message.error(err.response?.data?.message || "Không thể tải lịch trực cửa hàng");
       } finally {
@@ -653,11 +955,12 @@ export default {
       this.loadingStaff = true;
       try {
         const params = {
-          search: this.staffFilter.search || undefined,
+          keyword: this.staffFilter.search || undefined,
           store_id: this.staffFilter.store_id || undefined,
         };
         const res = await ApiService.query("/api/auth/hr/staff", params);
-        this.staffList = res.data.data || res.data || [];
+        const payload = res.data.data || {};
+        this.staffList = Array.isArray(payload) ? payload : (payload.data || []);
       } catch (err) {
         this.$message.error(err.response?.data?.message || "Không thể tải danh sách nhân sự");
       } finally {
@@ -668,7 +971,7 @@ export default {
     openAddStaffModal() {
       this.editingStaffId = null;
       this.staffForm = {
-        employee_code: "",
+        staff_code: "",
         full_name: "",
         phone: "",
         email: "",
@@ -683,7 +986,7 @@ export default {
       this.editingStaffId = staff.id;
       this.staffForm = {
         id: staff.id,
-        employee_code: staff.employee_code || "",
+        staff_code: staff.staff_code || "",
         full_name: staff.full_name || "",
         phone: staff.phone || "",
         email: staff.email || staff.personal_email || "",
@@ -724,5 +1027,55 @@ export default {
 .badge-info {
   background-color: #3699ff;
   color: #ffffff;
+}
+
+.organization-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+}
+
+.organization-unit {
+  overflow: hidden;
+  border: 1px solid #e2e7ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(28, 39, 60, 0.06);
+}
+
+.organization-unit-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+  border-bottom: 1px solid #edf0f4;
+  background: #f8fafc;
+}
+
+.organization-unit-header h4 { margin: 3px 0; font-size: 18px; }
+.organization-unit-header p { margin: 4px 0 0; color: #667085; }
+.organization-unit-code { color: #9f1118; font-size: 11px; font-weight: 800; letter-spacing: .5px; }
+.organization-count { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #edf6ff; color: #1769aa; font-size: 12px; font-weight: 700; }
+.organization-manager { display: flex; align-items: center; gap: 10px; margin: 14px; padding: 12px; border: 1px solid #f0d1d3; border-radius: 9px; background: #fff7f7; }
+.organization-manager a { color: #087f5b; font-weight: 700; }
+.organization-avatar { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 50%; background: #e8eef7; color: #344054; font-size: 12px; font-weight: 800; }
+.organization-members { padding: 0 14px 14px; }
+.organization-member { display: flex; align-items: center; gap: 10px; min-height: 62px; border-bottom: 1px solid #eef1f5; }
+.organization-member:last-child { border-bottom: 0; }
+.organization-member-info { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.organization-member-info strong,
+.organization-member-info span,
+.organization-member-info small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.organization-member-info span,
+.organization-member-info small { color: #667085; }
+.organization-phone { flex: 0 0 auto; color: #087f5b; font-weight: 700; }
+.attendance-table table { min-width: 1120px; }
+.attendance-control { min-width: 125px; }
+.attendance-notes { min-width: 190px; }
+
+@media (max-width: 576px) {
+  .organization-grid { grid-template-columns: 1fr; }
+  .organization-phone { display: none; }
 }
 </style>

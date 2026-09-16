@@ -6,20 +6,7 @@
  * Usage: SUPABASE_DATABASE_URL="pgsql:..." php scripts/verify_supabase_crud.php
  */
 
-$dbUrl = getenv('SUPABASE_DATABASE_URL');
-$host = getenv('SUPABASE_DB_HOST');
-$port = getenv('SUPABASE_DB_PORT') ?: 5432;
-$dbname = getenv('SUPABASE_DB_DATABASE') ?: 'postgres';
-$user = getenv('SUPABASE_DB_USERNAME');
-$password = getenv('SUPABASE_DB_PASSWORD');
-
-if (!$dbUrl && (!$host || !$user || !$password)) {
-    fwrite(STDERR, "[ERROR] Missing Supabase database credentials.\n");
-    fwrite(STDERR, "Please provide SUPABASE_DATABASE_URL or (SUPABASE_DB_HOST, SUPABASE_DB_USERNAME, SUPABASE_DB_PASSWORD) as environment variables.\n");
-    exit(1);
-}
-
-$dsn = $dbUrl ?: "pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require";
+require_once __DIR__ . '/lib/supabase_pdo.php';
 $testRunId = 'canary_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4));
 
 echo "=== HIMOTO SUPABASE CRUD VERIFICATION ===\n";
@@ -29,10 +16,7 @@ echo "Connecting to Supabase PostgreSQL...\n";
 $pdo = null;
 
 try {
-    $pdo = new PDO($dsn, $user ?: null, $password ?: null, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_TIMEOUT => 15,
-    ]);
+    $pdo = himoto_supabase_pdo();
     echo "[OK] Connected to Supabase PostgreSQL.\n";
 
     // 1. Ensure canary verification table exists

@@ -58,6 +58,13 @@
           </div>
         </div>
 
+        <div v-if="hasUnclassifiedBank" class="alert alert-warning mb-5" role="alert">
+          <strong>Chưa thể chốt két:</strong>
+          còn {{ formatCurrency(summary.unclassified_bank_income) }} thu và
+          {{ formatCurrency(summary.unclassified_bank_expense) }} chi chuyển khoản chưa xác định tài khoản cá nhân/công ty.
+          Hãy phân loại các giao dịch này trước.
+        </div>
+
         <!-- 3 Nhóm nguồn tiền: Tiền mặt, CK Cá nhân, CK Công ty -->
         <div class="row mb-6">
           <!-- Cột 1: Tiền mặt tại két -->
@@ -124,11 +131,15 @@
                 </div>
                 <div class="d-flex justify-content-between mb-2">
                   <span class="text-muted">Phạt & thu khác:</span>
-                  <span class="text-success font-weight-bold">+{{ formatCurrency(summary.penalty_bank_personal) }}</span>
+                  <span class="text-success font-weight-bold">+{{ formatCurrency((summary.penalty_bank_personal || 0) + (summary.other_income_bank_personal || 0)) }}</span>
                 </div>
                 <div class="d-flex justify-content-between mb-2 border-top pt-2">
                   <span class="text-muted">Hoàn cọc CK cá nhân:</span>
                   <span class="text-danger font-weight-bold">-{{ formatCurrency(summary.refund_deposit_bank_personal) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="text-muted">Chi khác CK cá nhân:</span>
+                  <span class="text-danger font-weight-bold">-{{ formatCurrency(summary.other_expense_bank_personal) }}</span>
                 </div>
                 <div class="d-flex justify-content-between border-top pt-3 mt-4 bg-light p-2 rounded">
                   <span class="font-weight-bold text-dark">TỔNG CK CÁ NHÂN:</span>
@@ -159,11 +170,15 @@
                 </div>
                 <div class="d-flex justify-content-between mb-2">
                   <span class="text-muted">Phạt & thu khác:</span>
-                  <span class="text-success font-weight-bold">+{{ formatCurrency(summary.penalty_bank_company) }}</span>
+                  <span class="text-success font-weight-bold">+{{ formatCurrency((summary.penalty_bank_company || 0) + (summary.other_income_bank_company || 0)) }}</span>
                 </div>
                 <div class="d-flex justify-content-between mb-2 border-top pt-2">
                   <span class="text-muted">Hoàn cọc CK công ty:</span>
                   <span class="text-danger font-weight-bold">-{{ formatCurrency(summary.refund_deposit_bank_company) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="text-muted">Chi khác CK công ty:</span>
+                  <span class="text-danger font-weight-bold">-{{ formatCurrency(summary.other_expense_bank_company) }}</span>
                 </div>
                 <div class="d-flex justify-content-between border-top pt-3 mt-4 bg-light p-2 rounded">
                   <span class="font-weight-bold text-dark">TỔNG CK CÔNG TY:</span>
@@ -236,7 +251,7 @@
                   type="button"
                   class="btn btn-success font-weight-bolder w-100 py-3"
                   @click="handleCloseRegister"
-                  :disabled="loadingClose || !selectedStoreId"
+                  :disabled="loadingClose || !selectedStoreId || hasUnclassifiedBank"
                 >
                   {{ loadingClose ? 'Đang chốt...' : 'Xác nhận Chốt két ngày' }}
                 </button>
@@ -323,11 +338,17 @@ export default {
         renewal_bank_personal: 0,
         refund_deposit_bank_personal: 0,
         penalty_bank_personal: 0,
+        other_income_bank_personal: 0,
+        other_expense_bank_personal: 0,
         deposit_bank_company: 0,
         rental_bank_company: 0,
         renewal_bank_company: 0,
         refund_deposit_bank_company: 0,
         penalty_bank_company: 0,
+        other_income_bank_company: 0,
+        other_expense_bank_company: 0,
+        unclassified_bank_income: 0,
+        unclassified_bank_expense: 0,
         system_cash_balance: 0,
         actual_cash_counted: null,
         cash_difference: 0,
@@ -358,6 +379,9 @@ export default {
       if (this.calculatedDifference === 0) return "text-success";
       if (this.calculatedDifference < 0) return "text-danger";
       return "text-warning";
+    },
+    hasUnclassifiedBank() {
+      return Number(this.summary.unclassified_bank_income || 0) > 0 || Number(this.summary.unclassified_bank_expense || 0) > 0;
     },
   },
   created() {
@@ -405,6 +429,10 @@ export default {
     async handleCloseRegister() {
       if (!this.selectedStoreId) {
         this.$message.warning("Vui lòng chọn cơ sở để chốt két.");
+        return;
+      }
+      if (this.hasUnclassifiedBank) {
+        this.$message.error("Còn giao dịch chuyển khoản chưa phân loại cá nhân/công ty.");
         return;
       }
       if (this.calculatedDifference !== 0 && !this.closeForm.difference_reason.trim()) {

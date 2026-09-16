@@ -43,6 +43,12 @@ class ApiRouteContractTest extends TestCase
 
         $responseChangePass = $this->postJson('/api/auth/change-pass');
         $this->assertEquals(401, $responseChangePass->getStatusCode());
+
+        $responseRegister = $this->postJson('/api/auth/register');
+        $this->assertEquals(401, $responseRegister->getStatusCode());
+
+        $responseTimezone = $this->getJson('/api/check-timezone');
+        $this->assertEquals(401, $responseTimezone->getStatusCode());
     }
 
     /**
@@ -76,7 +82,13 @@ class ApiRouteContractTest extends TestCase
             'api/auth/maintenance-schedules',
             'api/auth/banks/all',
             'api/auth/cash/all',
-            'api/auth/dashboard/report'
+            'api/auth/dashboard/report',
+            'api/auth/report/kpi',
+            'api/auth/accounting',
+            'api/auth/hr/organization-chart',
+            'api/auth/hr/attendance',
+            'api/auth/customer-reminders/action-list',
+            'api/auth/gps/overview'
         ];
 
         foreach ($expectedUris as $uri) {
@@ -86,5 +98,54 @@ class ApiRouteContractTest extends TestCase
                 "API route '{$uri}' must be registered in the Laravel Route collection"
             );
         }
+    }
+
+    /**
+     * Every newly added operational area must reject anonymous requests before
+     * its schema or business service is evaluated.
+     */
+    public function testOperationalRoutesRequireAuthentication()
+    {
+        $protectedUris = [
+            '/api/auth/report/kpi',
+            '/api/auth/accounting',
+            '/api/auth/hr/organization-chart',
+            '/api/auth/hr/attendance',
+            '/api/auth/customer-reminders/action-list',
+            '/api/auth/gps/overview',
+        ];
+
+        foreach ($protectedUris as $uri) {
+            $this->getJson($uri)->assertStatus(401);
+        }
+    }
+
+    /**
+     * Resolve the route action explicitly so a missing controller import is
+     * caught during tests instead of during route caching/deployment.
+     */
+    public function testReminderAndGpsRoutesResolveTheirController()
+    {
+        $actions = collect(Route::getRoutes()->getRoutes())
+            ->filter(function ($route) {
+                return in_array($route->uri(), [
+                    'api/auth/customer-reminders/action-list',
+                    'api/auth/gps/overview',
+                ], true);
+            })
+            ->map(function ($route) {
+                return $route->getActionName();
+            })
+            ->values()
+            ->all();
+
+        $this->assertContains(
+            'App\\Http\\Controllers\\CustomerReminderController@actionList',
+            $actions
+        );
+        $this->assertContains(
+            'App\\Http\\Controllers\\CustomerReminderController@gpsOverview',
+            $actions
+        );
     }
 }
