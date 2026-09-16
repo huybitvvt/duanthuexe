@@ -10,6 +10,7 @@
 		dialog-class="modal-preview-dialog"
 		v-model="visible"
 		@hidden="onHidden"
+		@shown="autoFitToViewport"
 	>
 		<template #modal-header="{ close }">
 			<div class="d-flex justify-content-between align-items-center w-100 preview-header">
@@ -144,12 +145,36 @@ export default {
 			// 285mm ~ 1077px tại 96 DPI
 			const docWidthPx = 1080;
 			if (viewportWidth > 300) {
-				const targetScale = Math.min(1.1, Math.max(0.5, viewportWidth / docWidthPx));
+				const targetScale = Math.min(1.1, Math.max(0.2, viewportWidth / docWidthPx));
 				this.zoomLevel = Math.round(targetScale * 100);
 			}
 		},
-		printDocument() {
-			window.print();
+		async printDocument() {
+			const source = this.$refs.viewport.querySelector('.contract-print-wrapper');
+			if (!source) return;
+			const frame = document.createElement('iframe');
+			frame.title = 'In hợp đồng';
+			frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1120px;height:800px;border:0';
+			document.body.appendChild(frame);
+			const printDoc = frame.contentDocument;
+			printDoc.documentElement.style.background = '#fff';
+			printDoc.body.style.background = '#fff';
+			const stylesReady = [];
+			for (const style of document.querySelectorAll('style,link[rel="stylesheet"]')) {
+				const copy = style.cloneNode(true);
+				if (copy.tagName === 'LINK') {
+					copy.href = style.href;
+					stylesReady.push(new Promise(resolve => { copy.onload = resolve; copy.onerror = resolve; }));
+				}
+				printDoc.head.appendChild(copy);
+			}
+			printDoc.body.appendChild(source.cloneNode(true));
+			await Promise.all(stylesReady);
+			if (printDoc.fonts) await printDoc.fonts.ready;
+			await Promise.all(Array.from(printDoc.images).map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; })));
+			frame.contentWindow.addEventListener('afterprint', () => frame.remove(), { once: true });
+			frame.contentWindow.focus();
+			frame.contentWindow.print();
 		},
 		onHidden() {
 			this.$emit("hidden");
@@ -158,7 +183,7 @@ export default {
 };
 </script>
 
-<style scoped>
+<style>
 .modal-preview-dialog {
 	max-width: 95vw !important;
 }
@@ -187,5 +212,16 @@ export default {
 
 .preview-document-scaler {
 	display: inline-block;
+}
+
+@media (max-width: 767px) {
+	.modal-preview-dialog { margin: 8px auto; }
+	.modal-preview-dialog .preview-header { flex-direction: column; align-items: stretch !important; padding: 0; gap: 12px; }
+	.modal-preview-dialog .preview-header > div:first-child { flex-wrap: wrap; gap: 8px; }
+	.modal-preview-dialog .modal-title { flex: 1 0 100%; font-size: 17px; }
+	.modal-preview-dialog .preview-toolbar { flex-wrap: wrap; gap: 8px; }
+	.modal-preview-dialog .preview-toolbar .btn-group { flex: 1 0 100%; margin-right: 0 !important; }
+	.modal-preview-dialog .preview-toolbar .close { margin-left: auto !important; }
+	.modal-preview-dialog .modal-preview-body { max-height: 75vh; }
 }
 </style>

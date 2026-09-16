@@ -112,11 +112,7 @@ class OrderService
 
         $this->maybeGenerateContractSnapshot($order);
         if ($request->get('lock_contract') || $request->get('is_locked')) {
-            $order->refresh();
-            $snapshot = $order->contract_snapshot ?: [];
-            $snapshot['is_locked'] = true;
-            $order->contract_snapshot = $snapshot;
-            $order->save();
+            $order = $this->lockContract($order);
         }
         return $order;
     }
@@ -830,6 +826,10 @@ class OrderService
 					$snapshot['issued_at'] = $order->contract_issued_at ? Carbon::parse($order->contract_issued_at)->format('Y-m-d H:i:s') : Carbon::now('Asia/Ho_Chi_Minh')->format('Y-m-d H:i:s');
 				}
 				$order->contract_snapshot = $snapshot;
+				if (empty($snapshot['document'])) {
+					$snapshot['document'] = ContractDocumentBuilder::buildFromOrder($order);
+					$order->contract_snapshot = $snapshot;
+				}
 				$order->save();
 			}
 			return $order;

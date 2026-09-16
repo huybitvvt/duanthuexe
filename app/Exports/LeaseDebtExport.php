@@ -24,9 +24,14 @@ class LeaseDebtExport implements FromCollection, WithHeadings, WithStrictNullCom
 
     public function collection(): Collection
     {
-        $this->params['limit'] = 10000;
-        $paginated = $this->service->index($this->params, $this->user);
-        $contracts = $paginated->getCollection();
+        $this->params['limit'] = 500;
+        $this->params['page'] = 1;
+        $contracts = collect();
+        do {
+            $paginated = $this->service->index($this->params, $this->user);
+            $contracts = $contracts->concat($paginated->getCollection());
+            $this->params['page']++;
+        } while ($paginated->hasMorePages());
 
         return $contracts->map(function ($c) {
             $bucketLabel = [

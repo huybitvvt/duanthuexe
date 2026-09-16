@@ -76,6 +76,7 @@
             placeholder="0"
             @input="recalculatePeriodAmount"
           />
+          <small class="form-text text-muted">Khoản phải thu ban đầu (kỳ 0). Sau khi lưu, dùng Thu tiền để ghi nhận số thực nhận.</small>
         </div>
         <div class="col-md-4 form-group">
           <label class="font-weight-bold">Số kỳ trả góp (tháng) <span class="text-danger">*</span></label>
@@ -131,6 +132,7 @@
 <script>
 import { LEASE_CREATE_CONTRACT } from "@/core/services/store/lease.module";
 import { VEHICLE_GET_ALL } from "@/core/services/store/vehicle.module";
+import { WAREHOUSE_GET_SUMMARY } from "@/core/services/store/warehouse.module";
 import Swal from "sweetalert2";
 
 export default {
@@ -163,13 +165,19 @@ export default {
       this.recalculatePeriodAmount();
       this.fetchVehicles();
     },
-    fetchVehicles() {
-      this.$store
-        .dispatch(VEHICLE_GET_ALL, { limit: 100 })
-        .then((res) => {
-          this.vehicles = res?.data?.items || res?.data || [];
-        })
-        .catch(() => {});
+    async fetchVehicles() {
+      this.vehicles = [];
+      try {
+        const summary = await this.$store.dispatch(WAREHOUSE_GET_SUMMARY);
+        const store = (summary.data || []).find(s => s.kind === 'lease_to_own');
+        if (!store) return;
+        this.$set(this.form, 'store_id', store.id);
+        const res = await this.$store.dispatch(VEHICLE_GET_ALL, { limit: 100, store_id: store.id, status: 'ready' });
+        const rows = res?.data?.data || res?.data?.items || res?.data || [];
+        this.vehicles = Array.isArray(rows) ? rows.filter(v => v.status === 'ready') : [];
+      } catch (err) {
+        Swal.fire('Lỗi', err?.data?.message || 'Không tải được xe sẵn sàng trong kho thuê sở hữu.', 'error');
+      }
     },
     recalculatePeriodAmount() {
       const total = Number(this.form.total_amount) || 0;
@@ -185,6 +193,10 @@ export default {
       }
       if (!this.form.total_amount || this.form.total_amount <= 0) {
         Swal.fire("Lỗi", "Vui lòng nhập tổng giá trị hợp đồng.", "warning");
+        return;
+      }
+      if (!this.form.vehicle_id) {
+        Swal.fire('Chưa chọn xe', 'Vui lòng chọn xe sẵn sàng tại kho Thuê sở hữu.', 'warning');
         return;
       }
 

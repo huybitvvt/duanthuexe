@@ -475,6 +475,7 @@ class OrderController extends Controller
 	}
 
 	public function preview(Request $request) {
+		\App\Support\PilotAccess::store(auth()->user(), $request->get('store_id'));
 		try {
 			$data = $request->all();
 			$store = null;
@@ -489,6 +490,7 @@ class OrderController extends Controller
 	}
 
 	public function document(Order $order) {
+        \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
 		try {
 			$order->loadMissing(['customer', 'store', 'orderItems.vehicle', 'responsibleUser', 'transactions']);
 			$documentDto = \App\Http\Services\ContractDocumentBuilder::buildFromOrder($order);
@@ -499,6 +501,7 @@ class OrderController extends Controller
 	}
 
 	public function lockContract(Order $order) {
+        \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
 		try {
 			$lockedOrder = $this->orderService->lockContract($order);
 			return $this->successResponse(new OrderResource($lockedOrder), 'Chốt hợp đồng thành công');

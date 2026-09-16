@@ -6,6 +6,7 @@ use App\Http\Services\CustomerReminderService;
 use App\Http\Services\Gps\GpsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Support\PilotAccess;
 
 class CustomerReminderController extends Controller
 {
@@ -26,6 +27,7 @@ class CustomerReminderController extends Controller
      */
     public function actionList(Request $request): JsonResponse
     {
+        PilotAccess::admin(auth()->user());
         $data = $this->reminderService->getStaffActionList($request->all());
         return $this->successResponse($data);
     }
@@ -37,6 +39,7 @@ class CustomerReminderController extends Controller
      */
     public function scan(): JsonResponse
     {
+        PilotAccess::admin(auth()->user());
         $res = $this->reminderService->scanDueAndOverdueItems();
         return $this->successResponse($res, 'Quét hợp đồng đến hạn & quá hạn hoàn tất.');
     }
@@ -49,7 +52,9 @@ class CustomerReminderController extends Controller
      */
     public function dispatchOutbox(Request $request): JsonResponse
     {
-        $dryRun = $request->get('dry_run', true);
+        PilotAccess::admin(auth()->user());
+        $request->validate(['dry_run' => 'nullable|boolean']);
+        $dryRun = filter_var($request->get('dry_run', true), FILTER_VALIDATE_BOOLEAN);
         $res = $this->reminderService->processOutbox(50, (bool)$dryRun);
         return $this->successResponse($res, 'Xử lý hàng đợi nhắc khách thành công.');
     }
@@ -61,6 +66,7 @@ class CustomerReminderController extends Controller
      */
     public function gpsOverview(): JsonResponse
     {
+        PilotAccess::admin(auth()->user());
         $res = $this->gpsService->getFleetOverview();
         return $this->successResponse($res);
     }

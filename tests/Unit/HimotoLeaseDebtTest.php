@@ -31,7 +31,16 @@ class HimotoLeaseDebtTest extends TestCase
         parent::setUp();
         $this->createTestTables();
 
+        Schema::create('banks', function ($t) {
+            $t->increments('id'); $t->integer('store_id'); $t->string('owner_type'); $t->timestamps();
+        });
+        Schema::create('lease_payment_requests', function ($t) {
+            $t->increments('id'); $t->integer('lease_contract_id'); $t->string('request_key');
+            $t->string('fingerprint'); $t->text('result'); $t->timestamps();
+            $t->unique(['lease_contract_id', 'request_key']);
+        });
         $this->leaseService = app(LeaseContractService::class);
+        Schema::create('cash', function ($t) { $t->increments('id'); $t->integer('store_id'); $t->string('status'); });
 
         $this->store = Store::create([
             'store_name' => 'Kho Thuê sở hữu',
@@ -48,6 +57,7 @@ class HimotoLeaseDebtTest extends TestCase
             'store_id' => $this->store->id,
             'status' => 'active',
         ]);
+        \Illuminate\Support\Facades\DB::table('cash')->insert(['store_id' => $this->store->id, 'status' => 'Active']);
 
         $this->customer = Customer::create([
             'name' => 'Nguyễn Văn Nam',
@@ -64,6 +74,74 @@ class HimotoLeaseDebtTest extends TestCase
             'store_id' => $this->store->id,
             'status' => Vehicle::STATUS_READY,
         ]);
+    }
+
+    public function test_payment_retry_has_one_receipt_and_rejects_changed_payload()
+    {
+        $contract = $this->leaseService->createContract([
+            'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
+            'store_id' => $this->store->id, 'start_date' => '2026-01-31',
+            'total_amount' => 3000000, 'deposit_amount' => 1000000, 'installment_count' => 2,
+        ], $this->user);
+        $this->assertEquals(3000000, $contract->installments->sum('amount_due'));
+        $this->assertEquals('2026-02-28', $contract->installments[1]->due_date->format('Y-m-d'));
+        $this->assertEquals(0, Transaction::count());
+        $data = ['amount' => 1000000, 'payment_method' => 1, 'payment_date' => '2026-02-01', 'idempotency_key' => 'retry-1'];
+        $first = $this->leaseService->allocatePayment($contract->id, $data, $this->user);
+        $this->assertEquals($first, $this->leaseService->allocatePayment($contract->id, $data, $this->user));
+        $this->assertEquals(1, Transaction::count());
+        $this->assertNotNull(Transaction::first()->cash_id);
+        $this->assertEquals(1000000, $contract->allocations()->sum('amount'));
+        $this->assertEquals('2026-02-01', Transaction::first()->created_at->format('Y-m-d'));
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $data['amount'] = 2000000;
+        $this->leaseService->allocatePayment($contract->id, $data, $this->user);
+    }
+
+    public function test_branch_cannot_read_or_collect_another_branches_debt()
+    {
+        $contract = $this->leaseService->createContract([
+            'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
+            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 2,
+        ], $this->user);
+        $this->user->role_id = 3;
+        $this->user->store_id = $this->store->id + 100;
+        $this->assertEquals(0, $this->leaseService->index([], $this->user)->total());
+        $this->assertEquals(0, $this->leaseService->getStats([], $this->user)['total_contracts']);
+        $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
+        $this->leaseService->allocatePayment($contract->id, ['amount' => 1000], $this->user);
+    }
+
+    public function test_overpayment_rolls_back_without_receipt()
+    {
+        $contract = $this->leaseService->createContract([
+            'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
+            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 2,
+        ], $this->user);
+        try {
+            $this->leaseService->allocatePayment($contract->id, ['amount' => 4000000], $this->user);
+            $this->fail('Overpayment must be rejected');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertEquals(0, Transaction::count());
+            $this->assertEquals(0, $contract->allocations()->count());
+        }
+    }
+
+    public function test_aging_filter_is_applied_before_pagination()
+    {
+        $old = $this->leaseService->createContract([
+            'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
+            'store_id' => $this->store->id, 'start_date' => Carbon::today()->subMonths(3)->format('Y-m-d'),
+            'total_amount' => 3000000, 'installment_count' => 2,
+        ], $this->user);
+        $anotherVehicle = Vehicle::create(['name' => 'Test', 'license' => 'TEST-2', 'status' => 'ready', 'store_id' => $this->store->id]);
+        $this->leaseService->createContract([
+            'customer_id' => $this->customer->id, 'vehicle_id' => $anotherVehicle->id,
+            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 2,
+        ], $this->user);
+        $page = $this->leaseService->index(['aging_bucket' => 'overdue_30_plus', 'per_page' => 1], $this->user);
+        $this->assertEquals(1, $page->total());
+        $this->assertEquals($old->id, $page->first()->id);
     }
 
     protected function createTestTables()
@@ -141,6 +219,7 @@ class HimotoLeaseDebtTest extends TestCase
             $table->string('name')->nullable();
             $table->integer('payment_method')->default(1);
             $table->integer('bank_id')->nullable();
+            $table->integer('cash_id')->nullable();
             $table->string('bank_owner_type')->nullable();
             $table->integer('store_id')->nullable();
             $table->integer('user_id')->nullable();
@@ -288,6 +367,7 @@ class HimotoLeaseDebtTest extends TestCase
         $this->leaseService->allocatePayment($contract->id, [
             'amount' => 3000000,
             'payment_method' => 2,
+            'bank_id' => \App\Models\Bank::create(['store_id' => $this->store->id, 'owner_type' => 'company'])->id,
             'notes' => 'Thanh toán tiếp kỳ 1 và kỳ 2',
         ], $this->user);
 

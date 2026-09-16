@@ -20,6 +20,9 @@ class ContractNumberService
         if ($order && !empty($order->contract_number)) {
             return $order->contract_number;
         }
+        if ($order && !empty($order->contract_snapshot['contract_number'])) {
+            return $order->contract_snapshot['contract_number'];
+        }
 
         return self::generate($date);
     }

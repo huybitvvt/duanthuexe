@@ -92,10 +92,10 @@ class ContractDocumentBuilder
                     'vehicle_id' => $vehicleId,
                     'name' => $vehicleName,
                     'license' => $license,
-                    'brand' => self::extractBrand($vehicleName),
+                    'brand' => $vehicle ? ($vehicle->brand ?: '') : ($item['brand'] ?? ''),
                     'type_text' => self::mapVehicleType($vehicleType),
-                    'color' => $color ?: 'Tiêu chuẩn',
-                    'year' => $year ?: (date('Y') - 1),
+                    'color' => $color ?: '',
+                    'year' => $year ?: '',
                     'driver_name' => $driverName,
                     'driver_license_number' => $driverLicense,
                     'driver_license_issued_on' => $driverLicenseIssuedOn,
@@ -110,7 +110,7 @@ class ContractDocumentBuilder
         // Responsible user
         $respUserName = $data['contract_responsible_user_name'] ?? '';
         if (empty($respUserName) && !empty($data['contract_responsible_user_id'])) {
-            $user = \App\User::find($data['contract_responsible_user_id']);
+            $user = \App\Models\User::find($data['contract_responsible_user_id']);
             if ($user) {
                 $respUserName = $user->name;
             }
@@ -149,8 +149,8 @@ class ContractDocumentBuilder
                 'representative_title' => config('contract.representative_title', 'Giám đốc'),
                 'head_office' => config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN'),
                 'branch_name' => $store ? $store->store_name : 'Himoto Chi nhánh',
-                'branch_address' => $store ? $store->address : '',
-                'branch_phone' => $store ? $store->phone : '',
+                'branch_address' => $store ? $store->store_address : '',
+                'branch_phone' => $store ? $store->store_phone : '',
                 'authorization' => [
                     'has_authorization' => !empty($authParty) || !empty($authDate),
                     'date' => $authDate,
@@ -189,14 +189,14 @@ class ContractDocumentBuilder
                 'package_name' => $data['package_name'] ?? 'Theo ngày',
                 'total_rent_fee' => $rentalFee,
                 'total_rent_fee_formatted' => number_format($rentalFee, 0, ',', '.') . ' đ',
-                'paid_amount' => (float) ($data['paid_amount'] ?? $rentalFee),
-                'paid_amount_formatted' => number_format((float) ($data['paid_amount'] ?? $rentalFee), 0, ',', '.') . ' đ',
+                'paid_amount' => (float) ($data['paid_amount'] ?? 0),
+                'paid_amount_formatted' => number_format((float) ($data['paid_amount'] ?? 0), 0, ',', '.') . ' đ',
                 'payment_method_text' => $paymentMethodText,
             ],
             'deposit' => [
                 'deposit_amount' => $depositAmount,
                 'deposit_amount_formatted' => number_format($depositAmount, 0, ',', '.') . ' đ',
-                'collateral_description' => $data['contract_collateral_description'] ?? 'Giữ giấy tờ tùy thân theo quy định',
+                'collateral_description' => $data['contract_collateral_description'] ?? '',
                 'payment_method_text' => self::getPaymentMethodLabel((int) ($data['deposit_payment_method'] ?? 1)),
             ],
             'equipment' => [
@@ -238,14 +238,18 @@ class ContractDocumentBuilder
         $snapshot = is_array($order->contract_snapshot) ? $order->contract_snapshot : [];
         $isLocked = !empty($snapshot['is_locked']);
 
-        $store = $order->store;
-        $customer = $order->customer;
+        // Signed documents never fall back to mutable customer/store records.
+        $store = $isLocked ? null : $order->store;
+        $customer = $isLocked ? null : $order->customer;
 
         $signedDate = !empty($order->contract_signed_on)
             ? self::parseCarbon($order->contract_signed_on)
             : ($order->created_at ? self::parseCarbon($order->created_at) : Carbon::now('Asia/Ho_Chi_Minh'));
 
         $contractNumber = $order->contract_number ?: ($snapshot['contract_number'] ?? 'Chưa cấp số');
+        if (!empty($snapshot['signed_on'])) {
+            $signedDate = self::parseCarbon($snapshot['signed_on']);
+        }
 
         // Customer
         $customerName = $snapshot['customer']['name'] ?? ($customer ? $customer->name : '');
@@ -286,11 +290,11 @@ class ContractDocumentBuilder
 
                 $vehiclesList[] = [
                     'vehicle_id' => $v['vehicle_id'] ?? null,
-                    'name' => $v['name'] ?? '',
+                    'name' => $v['vehicle_name'] ?? ($v['name'] ?? ''),
                     'license' => $v['license'] ?? '',
-                    'brand' => self::extractBrand($v['name'] ?? ''),
+                    'brand' => $v['brand'] ?? '',
                     'type_text' => self::mapVehicleType($v['type'] ?? ''),
-                    'color' => $v['color'] ?? 'Tiêu chuẩn',
+                    'color' => $v['color'] ?? '',
                     'year' => $v['year'] ?? '',
                     'driver_name' => $v['driver_name'] ?? $customerName,
                     'driver_license_number' => $v['driver_license_number'] ?? '',
@@ -301,7 +305,7 @@ class ContractDocumentBuilder
                     'return_at' => $rtAt ? $rtAt->format('d/m/Y H:i') : '',
                 ];
             }
-        } else {
+        } elseif (!$isLocked) {
             // Read from relationship orderItems
             $order->loadMissing(['orderItems.vehicle']);
             foreach ($order->orderItems as $item) {
@@ -320,9 +324,9 @@ class ContractDocumentBuilder
                     'vehicle_id' => $v ? $v->id : null,
                     'name' => $v ? $v->name : '',
                     'license' => $v ? $v->license : '',
-                    'brand' => self::extractBrand($v ? $v->name : ''),
+                    'brand' => $v ? ($v->brand ?: '') : '',
                     'type_text' => self::mapVehicleType($v ? $v->type : ''),
-                    'color' => $v ? $v->color : 'Tiêu chuẩn',
+                    'color' => $v ? $v->color : '',
                     'year' => $v ? $v->year : '',
                     'driver_name' => $item->driver_name ?: $customerName,
                     'driver_license_number' => $item->driver_license_number ?: '',
@@ -337,7 +341,12 @@ class ContractDocumentBuilder
 
         $depositAmount = (float) ($snapshot['payment']['deposit_amount'] ?? ($order->first_deposit_amount ?? 0));
         $rentalFee = (float) ($snapshot['payment']['rental_fees'] ?? ($order->total ?? 0));
-        $paidAmount = (float) ($snapshot['payment']['paid_amount'] ?? ($order->pid ?? $rentalFee));
+        $receipts = collect($snapshot['payment']['transactions_summary'] ?? []);
+        $paidAmount = (float) ($snapshot['payment']['paid_amount'] ?? $receipts->where('type', 'in')->where('name', 'order:rental_fees')->sum('value'));
+        $rentalReceipts = $receipts->where('type', 'in')->where('name', 'order:rental_fees');
+        $rentalMethods = $rentalReceipts->pluck('payment_method')->map(function ($v) { return (int)$v; })->unique();
+        $rentalMethod = $rentalMethods->count() > 1 || $rentalMethods->contains(3) ? 3 : ($rentalMethods->first() ?: 1);
+        $unitPrice = count($vehiclesList) === 1 ? data_get($snapshot, 'vehicles.0.unit_price') : null;
 
         $respUserName = $snapshot['responsible_user']['name'] ?? ($order->responsibleUser ? $order->responsibleUser->name : '');
 
@@ -355,13 +364,14 @@ class ContractDocumentBuilder
             : ($order->completed_at ? self::parseCarbon($order->completed_at) : null);
 
         $isReturned = in_array($order->order_status, ['completed', 'unpaid']) || !empty($completedAt);
+        $refundPaid = $isReturned ? (float) $order->transactions()->where('type', 'out')->where('name', 'order:complete:' . $order->id)->sum('value') : 0;
 
         $dto = [
-            'is_preview' => empty($order->contract_number),
+            'is_preview' => $contractNumber === 'Chưa cấp số',
             'is_locked' => $isLocked,
             'order_id' => $order->id,
             'contract_number' => $contractNumber,
-            'contract_number_label' => $order->contract_number ?: 'BẢN XEM TRƯỚC - CHƯA CẤP SỐ',
+            'contract_number_label' => $contractNumber === 'Chưa cấp số' ? 'BẢN XEM TRƯỚC - CHƯA CẤP SỐ' : $contractNumber,
             'issued_at' => $order->contract_issued_at ? Carbon::parse($order->contract_issued_at)->format('d/m/Y H:i') : null,
             'signed_date' => [
                 'day' => $signedDate ? $signedDate->format('d') : '.....',
@@ -378,10 +388,10 @@ class ContractDocumentBuilder
                 'tax_code' => $snapshot['lessor']['tax_code'] ?? config('contract.tax_code', '0110863055'),
                 'representative_name' => $snapshot['lessor']['representative_name'] ?? config('contract.representative_name', 'Bà: Nguyễn Thu Thủy'),
                 'representative_title' => $snapshot['lessor']['representative_title'] ?? config('contract.representative_title', 'Giám đốc'),
-                'head_office' => $snapshot['lessor']['head_office'] ?? config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN'),
+                'head_office' => $snapshot['lessor']['head_office_address'] ?? ($snapshot['lessor']['head_office'] ?? config('contract.head_office')),
                 'branch_name' => $snapshot['lessor']['branch_name'] ?? ($store ? $store->store_name : 'Himoto Chi nhánh'),
-                'branch_address' => $snapshot['lessor']['branch_address'] ?? ($store ? $store->address : ''),
-                'branch_phone' => $snapshot['lessor']['branch_phone'] ?? ($store ? $store->phone : ''),
+                'branch_address' => $snapshot['lessor']['branch_address'] ?? ($store ? $store->store_address : ''),
+                'branch_phone' => $snapshot['lessor']['contact_phone'] ?? ($snapshot['lessor']['branch_phone'] ?? ($store ? $store->store_phone : '')),
                 'authorization' => [
                     'has_authorization' => !empty($authParty) || !empty($authDate),
                     'date' => $authDate,
@@ -415,19 +425,19 @@ class ContractDocumentBuilder
             ],
             'rent_time' => self::buildRentTimeStructure($firstRentAt, $firstReturnAt),
             'pricing' => [
-                'unit_price' => $snapshot['payment']['unit_price'] ?? null,
-                'unit_price_text' => !empty($snapshot['payment']['unit_price']) ? number_format($snapshot['payment']['unit_price'], 0, ',', '.') . ' đ/ngày' : 'Theo bảng giá',
+                'unit_price' => $unitPrice,
+                'unit_price_text' => $unitPrice !== null ? number_format($unitPrice, 0, ',', '.') . ' đ/' . (data_get($snapshot, 'vehicles.0.pricing_unit') ?: 'ngày') : 'Theo chi tiết từng xe',
                 'package_name' => 'Theo ngày',
                 'total_rent_fee' => $rentalFee,
                 'total_rent_fee_formatted' => number_format($rentalFee, 0, ',', '.') . ' đ',
                 'paid_amount' => $paidAmount,
                 'paid_amount_formatted' => number_format($paidAmount, 0, ',', '.') . ' đ',
-                'payment_method_text' => self::getPaymentMethodLabel((int) ($snapshot['payment']['rental_payment_method'] ?? 1)),
+                'payment_method_text' => self::getPaymentMethodLabel((int) ($snapshot['payment']['rental_payment_method'] ?? $rentalMethod)),
             ],
             'deposit' => [
                 'deposit_amount' => $depositAmount,
                 'deposit_amount_formatted' => number_format($depositAmount, 0, ',', '.') . ' đ',
-                'collateral_description' => $snapshot['payment']['collateral_description'] ?? ($order->contract_collateral_description ?: 'Giữ giấy tờ tùy thân theo quy định'),
+                'collateral_description' => $snapshot['payment']['collateral_description'] ?? ($isLocked ? '' : ($order->contract_collateral_description ?: '')),
                 'payment_method_text' => self::getPaymentMethodLabel((int) ($snapshot['payment']['deposit_payment_method'] ?? 1)),
             ],
             'equipment' => [
@@ -449,12 +459,15 @@ class ContractDocumentBuilder
                 'actual_return_time_formatted' => $completedAt ? $completedAt->format('d/m/Y H:i') : '',
                 'signer_a_name' => $retSignerA,
                 'signer_b_name' => $retSignerB,
-                'refund_amount' => (float) ($order->default_refund_amount ?? 0),
-                'refund_amount_formatted' => number_format((float) ($order->default_refund_amount ?? 0), 0, ',', '.') . ' đ',
+                'refund_amount' => $refundPaid,
+                'refund_amount_formatted' => number_format($refundPaid, 0, ',', '.') . ' đ',
                 'additional_note' => $retNote,
             ],
         ];
 
+        if ($isLocked && !empty($snapshot['document'])) {
+            return array_replace($snapshot['document'], ['return_confirmation' => $dto['return_confirmation']]);
+        }
         return $dto;
     }
 
@@ -489,10 +502,13 @@ class ContractDocumentBuilder
     public static function mapVehicleType(?string $type): string
     {
         switch ($type) {
+            case 'xeso':
             case 'xe_so':
                 return 'Xe số';
+            case 'xega':
             case 'xe_ga':
                 return 'Xe tay ga';
+            case 'xecon':
             case 'xe_con':
                 return 'Xe côn tay';
             case 'xe_dien':
@@ -577,6 +593,10 @@ class ContractDocumentBuilder
             return $val;
         }
         try {
+            if (is_string($val) && preg_match('~^\d{2}/\d{2}/\d{4}(?: |$)~', $val)) {
+                $format = strlen($val) === 10 ? '!d/m/Y' : (strlen($val) === 16 ? '!d/m/Y H:i' : '!d/m/Y H:i:s');
+                return Carbon::createFromFormat($format, $val, 'Asia/Ho_Chi_Minh');
+            }
             return Carbon::parse($val);
         } catch (\Exception $e) {
             return null;

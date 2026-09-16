@@ -71,6 +71,7 @@ class WarehouseController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
+            if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) { return $this->errorResponse($e->getMessage(), 403); }
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -98,6 +99,7 @@ class WarehouseController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
+            if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) { return $this->errorResponse($e->getMessage(), 403); }
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -124,6 +126,7 @@ class WarehouseController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
+            if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) { return $this->errorResponse($e->getMessage(), 403); }
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -157,6 +160,7 @@ class WarehouseController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
+            if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) { return $this->errorResponse($e->getMessage(), 403); }
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -195,6 +199,7 @@ class WarehouseController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
+            if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) { return $this->errorResponse($e->getMessage(), 403); }
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -205,9 +210,11 @@ class WarehouseController extends Controller
     public function movementHistory(int $vehicleId): JsonResponse
     {
         try {
+            \App\Support\PilotAccess::admin(Auth::user());
             $history = $this->transferService->getVehicleMovementHistory($vehicleId);
             return $this->successResponse($history);
         } catch (\Exception $e) {
+            if ($e instanceof \Illuminate\Auth\Access\AuthorizationException) { return $this->errorResponse($e->getMessage(), 403); }
             return $this->errorResponse($e->getMessage(), 404);
         }
     }

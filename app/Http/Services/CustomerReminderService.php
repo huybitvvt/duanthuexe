@@ -224,26 +224,12 @@ class CustomerReminderService
                 }
             }
 
-            // Sandbox / Dry-run safe dispatch
-            if ($dryRun) {
-                $item->update([
-                    'status' => 'sent',
-                    'sent_at' => $now,
-                    'provider_response' => json_encode([
-                        'mode' => 'sandbox_dry_run',
-                        'note' => 'Dispatched to staff task queue without real SMS cost/spam.',
-                    ]),
-                ]);
-                $sent++;
-            } else {
-                // Live delivery would call real SMS/Zalo provider here when credentials are provided
-                $item->update([
-                    'status' => 'sent',
-                    'sent_at' => $now,
-                    'provider_response' => json_encode(['status' => 'success']),
-                ]);
-                $sent++;
+            // Simulation must never consume a pending notification or claim delivery.
+            if (!$dryRun) {
+                $item->update(['error_message' => 'No live delivery provider configured.']);
+                $failed++;
             }
+
         }
 
         return [

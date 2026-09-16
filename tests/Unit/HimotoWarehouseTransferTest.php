@@ -235,6 +235,35 @@ class HimotoWarehouseTransferTest extends TestCase
     /**
      * Test W01: Role permission scoping on store vehicle details vs summary.
      */
+    public function test_return_does_not_release_vehicle_from_active_rental()
+    {
+        $vehicle = Vehicle::create(['name' => 'Test', 'license' => 'TEST', 'store_id' => $this->storeA->id, 'status' => Vehicle::STATUS_USING]);
+        $order = Order::create(['store_id' => $this->storeA->id, 'order_status' => 'renting']);
+        OrderVehicleDetail::create(['order_id' => $order->id, 'vehicle_id' => $vehicle->id]);
+        try {
+            $this->transferService->processReturnDifferentStore($order->id, $this->storeB->id, [], $this->staffUserB);
+            $this->fail('Active rental must be completed before relocation');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertEquals(Vehicle::STATUS_USING, $vehicle->fresh()->status);
+            $this->assertEquals(0, VehicleLocationEvent::count());
+        }
+    }
+
+    public function test_exchange_rejects_vehicle_not_belonging_to_order()
+    {
+        $old = Vehicle::create(['name' => 'Other rented vehicle', 'license' => 'OTHER', 'store_id' => $this->storeA->id, 'status' => Vehicle::STATUS_USING]);
+        $new = Vehicle::create(['name' => 'Replacement', 'license' => 'NEW', 'store_id' => $this->storeA->id, 'status' => Vehicle::STATUS_READY]);
+        $order = Order::create(['store_id' => $this->storeA->id, 'order_status' => 'renting']);
+        try {
+            $this->transferService->processVehicleExchange($order->id, $old->id, $new->id, [], $this->staffUserA);
+            $this->fail('Unrelated vehicle must not be exchanged');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertEquals(Vehicle::STATUS_USING, $old->fresh()->status);
+            $this->assertEquals(Vehicle::STATUS_READY, $new->fresh()->status);
+            $this->assertEquals(0, ContractAmendment::count());
+        }
+    }
+
     public function test_w01_permissions_scoping_between_admin_and_staff()
     {
         // 1. Staff A can see summary cards of all stores
@@ -242,13 +271,9 @@ class HimotoWarehouseTransferTest extends TestCase
         $this->assertIsArray($summary);
         $this->assertGreaterThanOrEqual(2, count($summary));
 
-        // 2. Staff A can access vehicles of Store A
-        $storeAVehicles = $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->staffUserA);
-        $this->assertEquals($this->storeA->id, $storeAVehicles['store']['id']);
-
-        // 3. Staff A is forbidden from viewing detailed vehicles of Store B
+        $this->assertFalse($summary[0]['can_view_details']);
         $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
-        $this->warehouseService->getStoreVehicles($this->storeB->id, [], $this->staffUserA);
+        $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->staffUserA);
     }
 
     /**
@@ -358,7 +383,7 @@ class HimotoWarehouseTransferTest extends TestCase
 
         $order = Order::create([
             'order_type' => 'car_rental',
-            'order_status' => 'using',
+            'order_status' => 'completed',
             'store_id' => $this->storeA->id, // Revenue belongs to Store A
             'contract_number' => '2026/09/15-0001',
             'total_amount' => 500000,
@@ -372,6 +397,7 @@ class HimotoWarehouseTransferTest extends TestCase
         ]);
 
         // Customer returns at Store B instead of Store A
+        $vehicle->update(['status' => Vehicle::STATUS_READY]); // Original return workflow released this vehicle.
         $result = $this->transferService->processReturnDifferentStore($order->id, $this->storeB->id, [
             'odometer' => 5120,
             'condition_notes' => 'Khách trả tại Đống Đa theo thỏa thuận',
@@ -432,7 +458,7 @@ class HimotoWarehouseTransferTest extends TestCase
 
         $order = Order::create([
             'order_type' => 'car_rental',
-            'order_status' => 'using',
+            'order_status' => 'renting',
             'store_id' => $this->storeA->id,
             'contract_number' => '2026/09/15-0002',
             'total_amount' => 600000,

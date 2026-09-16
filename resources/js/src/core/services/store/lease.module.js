@@ -8,6 +8,19 @@ export const LEASE_ALLOCATE_PAYMENT = "lease_allocate_payment";
 export const LEASE_ADD_NOTE = "lease_add_note";
 export const LEASE_EXPORT = "lease_export";
 
+const normalizeContract = c => {
+    if (!c) return c;
+    c.remaining_debt = c.outstanding_balance;
+    c.latest_debt_note = c.latest_note ? { ...c.latest_note, notes: c.latest_note.content, promised_date: c.latest_note.appointment_date } : null;
+    (c.installments || []).forEach(i => {
+        i.expected_amount = i.amount_due;
+        i.paid_amount = i.amount_paid;
+        i.remaining_amount = Math.max(0, Number(i.amount_due) - Number(i.amount_paid));
+    });
+    (c.debt_notes || []).forEach(n => { n.notes = n.note_content; n.promised_date = n.appointment_date; });
+    return c;
+};
+
 const state = {
     contractList: [],
     stats: null,
@@ -32,6 +45,7 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/lease-contracts", params || {})
                 .then(({ data }) => {
+                    (data?.data?.data || []).forEach(normalizeContract);
                     context.commit("SET_LEASE_CONTRACTS", data?.data?.data || data?.data || []);
                     resolve(data);
                 })
@@ -45,6 +59,12 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.query("/api/auth/lease-contracts/stats", params || {})
                 .then(({ data }) => {
+                    const s = data.data;
+                    if (s) {
+                        s.total_remaining_debt = s.total_outstanding;
+                        s.aging_buckets = s.buckets?.counts || {};
+                        s.overdue_contracts = Object.entries(s.aging_buckets).filter(([k]) => k !== 'current').reduce((n, [, v]) => n + Number(v), 0);
+                    }
                     context.commit("SET_LEASE_STATS", data?.data || null);
                     resolve(data);
                 })
@@ -58,6 +78,7 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.get(`/api/auth/lease-contracts/${id}`)
                 .then(({ data }) => {
+                    data.data = normalizeContract(data.data);
                     resolve(data);
                 })
                 .catch((err) => {
@@ -104,10 +125,7 @@ const actions = {
 
     [LEASE_EXPORT](context, params) {
         return new Promise((resolve, reject) => {
-            ApiService.get("/api/auth/lease-contracts/export", {
-                params: params || {},
-                responseType: "blob",
-            })
+            ApiService.download("/api/auth/lease-contracts/export", params || {})
                 .then((response) => {
                     const blob = new Blob([response.data], {
                         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -116,6 +134,7 @@ const actions = {
                     link.href = window.URL.createObjectURL(blob);
                     link.download = `cong-no-thue-so-huu-${Date.now()}.xlsx`;
                     link.click();
+                    setTimeout(() => window.URL.revokeObjectURL(link.href), 1000);
                     resolve(response);
                 })
                 .catch((err) => {

@@ -54,6 +54,15 @@
                 class="w-100"
               />
             </div>
+            <div class="col-12 form-group">
+              <label class="font-weight-bold">Phân loại công nợ</label>
+              <el-select v-model="form.debt_classification" class="w-100">
+                <el-option label="Bình thường" value="normal" />
+                <el-option label="Cần nhắc" value="reminder" />
+                <el-option label="Cảnh báo" value="warning" />
+                <el-option label="Nợ xấu" value="bad_debt" />
+              </el-select>
+            </div>
             <div class="col-12 form-group mb-0">
               <label class="font-weight-bold">Nội dung trao đổi / Kết quả nhắc nợ <span class="text-danger">*</span></label>
               <el-input
@@ -103,7 +112,7 @@
               </div>
               <div class="timeline-content flex-grow-1">
                 <div class="d-flex justify-content-between align-items-center">
-                  <span class="font-weight-bold text-dark">{{ getStatusLabel(item.call_status) }}</span>
+                  <span class="font-weight-bold text-dark">{{ item.debt_classification }}</span>
                   <span class="text-muted font-size-xs">{{ item.created_at | formatDateTime }}</span>
                 </div>
                 <div v-if="item.promised_date" class="text-primary font-size-xs my-1 font-weight-bold">
@@ -141,6 +150,7 @@ export default {
       contract: null,
       form: {
         call_status: "connected",
+        debt_classification: "normal",
         promised_date: null,
         notes: "",
       },
@@ -173,8 +183,9 @@ export default {
           contractId: this.contract.id,
           payload: {
             call_status: this.form.call_status,
-            promised_date: this.form.promised_date,
-            notes: this.form.notes,
+            appointment_date: this.form.promised_date,
+            debt_classification: this.form.debt_classification,
+            note_content: '[' + this.getStatusLabel(this.form.call_status) + '] ' + this.form.notes,
           },
         })
         .then((res) => {
@@ -229,6 +240,7 @@ export default {
       this.contract = null;
       this.form = {
         call_status: "connected",
+        debt_classification: "normal",
         promised_date: null,
         notes: "",
       };

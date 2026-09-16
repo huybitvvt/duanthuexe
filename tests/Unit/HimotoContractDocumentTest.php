@@ -255,6 +255,64 @@ class HimotoContractDocumentTest extends TestCase
     /**
      * P01: Bank owner_type and Transaction bank_owner_type.
      */
+    public function testDocumentUsesSnapshotVehiclePricingAndVietnameseDates()
+    {
+        $order = Order::create([
+            'contract_snapshot' => [
+                'is_locked' => true, 'contract_number' => '2026/01/02-0001', 'signed_on' => '2026-01-02',
+                'vehicles' => [['vehicle_name' => 'FELIZ', 'brand' => 'VinFast', 'unit_price' => 150000,
+                    'rent_at' => '02/01/2026 09:00', 'return_at' => '05/01/2026 09:00']],
+                'payment' => ['rental_fees' => 450000, 'transactions_summary' => [
+                    ['name' => 'order:deposit:1', 'type' => 'in', 'value' => 1000000],
+                    ['name' => 'order:rental_fees', 'type' => 'in', 'value' => 200000],
+                ]],
+            ],
+            'pid' => 1200000,
+        ]);
+        $doc = ContractDocumentBuilder::buildFromOrder($order);
+        $this->assertEquals('FELIZ', $doc['primary_vehicle']['name']);
+        $this->assertEquals('VinFast', $doc['primary_vehicle']['brand']);
+        $this->assertEquals(150000, $doc['pricing']['unit_price']);
+        $this->assertEquals(200000, $doc['pricing']['paid_amount']);
+        $this->assertEquals('02/01/2026 09:00', $doc['rent_time']['start']['formatted']);
+        $this->assertFalse($doc['is_preview']);
+        $this->assertEquals('2026/01/02-0001', $doc['contract_number_label']);
+    }
+
+    public function testPreviewDoesNotInventReceiptOrVehicleAttributes()
+    {
+        $dto = ContractDocumentBuilder::buildFromFormData([
+            'total_rental_fees' => 300000, 'order_items' => [['vehicle_name' => 'Unknown']]
+        ]);
+        $this->assertEquals(0, $dto['pricing']['paid_amount']);
+        $this->assertEquals('', $dto['primary_vehicle']['brand']);
+        $this->assertEquals('', $dto['primary_vehicle']['color']);
+        $this->assertEquals('', $dto['primary_vehicle']['year']);
+        $this->assertEquals('', $dto['deposit']['collateral_description']);
+    }
+
+    public function testLockPreservesLegacyNumberWithoutConsumingCounter()
+    {
+        $order = Order::create(['contract_snapshot' => ['is_locked' => true, 'contract_number' => '2020/01/02-0042']]);
+        $before = ContractNumberCounter::count();
+        $order = $this->orderService->lockContract($order);
+        $this->assertEquals('2020/01/02-0042', $order->contract_number);
+        $this->assertEquals($before, ContractNumberCounter::count());
+    }
+
+    public function testLockedDocumentRemainsStableAfterOrderAndConfigurationChanges()
+    {
+        $order = Order::create(['contract_signed_on' => '2026-01-02', 'order_status' => 'renting', 'total' => 300000]);
+        $order = $this->orderService->lockContract($order);
+        $before = ContractDocumentBuilder::buildFromOrder($order);
+        $order->contract_signed_on = '2026-02-01';
+        $order->contract_signer_a_name = 'Changed';
+        $order->total = 999999;
+        $order->save();
+        config(['contract.company_name' => 'Changed company']);
+        $this->assertEquals($before, ContractDocumentBuilder::buildFromOrder($order->fresh()));
+    }
+
     public function testBankOwnerTypeAndTransactionClassification()
     {
         $bankPersonal = Bank::create([

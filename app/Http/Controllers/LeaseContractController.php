@@ -46,6 +46,8 @@ class LeaseContractController extends Controller
         try {
             $contract = $this->leaseService->show($id);
             return $this->successResponse($contract);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 404);
         }
@@ -60,12 +62,14 @@ class LeaseContractController extends Controller
         $request->validate([
             'customer_id' => 'nullable|integer',
             'customer' => 'nullable|array',
-            'vehicle_id' => 'nullable|integer',
+            'customer.name' => 'required_without:customer_id|string|max:191',
+            'customer.phone' => 'required_without:customer_id|string|max:32',
+            'vehicle_id' => 'required|integer',
             'store_id' => 'nullable|integer',
             'start_date' => 'required|date',
             'total_amount' => 'required|numeric|min:0',
             'deposit_amount' => 'nullable|numeric|min:0',
-            'installment_count' => 'required|integer|min:1',
+            'installment_count' => 'required|integer|min:1|max:120',
             'period_amount' => 'nullable|numeric|min:0',
             'assigned_user_id' => 'nullable|integer',
             'notes' => 'nullable|string',
@@ -80,6 +84,8 @@ class LeaseContractController extends Controller
                 'message' => $e->validator->errors()->first(),
                 'errors' => $e->errors(),
             ], 422);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -93,7 +99,8 @@ class LeaseContractController extends Controller
         $user = Auth::user();
         $request->validate([
             'amount' => 'required|numeric|min:1',
-            'payment_method' => 'required|integer',
+            'idempotency_key' => 'required|string|max:100',
+            'payment_method' => 'required|integer|in:1,2',
             'bank_id' => 'nullable|integer',
             'payment_date' => 'nullable|date',
             'notes' => 'nullable|string',
@@ -109,6 +116,8 @@ class LeaseContractController extends Controller
                 'message' => $e->validator->errors()->first(),
                 'errors' => $e->errors(),
             ], 422);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -123,7 +132,7 @@ class LeaseContractController extends Controller
         $request->validate([
             'note_content' => 'required|string',
             'appointment_date' => 'nullable|date',
-            'debt_classification' => 'nullable|string',
+            'debt_classification' => 'nullable|in:normal,reminder,warning,bad_debt',
         ]);
 
         try {
@@ -135,6 +144,8 @@ class LeaseContractController extends Controller
                 'message' => $e->validator->errors()->first(),
                 'errors' => $e->errors(),
             ], 422);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }

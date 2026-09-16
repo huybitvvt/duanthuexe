@@ -93,9 +93,9 @@
 								<span>Biển số xe: <strong class="badge-license">{{ primaryVehicle.license || '................................' }}</strong></span>
 							</div>
 							<div class="d-flex justify-content-between">
-								<span>- Nhãn hiệu: <strong>{{ primaryVehicle.brand || 'Honda' }}</strong></span>
+								<span>- Nhãn hiệu: <strong>{{ primaryVehicle.brand || '............' }}</strong></span>
 								<span>- Loại xe: <strong>{{ primaryVehicle.type_text || 'Xe ga' }}</strong></span>
-								<span>- Màu sắc: <strong>{{ primaryVehicle.color || 'Tiêu chuẩn' }}</strong></span>
+								<span>- Màu sắc: <strong>{{ primaryVehicle.color || '............' }}</strong></span>
 								<span>- Năm SX: <strong>{{ primaryVehicle.year || '............' }}</strong></span>
 							</div>
 							<div class="d-flex justify-content-between">

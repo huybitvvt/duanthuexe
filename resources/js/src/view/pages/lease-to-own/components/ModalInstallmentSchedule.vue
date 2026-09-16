@@ -150,7 +150,7 @@
                 </thead>
                 <tbody>
                   <tr v-for="alloc in allocations" :key="alloc.id">
-                    <td>{{ alloc.created_at | formatDateTime }}</td>
+                    <td>{{ alloc.payment_date | formatDate }}</td>
                     <td class="text-right font-weight-bolder text-success">
                       +{{ alloc.amount | formatPrice }}
                     </td>
@@ -158,15 +158,16 @@
                       <span class="badge badge-secondary font-weight-bold">Kỳ #{{ alloc.installment?.period_number }}</span>
                     </td>
                     <td>
-                      <span v-if="alloc.transaction?.payment_method === 'cash'" class="badge badge-light-success">
+                      <span v-if="Number(alloc.transaction?.payment_method) === 1" class="badge badge-light-success">
                         <i class="fas fa-money-bill-wave mr-1"></i>Tiền mặt
                       </span>
                       <span v-else-if="alloc.transaction?.bank_owner_type === 'company'" class="badge badge-light-primary">
                         <i class="fas fa-university mr-1"></i>CK Công ty
                       </span>
-                      <span v-else class="badge badge-light-info">
+                      <span v-else-if="alloc.transaction?.bank_owner_type === 'personal'" class="badge badge-light-info">
                         <i class="fas fa-university mr-1"></i>CK Cá nhân
                       </span>
+                      <span v-else class="badge badge-light">CK chưa phân loại</span>
                     </td>
                     <td>
                       <span v-if="alloc.transaction?.bank">

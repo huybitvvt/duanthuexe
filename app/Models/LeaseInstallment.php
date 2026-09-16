@@ -26,6 +26,8 @@ class LeaseInstallment extends Model
         'notes',
     ];
 
+    protected $appends = ['remaining_amount', 'expected_amount', 'paid_amount'];
+
     protected $casts = [
         'due_date' => 'date',
         'paid_at' => 'datetime',

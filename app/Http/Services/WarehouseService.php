@@ -21,27 +21,6 @@ class WarehouseService
             ->orderBy('id', 'asc')
             ->get();
 
-        // Check if there is a lease_to_own store, if not, find or create one or ensure one is represented
-        $hasLeaseToOwn = $stores->contains(function ($s) {
-            return $s->kind === Store::KIND_LEASE_TO_OWN;
-        });
-
-        if (!$hasLeaseToOwn) {
-            // Find if there is a store named 'Thuê sở hữu' or create one
-            $lto = Store::firstOrCreate(
-                ['kind' => Store::KIND_LEASE_TO_OWN],
-                [
-                    'store_name' => 'Kho Thuê sở hữu',
-                    'store_address' => 'Hệ thống Himoto - Toàn quốc',
-                    'status' => 'active',
-                    'code' => 'KHO-TSH'
-                ]
-            );
-            if (!$stores->contains('id', $lto->id)) {
-                $stores->push($lto);
-            }
-        }
-
         $cards = [];
         $isAdmin = $user && ($user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien'));
 
@@ -69,9 +48,11 @@ class WarehouseService
             
             // In transit vehicles related to this store (either from or to this store)
             $inTransitCount = Vehicle::where('status', Vehicle::STATUS_IN_TRANSIT)
-                ->where(function (Builder $q) use ($store) {
-                    $q->where('store_id', $store->id)
-                      ->orWhere('current_store_id', $store->id);
+                ->whereIn('id', function ($q) use ($store) {
+                    $q->select('vehicle_transfer_items.vehicle_id')->from('vehicle_transfer_items')
+                      ->join('vehicle_transfers', 'vehicle_transfers.id', '=', 'vehicle_transfer_items.transfer_id')
+                      ->where('vehicle_transfers.status', 'dispatched')
+                      ->where(function ($sub) use ($store) { $sub->where('from_store_id', $store->id)->orWhere('to_store_id', $store->id); });
                 })->count();
 
             // Vehicle types present
@@ -80,7 +61,7 @@ class WarehouseService
             $conCount = (clone $presentQuery)->where('type', Vehicle::TYPE_XECON)->count();
             $shCount = (clone $presentQuery)->where('type', Vehicle::TYPE_XE_SH)->count();
 
-            $canViewDetails = $isAdmin || ($user && (int)$user->store_id === (int)$store->id);
+            $canViewDetails = $isAdmin;
 
             $cards[] = [
                 'id' => $store->id,
@@ -100,6 +81,7 @@ class WarehouseService
                     'xeso' => $soCount,
                     'xecon' => $conCount,
                     'xesh' => $shCount,
+                    'xe_dien' => (clone $presentQuery)->where('type', 'xe_dien')->count(),
                 ],
                 'can_view_details' => $canViewDetails,
             ];
@@ -116,7 +98,7 @@ class WarehouseService
         $isAdmin = $user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien');
         
         // Strict role permission check
-        if (!$isAdmin && (int)$user->store_id !== (int)$storeId) {
+        if (!$isAdmin) {
             throw new \Illuminate\Auth\Access\AuthorizationException(
                 'Bạn không có quyền truy cập danh sách xe của cơ sở khác. Chỉ có Quản trị viên mới được xem toàn bộ chi nhánh.'
             );
@@ -129,7 +111,7 @@ class WarehouseService
             'store:id,store_name,store_address',
             'currentStore:id,store_name,store_address',
             'orders' => function ($q) {
-                $q->whereIn('order_status', ['pending', 'delivering', 'active', 'using', 'late'])
+                $q->whereIn('order_status', ['renting'])
                   ->orderBy('orders.id', 'desc')
                   ->with('customer:id,name,phone');
             }

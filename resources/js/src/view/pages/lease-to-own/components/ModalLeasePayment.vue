@@ -148,6 +148,7 @@ export default {
       visible: false,
       loading: false,
       contract: null,
+      requestKey: null,
       banks: [],
       form: {
         amount: null,
@@ -161,6 +162,7 @@ export default {
   methods: {
     open(contract, suggestedAmount = null) {
       this.contract = contract;
+      this.requestKey = window.crypto.randomUUID ? window.crypto.randomUUID() : Array.from(window.crypto.getRandomValues(new Uint32Array(4))).join('-');
       this.form.amount = suggestedAmount !== null ? suggestedAmount : (contract?.period_amount || contract?.remaining_debt || 0);
       this.form.paid_at = new Date().toISOString().substring(0, 10);
       this.form.payment_method = "cash";
@@ -194,9 +196,10 @@ export default {
           contractId: this.contract.id,
           payload: {
             amount: amount,
-            payment_method: this.form.payment_method,
+            payment_method: this.form.payment_method === 'cash' ? 1 : 2,
+            idempotency_key: this.requestKey,
             bank_id: this.form.payment_method === "bank_transfer" ? this.form.bank_id : null,
-            paid_at: this.form.paid_at,
+            payment_date: this.form.paid_at,
             notes: this.form.notes,
           },
         })

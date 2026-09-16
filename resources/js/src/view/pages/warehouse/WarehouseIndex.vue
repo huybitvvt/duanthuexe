@@ -117,6 +117,7 @@
               <span>Số: <strong>{{ store.types.xeso }}</strong></span>
               <span>Côn: <strong>{{ store.types.xecon }}</strong></span>
               <span>SH: <strong>{{ store.types.xesh }}</strong></span>
+              <span>Điện: <strong>{{ store.types.xe_dien || 0 }}</strong></span>
             </div>
           </div>
         </div>
@@ -438,6 +439,11 @@ export default {
     },
     fetchVehicles() {
       if (!this.selectedStoreId) return;
+      if (!this.summaryList.find(s => s.id === this.selectedStoreId)?.can_view_details) {
+        this.permissionDenied = true;
+        this.vehicleList = [];
+        return;
+      }
       this.loadingVehicles = true;
       this.permissionDenied = false;
 

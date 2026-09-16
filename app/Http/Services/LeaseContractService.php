@@ -4,6 +4,8 @@ namespace App\Http\Services;
 
 use App\Entities\Customer;
 use App\Models\DebtNote;
+use App\Models\Bank;
+use App\Support\PilotAccess;
 use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
 use App\Models\LeasePaymentAllocation;
@@ -22,6 +24,9 @@ class LeaseContractService
      */
     public function createContract(array $data, User $user): LeaseContract
     {
+        $requestedStore = data_get($data, 'store_id') ?: Store::where('kind', Store::KIND_LEASE_TO_OWN)->value('id');
+        PilotAccess::store($user, $requestedStore);
+        return DB::transaction(function () use ($data, $user) {
         $customerId = data_get($data, 'customer_id');
         if (!$customerId && isset($data['customer'])) {
             $cData = $data['customer'];
@@ -42,6 +47,7 @@ class LeaseContractService
             ]);
         }
 
+        Customer::findOrFail($customerId);
         $vehicleId = data_get($data, 'vehicle_id');
         $storeId = data_get($data, 'store_id');
         if (!$storeId) {
@@ -49,6 +55,14 @@ class LeaseContractService
             $storeId = $ltoStore ? $ltoStore->id : null;
         }
 
+        $store = Store::findOrFail($storeId);
+        if ($store->kind !== Store::KIND_LEASE_TO_OWN) {
+            throw ValidationException::withMessages(['store_id' => 'Chọn kho thuê sở hữu.']);
+        }
+        $vehicle = Vehicle::where('id', $vehicleId)->lockForUpdate()->firstOrFail();
+        if ($vehicle->status !== Vehicle::STATUS_READY || (int)($vehicle->current_store_id ?: $vehicle->store_id) !== (int)$storeId) {
+            throw ValidationException::withMessages(['vehicle_id' => 'Xe phải sẵn sàng tại kho thuê sở hữu đã chọn.']);
+        }
         $totalAmount = (float)data_get($data, 'total_amount', 0);
         $depositAmount = (float)data_get($data, 'deposit_amount', 0);
         $installmentCount = (int)data_get($data, 'installment_count', 12);
@@ -56,14 +70,20 @@ class LeaseContractService
             $installmentCount = 12;
         }
 
-        $remainingToPay = max(0, $totalAmount - $depositAmount);
+        if ($totalAmount <= 0 || $depositAmount < 0 || $depositAmount > $totalAmount || $installmentCount > 120) {
+            throw ValidationException::withMessages(['total_amount' => 'Giá trị hợp đồng, trả trước hoặc số kỳ không hợp lệ.']);
+        }
+        $remainingToPay = $totalAmount - $depositAmount;
         $periodAmount = (float)data_get($data, 'period_amount');
         if (!$periodAmount || $periodAmount <= 0) {
             $periodAmount = round($remainingToPay / $installmentCount, 0);
         }
 
+        if ($periodAmount * ($installmentCount - 1) > $remainingToPay) {
+            throw ValidationException::withMessages(['period_amount' => 'Tổng các kỳ vượt số tiền còn phải trả.']);
+        }
         $startDate = data_get($data, 'start_date') ? Carbon::parse($data['start_date']) : Carbon::now();
-        $code = 'TSH-' . Carbon::now()->format('Ymd') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
+        $code = 'TSH-' . Carbon::now()->format('Ymd') . '-' . strtoupper(bin2hex(random_bytes(8)));
 
         return DB::transaction(function () use (
             $code, $customerId, $vehicleId, $storeId, $startDate, $totalAmount,
@@ -75,7 +95,7 @@ class LeaseContractService
                 'vehicle_id' => $vehicleId,
                 'store_id' => $storeId,
                 'start_date' => $startDate,
-                'end_date' => $startDate->copy()->addMonths($installmentCount),
+                'end_date' => $startDate->copy()->addMonthsNoOverflow($installmentCount),
                 'total_amount' => $totalAmount,
                 'deposit_amount' => $depositAmount,
                 'installment_count' => $installmentCount,
@@ -85,9 +105,17 @@ class LeaseContractService
                 'notes' => data_get($data, 'notes', ''),
             ]);
 
+            // A promised initial payment is a due item, not a fictitious receipt.
+            if ($depositAmount > 0) {
+                LeaseInstallment::create([
+                    'lease_contract_id' => $contract->id, 'period_number' => 0,
+                    'due_date' => $startDate, 'amount_due' => $depositAmount,
+                    'amount_paid' => 0, 'status' => LeaseInstallment::STATUS_UNPAID,
+                ]);
+            }
             // Generate installment schedule
             for ($i = 1; $i <= $installmentCount; $i++) {
-                $dueDate = $startDate->copy()->addMonths($i);
+                $dueDate = $startDate->copy()->addMonthsNoOverflow($i);
                 // Adjust for last installment rounding diff if any
                 $currentAmount = ($i === $installmentCount)
                     ? ($totalAmount - $depositAmount - ($periodAmount * ($installmentCount - 1)))
@@ -99,7 +127,7 @@ class LeaseContractService
                     'due_date' => $dueDate,
                     'amount_due' => max(0, $currentAmount),
                     'amount_paid' => 0,
-                    'status' => LeaseInstallment::STATUS_UNPAID,
+                    'status' => $currentAmount > 0 ? LeaseInstallment::STATUS_UNPAID : LeaseInstallment::STATUS_PAID,
                 ]);
             }
 
@@ -111,6 +139,7 @@ class LeaseContractService
             }
 
             return $contract->load(['customer', 'vehicle', 'store', 'installments']);
+        });
         });
     }
 
@@ -130,17 +159,61 @@ class LeaseContractService
         $notes = (string)data_get($data, 'notes', 'Thu tiền góp hợp đồng thuê sở hữu');
         $paymentMethod = (int)data_get($data, 'payment_method', 1); // 1: TM, 2: CK
         $bankId = data_get($data, 'bank_id');
+        $requestKey = data_get($data, 'idempotency_key');
+        $fingerprint = hash('sha256', json_encode($data));
         $targetInstallmentId = data_get($data, 'installment_id');
 
-        return DB::transaction(function () use ($contractId, $amount, $paymentDate, $notes, $paymentMethod, $bankId, $targetInstallmentId, $user) {
+        return DB::transaction(function () use ($contractId, $amount, $paymentDate, $notes, $paymentMethod, $bankId, $targetInstallmentId, $user, $requestKey, $fingerprint) {
             $contract = LeaseContract::where('id', $contractId)->lockForUpdate()->firstOrFail();
 
+            PilotAccess::store($user, $contract->store_id);
+            if ($requestKey) {
+                $previous = DB::table('lease_payment_requests')->where('lease_contract_id', $contractId)->where('request_key', $requestKey)->first();
+                if ($previous) {
+                    if ($previous->fingerprint !== $fingerprint) {
+                        throw ValidationException::withMessages(['idempotency_key' => 'Mã yêu cầu đã dùng với dữ liệu khác.']);
+                    }
+                    return json_decode($previous->result, true);
+                }
+            }
+            if (!in_array($contract->status, [LeaseContract::STATUS_ACTIVE, LeaseContract::STATUS_DEFAULTED])) {
+                throw ValidationException::withMessages(['contract' => 'Hợp đồng không còn nhận thanh toán.']);
+            }
+            $outstanding = max(0, $contract->total_amount - $contract->allocations()->sum('amount'));
+            if ($amount > $outstanding) {
+                throw ValidationException::withMessages(['amount' => 'Khoản thu vượt dư nợ; cần xử lý trả dư qua nghiệp vụ riêng.']);
+            }
+            if (!in_array($paymentMethod, [1, 2])) {
+                throw ValidationException::withMessages(['payment_method' => 'Phương thức thanh toán không hợp lệ.']);
+            }
+            $ownerType = null;
+            $cashId = null;
+            if ($paymentMethod === 2) {
+                $bank = Bank::findOrFail($bankId);
+                PilotAccess::store($user, $bank->store_id);
+                if ((int)$bank->store_id !== (int)$contract->store_id) {
+                    throw ValidationException::withMessages(['bank_id' => 'Tài khoản không thuộc cơ sở hợp đồng.']);
+                }
+                $ownerType = $bank->owner_type ?: 'unknown';
+            } else {
+                $bankId = null;
+                $cashId = \App\Models\Cash::where('store_id', $contract->store_id)->where('status', 'Active')->value('id');
+                if (!$cashId) {
+                    throw ValidationException::withMessages(['payment_method' => 'Cơ sở chưa có quỹ tiền mặt đang hoạt động.']);
+                }
+            }
+            if ($targetInstallmentId && !$contract->installments()->where('id', $targetInstallmentId)->exists()) {
+                throw ValidationException::withMessages(['installment_id' => 'Kỳ thanh toán không thuộc hợp đồng.']);
+            }
             // 1. Create financial transaction in ledger
             $transaction = Transaction::create([
                 'value' => $amount,
                 'type' => Transaction::THU,
                 'payment_method' => $paymentMethod,
                 'bank_id' => $bankId,
+                'bank_owner_type' => $ownerType,
+                'cash_id' => $cashId,
+                'created_at' => $paymentDate,
                 'store_id' => $contract->store_id,
                 'user_id' => $user->id,
                 'name' => "Thu tiền HĐ {$contract->contract_code}",
@@ -183,7 +256,7 @@ class LeaseContractService
                 $inst->update([
                     'amount_paid' => $newPaid,
                     'status' => $newStatus,
-                    'paid_at' => ($newStatus === LeaseInstallment::STATUS_PAID) ? Carbon::now() : $inst->paid_at,
+                    'paid_at' => ($newStatus === LeaseInstallment::STATUS_PAID) ? $paymentDate : $inst->paid_at,
                 ]);
 
                 $alloc = LeasePaymentAllocation::create([
@@ -223,12 +296,16 @@ class LeaseContractService
                 $contract->update(['status' => LeaseContract::STATUS_COMPLETED]);
             }
 
-            return [
+            $result = [
                 'transaction_id' => $transaction->id,
                 'contract_id' => $contract->id,
                 'total_amount_allocated' => $amount,
                 'allocations_count' => count($allocationsCreated),
             ];
+            if ($requestKey) {
+                DB::table('lease_payment_requests')->insert(['lease_contract_id' => $contractId, 'request_key' => $requestKey, 'fingerprint' => $fingerprint, 'result' => json_encode($result), 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()]);
+            }
+            return $result;
         });
     }
 
@@ -238,6 +315,7 @@ class LeaseContractService
     public function addDebtNote(int $contractId, array $data, User $user): DebtNote
     {
         $contract = LeaseContract::findOrFail($contractId);
+        PilotAccess::store($user, $contract->store_id);
         $content = (string)data_get($data, 'note_content', '');
         if (!$content) {
             throw ValidationException::withMessages([
@@ -273,8 +351,11 @@ class LeaseContractService
             'allocations',
         ]);
 
+        if (!PilotAccess::isAdmin($user)) {
+            $query->where('store_id', $user->store_id ?: -1);
+        }
         // Keyword filter
-        $keyword = data_get($params, 'keyword');
+        $keyword = data_get($params, 'keyword', data_get($params, 'search'));
         if ($keyword) {
             $query->where(function ($q) use ($keyword) {
                 $q->where('contract_code', 'LIKE', "%{$keyword}%")
@@ -298,10 +379,28 @@ class LeaseContractService
             $query->where('assigned_user_id', $params['assigned_user_id']);
         }
 
-        $limit = (int)data_get($params, 'limit', 15);
-        $contracts = $query->orderBy('id', 'desc')->paginate($limit);
+        $limit = max(1, min(10000, (int)data_get($params, 'limit', data_get($params, 'per_page', 15))));
+        $bucket = data_get($params, 'aging_bucket');
+        if ($bucket) {
+            $today = Carbon::today('Asia/Ho_Chi_Minh');
+            $open = function ($q) { $q->whereColumn('amount_due', '>', 'amount_paid'); };
+            if ($bucket === 'current') {
+                $query->whereDoesntHave('installments', function ($q) use ($today, $open) { $open($q); $q->where('due_date', '<', $today->toDateString()); });
+            } else {
+                $ranges = ['overdue_1_7' => [1,7], 'overdue_8_30' => [8,30], 'overdue_30_plus' => [31,null]];
+                if (!isset($ranges[$bucket])) { throw ValidationException::withMessages(['aging_bucket' => 'Nhóm nợ không hợp lệ.']); }
+                list($min,$max) = $ranges[$bucket];
+                $query->whereHas('installments', function ($q) use ($today,$open,$min,$max) {
+                    $open($q); $q->where('due_date', '<=', $today->copy()->subDays($min)->toDateString());
+                    if ($max) { $q->where('due_date', '>=', $today->copy()->subDays($max)->toDateString()); }
+                });
+                if ($max) { $query->whereDoesntHave('installments', function ($q) use ($today,$open,$max) { $open($q); $q->where('due_date', '<', $today->copy()->subDays($max)->toDateString()); }); }
+            }
+        }
+        if (!empty($params['id'])) { $query->where('id', $params['id']); }
+        $contracts = $query->orderBy('id', 'desc')->paginate($limit, ['*'], 'page', max(1, (int)data_get($params, 'page', 1)));
 
-        $today = Carbon::today();
+        $today = Carbon::today('Asia/Ho_Chi_Minh');
 
         // Calculate dynamic debt metrics for each contract
         $contracts->getCollection()->transform(function ($contract) use ($today) {
@@ -365,15 +464,6 @@ class LeaseContractService
             return $contract;
         });
 
-        // Filter by aging bucket in-memory if specified
-        $filterBucket = data_get($params, 'aging_bucket');
-        if ($filterBucket) {
-            $filtered = $contracts->getCollection()->filter(function ($c) use ($filterBucket) {
-                return $c->aging_bucket === $filterBucket;
-            })->values();
-            $contracts->setCollection($filtered);
-        }
-
         return $contracts;
     }
 
@@ -382,8 +472,10 @@ class LeaseContractService
      */
     public function getStats(array $params, User $user): array
     {
-        $contracts = LeaseContract::with(['installments', 'allocations'])->get();
-        $today = Carbon::today();
+        $query = LeaseContract::with(['installments', 'allocations']);
+        if (!PilotAccess::isAdmin($user)) { $query->where('store_id', $user->store_id ?: -1); }
+        $contracts = $query->where('status', '!=', LeaseContract::STATUS_CANCELLED)->get();
+        $today = Carbon::today('Asia/Ho_Chi_Minh');
 
         $totalValue = $contracts->sum('total_amount');
         $totalCollected = $contracts->sum(function ($c) {
@@ -442,6 +534,7 @@ class LeaseContractService
 
         return [
             'total_contracts' => $contracts->count(),
+            'active_contracts' => $contracts->where('status', LeaseContract::STATUS_ACTIVE)->count(),
             'total_contract_value' => $totalValue,
             'total_collected' => $totalCollected,
             'total_outstanding' => $totalOutstanding,
@@ -456,16 +549,21 @@ class LeaseContractService
     /**
      * Show detailed contract with all installment periods and allocations.
      */
-    public function show(int $contractId): LeaseContract
+    public function show(int $contractId, ?User $user = null): LeaseContract
     {
-        return LeaseContract::with([
+        $contract = LeaseContract::with([
             'customer',
             'vehicle',
             'store',
             'installments.allocations.transaction',
             'allocations.transaction',
+            'allocations.installment',
             'debtNotes.createdByUser',
             'assignedUser:id,name',
         ])->findOrFail($contractId);
+        PilotAccess::store($user ?: auth()->user(), $contract->store_id);
+        $metrics = $this->index(['id' => $contractId, 'page' => 1], $user ?: auth()->user())->first();
+        foreach (['total_paid','outstanding_balance','overdue_amount','overdue_days','aging_bucket','latest_note'] as $key) { $contract->$key = $metrics->$key; }
+        return $contract;
     }
 }

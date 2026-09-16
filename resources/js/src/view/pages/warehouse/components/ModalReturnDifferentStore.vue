@@ -8,6 +8,7 @@
     @hidden="resetForm"
   >
     <div v-loading="loading">
+      <p class="alert alert-info">Hoàn tất trả xe và đối soát tiền trong đơn thuê trước. Màn hình này ghi nhận nhập kho khác cơ sở cho đơn một xe đã hoàn tất.</p>
       <div class="alert alert-custom alert-light-primary mb-4 p-3" role="alert">
         <div class="alert-icon"><i class="flaticon-information"></i></div>
         <div class="alert-text small">

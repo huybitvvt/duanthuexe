@@ -254,7 +254,7 @@ class HimotoReminderAndGpsTest extends TestCase
         $this->assertEquals(1, $count);
     }
 
-    public function test_outbox_processing_safely_marks_sent_in_dry_run()
+    public function test_outbox_never_claims_delivery_without_provider()
     {
         $today = Carbon::now('Asia/Ho_Chi_Minh');
         $outbox = CustomerReminderOutbox::create([
@@ -273,13 +273,17 @@ class HimotoReminderAndGpsTest extends TestCase
         ]);
 
         $result = $this->reminderService->processOutbox(50, true);
-        $this->assertEquals(1, $result['sent']);
+        $this->assertEquals(0, $result['sent']);
         $this->assertEquals('sandbox_dry_run', $result['mode']);
 
         $outbox->refresh();
-        $this->assertEquals('sent', $outbox->status);
-        $this->assertNotNull($outbox->sent_at);
-        $this->assertStringContainsString('sandbox_dry_run', $outbox->provider_response);
+        $this->assertEquals('pending', $outbox->status);
+        $this->assertNull($outbox->sent_at);
+        $this->assertNull($outbox->provider_response);
+        $live = $this->reminderService->processOutbox(50, false);
+        $this->assertEquals(0, $live['sent']);
+        $this->assertEquals(1, $live['failed']);
+        $this->assertEquals('pending', $outbox->fresh()->status);
     }
 
     public function test_gps_service_marks_external_dependency_blocked()

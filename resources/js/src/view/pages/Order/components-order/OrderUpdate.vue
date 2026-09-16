@@ -1015,7 +1015,8 @@ export default {
 					total_rental_fees: this.order.total_rental_fees || this.order.total,
 					total_rental_payment_method: this.order.total_rental_payment_method,
 					deposit_payment_method: this.order.first_deposit_payment_method || 1,
-					unit_price: this.hiringFeeAllItems || null,
+					unit_price: this.order.order_items.length === 1 ? this.order.order_items[0].contract_unit_price : null,
+					paid_amount: 0,
 				};
 				const res = await this.$store.dispatch(PREVIEW_ORDER_CONTRACT, payload);
 				this.previewDocumentDto = res.data || res;
@@ -1149,8 +1150,6 @@ export default {
                     rangeDays += 1;
                 }
 
-                console.log({ unitPrice, rangeDays, moneyRemainHours })
-
                 let unitPrice
                 if (order_item.substitute_unit_price > 0) {
                     unitPrice = order_item.substitute_unit_price
@@ -1160,6 +1159,7 @@ export default {
 					order_item.rental_days = rangeDays; // Tổng số ngày thuê xe
                 }
 
+				this.$set(order_item, 'contract_unit_price', order_item.is_all_in_one || order_item.custom_hiring_fee > 0 ? null : unitPrice);
 				if (order_item.custom_hiring_fee && order_item.custom_hiring_fee > 0) {
 					order_item.hiringFee = order_item.custom_hiring_fee;
 				} else {

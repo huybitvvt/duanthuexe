@@ -190,7 +190,8 @@
               <el-option label="Tất cả trạng thái" value="" />
               <el-option label="Đang thực hiện (active)" value="active" />
               <el-option label="Đã tất toán (completed)" value="completed" />
-              <el-option label="Đã thanh lý (terminated)" value="terminated" />
+              <el-option label="Đã hủy" value="cancelled" />
+              <el-option label="Vi phạm thanh toán" value="defaulted" />
             </el-select>
           </div>
           <div class="col-md-4 d-flex justify-content-md-end">
@@ -309,7 +310,7 @@
                 <td>
                   <div v-if="item.latest_debt_note">
                     <span :class="getStatusBadgeClass(item.latest_debt_note.call_status)">
-                      {{ getStatusLabel(item.latest_debt_note.call_status) }}
+                      {{ item.latest_debt_note.notes }}
                     </span>
                     <div v-if="item.latest_debt_note.promised_date" class="text-primary font-size-xs mt-1 font-weight-bold">
                       <i class="fas fa-calendar-check mr-1"></i>Hẹn: {{ item.latest_debt_note.promised_date | formatDate }}
