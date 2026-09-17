@@ -1,13 +1,22 @@
 FROM composer:2.2 AS composer
 
-FROM php:7.4-apache
+FROM php:7.4-apache-bullseye
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
+# PHP 7.4 is only published on Debian 11 (Bullseye). Bullseye reached the end
+# of Debian LTS on 2026-08-31, so its live mirrors can remove packages while a
+# build is running. Use the final LTS snapshot to keep package indexes and .deb
+# files consistent until the application can be upgraded to a supported PHP.
+ARG DEBIAN_SNAPSHOT=20260831T235959Z
+
 RUN set -eux; \
-    sed -i '/security/d' /etc/apt/sources.list || true; \
-    rm -f /etc/apt/sources.list.d/*security* 2>/dev/null || true; \
-    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until; \
+    printf '%s\n' \
+        "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/ bullseye main" \
+        "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}/ bullseye-updates main" \
+        "deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}/ bullseye-security main" \
+        > /etc/apt/sources.list; \
+    rm -rf /etc/apt/sources.list.d/*; \
     for attempt in 1 2 3; do \
         rm -rf /var/lib/apt/lists/*; \
         if apt-get -o Acquire::ForceIPv4=true \
@@ -16,13 +25,6 @@ RUN set -eux; \
             -o Acquire::https::Timeout=60 \
             update --allow-releaseinfo-change; then \
             break; \
-        fi; \
-        if [ "${attempt}" = "1" ]; then \
-            echo "deb http://archive.debian.org/debian bullseye main" > /etc/apt/sources.list; \
-            echo "deb http://archive.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list; \
-        fi; \
-        if [ "${attempt}" = "2" ]; then \
-            echo "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye main" > /etc/apt/sources.list; \
         fi; \
         if [ "${attempt}" = "3" ]; then exit 100; fi; \
     done; \
