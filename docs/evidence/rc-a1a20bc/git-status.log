@@ -1,0 +1,86 @@
+﻿On branch review/20260917-rc
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   app/Entities/Role.php
+	modified:   app/Exceptions/Handler.php
+	modified:   app/Http/Controllers/AccountingController.php
+	modified:   app/Http/Controllers/AuthController.php
+	modified:   app/Http/Controllers/CustomerReminderController.php
+	modified:   app/Http/Controllers/HrController.php
+	modified:   app/Http/Controllers/KpiReportController.php
+	modified:   app/Http/Controllers/LeaseContractController.php
+	modified:   app/Http/Kernel.php
+	modified:   app/Http/Services/CustomerReminderService.php
+	modified:   app/Http/Services/Gps/GpsService.php
+	modified:   app/Models/CustomerReminderOutbox.php
+	modified:   app/Models/LeaseContract.php
+	modified:   app/Models/User.php
+	modified:   app/Support/OperationalSchema.php
+	modified:   database/migrations/operational-checksums.json
+	modified:   docs/himoto-completion-plan-from-excel.md
+	modified:   public/44.js
+	modified:   public/45.js
+	modified:   public/46.js
+	modified:   public/47.js
+	modified:   public/js/app.js
+	modified:   public/mix-manifest.json
+	modified:   public/version.json
+	modified:   resources/js/src/router.js
+	modified:   resources/js/src/version.json
+	modified:   routes/api.php
+	modified:   scripts/check_operational_schema.php
+	modified:   tests/Unit/OperationalSchemaMigrationTest.php
+	modified:   tests/Unit/ReviewDefectFixesTest.php
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	app/Contracts/
+	app/Http/Controllers/LeaseOwnershipController.php
+	app/Http/Middleware/CheckPermission.php
+	app/Http/Services/Accounting/
+	app/Http/Services/AuditService.php
+	app/Http/Services/Gps/SandboxGpsProvider.php
+	app/Http/Services/LeaseDocumentSnapshotService.php
+	app/Http/Services/LeaseOwnershipService.php
+	app/Http/Services/LeasePdfService.php
+	app/Models/AccountingAccount.php
+	app/Models/AccountingPeriod.php
+	app/Models/AccountingReconciliation.php
+	app/Models/AuditEvent.php
+	app/Models/GpsAlert.php
+	app/Models/GpsDevice.php
+	app/Models/GpsPosition.php
+	app/Models/GpsRecoveryAction.php
+	app/Models/JournalEntry.php
+	app/Models/JournalLine.php
+	app/Models/LeaseOwnershipEvent.php
+	app/Models/LeaseOwnershipRequest.php
+	app/Models/ReminderDeliveryEvent.php
+	app/Models/VehicleOwnership.php
+	app/Services/Reminders/
+	app/Support/PermissionAccess.php
+	database/migrations/2026_09_17_000001_create_audit_events_table.php
+	database/migrations/2026_09_17_000002_seed_rbac_permissions_and_roles.php
+	database/migrations/2026_09_17_000003_create_lease_ownership_tables.php
+	database/migrations/2026_09_17_000004_enhance_customer_reminder_outbox_table.php
+	database/migrations/2026_09_17_000005_create_gps_tracking_tables.php
+	database/migrations/2026_09_17_000011_create_double_entry_accounting_tables.php
+	database/migrations/2026_09_17_000012_add_document_snapshot_to_lease_contracts_table.php
+	docs/decisions/
+	docs/evidence/
+	docs/himoto-remaining-completion-plan-20260917.md
+	docs/supabase-verification-20260917.md
+	resources/js/src/view/pages/error/Error-403.vue
+	tests/Unit/AccountingPeriodCloseTest.php
+	tests/Unit/AccountingReconciliationTest.php
+	tests/Unit/GpsAlertIdempotencyTest.php
+	tests/Unit/GpsProviderContractTest.php
+	tests/Unit/JournalPostingInvariantTest.php
+	tests/Unit/LeaseOwnershipWorkflowTest.php
+	tests/Unit/LeasePdfSnapshotTest.php
+	tests/Unit/PermissionMatrixTest.php
+	tests/Unit/ReminderDispatchConcurrencyTest.php
+	tests/Unit/ReminderProviderContractTest.php
+
+no changes added to commit (use "git add" and/or "git commit -a")

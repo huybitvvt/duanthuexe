@@ -22,7 +22,7 @@ class Role extends Model implements Transformable
      *
      * @var array
      */
-    protected $fillable = [];
+    protected $fillable = ['name', 'slug', 'display_name'];
 
     public function permissions()
     {

@@ -2,18 +2,30 @@
 
 namespace App\Http\Services;
 
+use App\Contracts\ReminderProviderInterface;
 use App\Models\CustomerReminderOutbox;
 use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
 use App\Models\Order;
 use App\Models\OrderVehicleDetail;
+use App\Models\ReminderDeliveryEvent;
+use App\Services\Reminders\SandboxReminderProvider;
 use App\Validators\OrderValidator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class CustomerReminderService
 {
+    protected $defaultProvider;
+
+    public function __construct(?ReminderProviderInterface $defaultProvider = null)
+    {
+        $this->defaultProvider = $defaultProvider ?: new SandboxReminderProvider();
+    }
+
     /**
      * Scan due and overdue contracts (both lease-to-own and rental orders)
      * and queue reminders into the outbox with strict idempotency keys.
@@ -66,11 +78,11 @@ class CustomerReminderService
                     continue;
                 }
 
-                $remaining = $installment->remaining_amount;
+                $remaining = $installment->remaining_amount ?? ($installment->amount_due - $installment->amount_paid);
                 $formattedAmount = number_format($remaining, 0, ',', '.') . 'đ';
                 $customerName = $contract->customer ? $contract->customer->name : 'Khách hàng';
                 $phone = $contract->customer ? $contract->customer->phone : '';
-                $license = $contract->vehicle ? $contract->vehicle->license : '';
+                $license = $contract->vehicle ? ($contract->vehicle->plate_number ?? $contract->vehicle->license) : '';
 
                 $message = "Kính gửi {$customerName}, hợp đồng thuê sở hữu {$contract->contract_code} (xe {$license}) có kỳ trả góp đến hạn {$dueDate}, số tiền {$formattedAmount}. Trạng thái: {$stage}.";
 
@@ -99,58 +111,57 @@ class CustomerReminderService
             ->get();
 
         foreach ($rentingOrders as $order) {
-            foreach ($order->orderItems as $item) {
-                if (!$item->return_at) {
-                    continue;
-                }
-                $returnDate = Carbon::parse($item->return_at, 'Asia/Ho_Chi_Minh')->toDateString();
-                $diffDays = Carbon::parse($today)->diffInDays(Carbon::parse($returnDate), false);
+            $endDate = Carbon::parse($order->real_rental_end_date ?: $order->rental_end_date, 'Asia/Ho_Chi_Minh')->toDateString();
+            $diffDays = Carbon::parse($today)->diffInDays(Carbon::parse($endDate), false);
 
-                $stage = null;
-                if ($diffDays === 1) {
-                    $stage = 'return_tomorrow';
-                } elseif ($diffDays === 0) {
-                    $stage = 'return_today';
-                } elseif ($diffDays < 0) {
-                    $stage = 'overdue_return';
-                }
-
-                if (!$stage) {
-                    continue;
-                }
-
-                $channel = 'call_task';
-                $idempotencyKey = "rental_{$order->id}_{$item->id}_{$stage}_{$channel}";
-
-                $exists = CustomerReminderOutbox::where('idempotency_key', $idempotencyKey)->exists();
-                if ($exists) {
-                    $skippedCount++;
-                    continue;
-                }
-
-                $customerName = $order->customer ? $order->customer->name : 'Khách hàng';
-                $phone = $order->customer ? $order->customer->phone : '';
-                $license = $item->vehicle ? $item->vehicle->license : '';
-
-                $message = "Kính gửi {$customerName}, đơn thuê xe #{$order->id} (xe {$license}) có lịch trả xe vào ngày {$returnDate}. Vui lòng sắp xếp bàn giao đúng giờ.";
-
-                CustomerReminderOutbox::create([
-                    'contract_type' => 'rental',
-                    'contract_id' => $order->id,
-                    'installment_id' => null,
-                    'customer_id' => $order->customer_id,
-                    'channel' => $channel,
-                    'stage' => $stage,
-                    'recipient_phone' => $phone,
-                    'recipient_name' => $customerName,
-                    'message_content' => $message,
-                    'status' => 'pending',
-                    'scheduled_at' => $now,
-                    'idempotency_key' => $idempotencyKey,
-                ]);
-
-                $createdCount++;
+            $stage = null;
+            if ($diffDays === 1) {
+                $stage = 'due_soon_1d';
+            } elseif ($diffDays === 0) {
+                $stage = 'due_today';
+            } elseif ($diffDays < 0 && $diffDays >= -3) {
+                $stage = 'overdue_1_7d';
+            } elseif ($diffDays < -3) {
+                $stage = 'overdue_8_30d';
             }
+
+            if (!$stage) {
+                continue;
+            }
+
+            $channel = 'call_task';
+            $idempotencyKey = "order_{$order->id}_{$stage}_{$channel}";
+
+            $exists = CustomerReminderOutbox::where('idempotency_key', $idempotencyKey)->exists();
+            if ($exists) {
+                $skippedCount++;
+                continue;
+            }
+
+            $customerName = $order->customer ? $order->customer->name : 'Khách hàng';
+            $phone = $order->customer ? $order->customer->phone : '';
+            $plate = '';
+            if ($order->orderItems && $order->orderItems->isNotEmpty() && $order->orderItems->first()->vehicle) {
+                $plate = $order->orderItems->first()->vehicle->license ?? $order->orderItems->first()->vehicle->plate_number;
+            }
+
+            $message = "Kính gửi {$customerName}, đơn thuê xe {$order->order_code} (xe {$plate}) đến hạn kết thúc thuê ngày {$endDate}. Trạng thái: {$stage}.";
+
+            CustomerReminderOutbox::create([
+                'contract_type' => 'rental_order',
+                'contract_id' => $order->id,
+                'customer_id' => $order->customer_id,
+                'channel' => $channel,
+                'stage' => $stage,
+                'recipient_phone' => $phone,
+                'recipient_name' => $customerName,
+                'message_content' => $message,
+                'status' => 'pending',
+                'scheduled_at' => $now,
+                'idempotency_key' => $idempotencyKey,
+            ]);
+
+            $createdCount++;
         }
 
         return [
@@ -191,17 +202,301 @@ class CustomerReminderService
     }
 
     /**
-     * Process outbox queue with sandbox / dry-run protection.
-     *
-     * @param int $limit
-     * @param bool $dryRun
-     * @return array
+     * Atomic batch claim and dispatch with row-level locking.
+     */
+    public function claimAndDispatchBatch(
+        int $limit = 20,
+        ?string $workerId = null,
+        ?ReminderProviderInterface $provider = null,
+        array $options = []
+    ): array {
+        $workerId = $workerId ?: ('worker-' . getmypid() . '-' . Str::random(4));
+        $provider = $provider ?: $this->defaultProvider;
+        $now = Carbon::now('Asia/Ho_Chi_Minh');
+
+        // Check Quiet Hours (08:00 to 20:30 Vietnam time)
+        $hour = (int) $now->format('G');
+        $minute = (int) $now->format('i');
+        $isQuietHours = ($hour < 8) || ($hour > 20) || ($hour === 20 && $minute > 30);
+        if ($isQuietHours && empty($options['ignore_quiet_hours'])) {
+            return [
+                'claimed' => 0,
+                'dispatched' => 0,
+                'skipped' => 0,
+                'failed' => 0,
+                'reason' => 'quiet_hours_active',
+            ];
+        }
+
+        // 1. Atomically Claim Records with Row Lock
+        $claimedItems = DB::transaction(function () use ($limit, $workerId, $now) {
+            $records = CustomerReminderOutbox::where('status', 'pending')
+                ->where(function ($q) use ($now) {
+                    $q->whereNull('next_attempt_at')
+                      ->orWhere('next_attempt_at', '<=', $now);
+                })
+                ->where(function ($q) use ($now) {
+                    $q->whereNull('locked_at')
+                      ->orWhere('locked_at', '<=', $now->copy()->subMinutes(5)); // stale lock recovery
+                })
+                ->orderBy('id', 'asc')
+                ->limit($limit)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($records as $rec) {
+                $rec->status = 'processing';
+                $rec->locked_at = $now;
+                $rec->locked_by = $workerId;
+                $rec->save();
+            }
+
+            return $records;
+        });
+
+        if ($claimedItems->isEmpty()) {
+            return [
+                'claimed' => 0,
+                'dispatched' => 0,
+                'skipped' => 0,
+                'failed' => 0,
+                'dead_letter' => 0,
+            ];
+        }
+
+        $dispatched = 0;
+        $skipped = 0;
+        $failed = 0;
+        $deadLetter = 0;
+
+        // 2. Process each claimed item individually
+        foreach ($claimedItems as $item) {
+            // Guard A: Check if customer paid before dispatch
+            if ($item->contract_type === 'lease' && $item->installment_id) {
+                $inst = LeaseInstallment::find($item->installment_id);
+                if ($inst && $inst->status === LeaseInstallment::STATUS_PAID) {
+                    $item->update([
+                        'status' => 'skipped',
+                        'locked_at' => null,
+                        'locked_by' => null,
+                        'cancel_reason' => 'Installment was paid before dispatch.',
+                    ]);
+
+                    ReminderDeliveryEvent::create([
+                        'outbox_id' => $item->id,
+                        'provider' => 'system',
+                        'provider_message_id' => null,
+                        'event_type' => 'skipped',
+                        'http_status' => null,
+                        'payload_json' => ['reason' => 'paid_before_dispatch'],
+                    ]);
+
+                    $skipped++;
+                    continue;
+                }
+            }
+
+            // Guard B: Check max retries (>= 3 attempts -> dead_letter)
+            if ($item->retry_count >= 3) {
+                $item->update([
+                    'status' => 'dead_letter',
+                    'failed_at' => $now,
+                    'locked_at' => null,
+                    'locked_by' => null,
+                    'cancel_reason' => 'Exceeded max retry limit (3).',
+                ]);
+
+                ReminderDeliveryEvent::create([
+                    'outbox_id' => $item->id,
+                    'provider' => 'system',
+                    'provider_message_id' => null,
+                    'event_type' => 'dead_letter',
+                    'http_status' => $item->last_http_status,
+                    'payload_json' => ['reason' => 'max_retries_exceeded'],
+                ]);
+
+                $deadLetter++;
+                continue;
+            }
+
+            // Record dispatched event
+            ReminderDeliveryEvent::create([
+                'outbox_id' => $item->id,
+                'provider' => class_basename($provider),
+                'provider_message_id' => null,
+                'event_type' => 'dispatched',
+                'http_status' => null,
+                'payload_json' => [
+                    'recipient' => $item->recipient_phone,
+                    'attempt' => $item->retry_count + 1,
+                    'worker_id' => $workerId,
+                ],
+            ]);
+
+            // Call Provider
+            $resp = $provider->send($item, $options);
+            $item->attempted_at = $now;
+            $item->last_http_status = $resp['http_status'] ?? null;
+
+            if ($resp['success']) {
+                $item->status = 'sent';
+                $item->provider = class_basename($provider);
+                $item->provider_message_id = $resp['provider_message_id'] ?? null;
+                $item->sent_at = $now;
+                $item->locked_at = null;
+                $item->locked_by = null;
+                $item->error_message = null;
+                $item->save();
+
+                ReminderDeliveryEvent::create([
+                    'outbox_id' => $item->id,
+                    'provider' => class_basename($provider),
+                    'provider_message_id' => $resp['provider_message_id'] ?? null,
+                    'event_type' => 'accepted',
+                    'http_status' => $resp['http_status'] ?? 200,
+                    'payload_json' => $resp,
+                ]);
+
+                $dispatched++;
+            } else {
+                $isRetryable = !empty($resp['retryable']);
+                $newRetryCount = $item->retry_count + 1;
+                $item->retry_count = $newRetryCount;
+                $item->error_message = $resp['error'] ?? 'Provider error';
+
+                if ($isRetryable && $newRetryCount < 3) {
+                    $backoffMinutes = (int) pow(2, $newRetryCount) * 5;
+                    $item->status = 'pending';
+                    $item->next_attempt_at = $now->copy()->addMinutes($backoffMinutes);
+                    $item->locked_at = null;
+                    $item->locked_by = null;
+                    $item->save();
+                    $failed++;
+                } else {
+                    $item->status = $isRetryable ? 'dead_letter' : 'failed';
+                    $item->failed_at = $now;
+                    $item->locked_at = null;
+                    $item->locked_by = null;
+                    $item->cancel_reason = $isRetryable ? 'Exceeded max retry limit (3).' : ($resp['error'] ?? 'Non-retryable provider failure.');
+                    $item->save();
+
+                    if ($isRetryable) {
+                        $deadLetter++;
+                    } else {
+                        $failed++;
+                    }
+                }
+
+                ReminderDeliveryEvent::create([
+                    'outbox_id' => $item->id,
+                    'provider' => class_basename($provider),
+                    'provider_message_id' => $resp['provider_message_id'] ?? null,
+                    'event_type' => $resp['retryable'] ? 'failed_retryable' : 'rejected',
+                    'http_status' => $resp['http_status'] ?? 500,
+                    'payload_json' => $resp,
+                ]);
+            }
+        }
+
+        return [
+            'claimed' => $claimedItems->count(),
+            'dispatched' => $dispatched,
+            'skipped' => $skipped,
+            'failed' => $failed,
+            'dead_letter' => $deadLetter,
+        ];
+    }
+
+    /**
+     * Handle incoming delivery webhook from provider.
+     */
+    public function handleWebhook(
+        string $providerName,
+        array $payload,
+        array $headers,
+        ?ReminderProviderInterface $provider = null
+    ): array {
+        $provider = $provider ?: $this->defaultProvider;
+
+        if (!$provider->verifyWebhook($payload, $headers)) {
+            throw ValidationException::withMessages([
+                'webhook' => 'Chữ ký webhook không hợp lệ hoặc đã hết hạn.'
+            ]);
+        }
+
+        $providerMsgId = $payload['provider_message_id'] ?? ($payload['message_id'] ?? null);
+        if (!$providerMsgId) {
+            throw ValidationException::withMessages([
+                'provider_message_id' => 'Thiếu provider_message_id trong webhook payload.'
+            ]);
+        }
+
+        $item = CustomerReminderOutbox::where('provider_message_id', $providerMsgId)->first();
+        if (!$item) {
+            return [
+                'status' => 'ignored',
+                'message' => 'No matching outbox item for message id ' . $providerMsgId,
+            ];
+        }
+
+        $statusStr = strtolower((string) ($payload['status'] ?? 'delivered'));
+        $now = Carbon::now('Asia/Ho_Chi_Minh');
+
+        // Idempotency: If already delivered, don't duplicate
+        if ($item->status === 'delivered' && $statusStr === 'delivered') {
+            return [
+                'status' => 'already_delivered',
+                'outbox_id' => $item->id,
+            ];
+        }
+
+        if ($statusStr === 'delivered' || $statusStr === 'delivrd') {
+            $item->status = 'delivered';
+            $item->delivered_at = $now;
+            $item->save();
+
+            ReminderDeliveryEvent::create([
+                'outbox_id' => $item->id,
+                'provider' => $providerName,
+                'provider_message_id' => $providerMsgId,
+                'event_type' => 'delivered',
+                'http_status' => 200,
+                'payload_json' => $payload,
+            ]);
+        } else {
+            $item->status = 'failed';
+            $item->failed_at = $now;
+            $item->error_message = $payload['error_description'] ?? 'Delivery failed by provider';
+            $item->save();
+
+            ReminderDeliveryEvent::create([
+                'outbox_id' => $item->id,
+                'provider' => $providerName,
+                'provider_message_id' => $providerMsgId,
+                'event_type' => 'failed',
+                'http_status' => 200,
+                'payload_json' => $payload,
+            ]);
+        }
+
+        return [
+            'status' => 'updated',
+            'outbox_id' => $item->id,
+            'current_status' => $item->status,
+        ];
+    }
+
+    /**
+     * Backward-compatible processOutbox.
      */
     public function processOutbox(int $limit = 50, bool $dryRun = true): array
     {
         $now = Carbon::now('Asia/Ho_Chi_Minh');
         $items = CustomerReminderOutbox::where('status', 'pending')
-            ->where('scheduled_at', '<=', $now)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('scheduled_at')
+                  ->orWhere('scheduled_at', '<=', $now);
+            })
             ->limit($limit)
             ->get();
 
@@ -224,12 +519,14 @@ class CustomerReminderService
                 }
             }
 
-            // Simulation must never consume a pending notification or claim delivery.
+            // In dryRun mode, never consume pending notification or claim delivery
             if (!$dryRun) {
-                $item->update(['error_message' => 'No live delivery provider configured.']);
+                $item->update([
+                    'error_message' => 'No live delivery provider configured.',
+                    'status' => 'pending',
+                ]);
                 $failed++;
             }
-
         }
 
         return [

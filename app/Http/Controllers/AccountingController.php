@@ -2,23 +2,46 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Services\Accounting\JournalPostingService;
+use App\Http\Services\Accounting\JournalReversalService;
+use App\Http\Services\Accounting\PeriodCloseService;
+use App\Http\Services\Accounting\ReconciliationService;
 use App\Http\Services\AccountingService;
+use App\Http\Services\AuditService;
+use App\Models\AccountingAccount;
+use App\Models\AccountingPeriod;
+use App\Models\AccountingReconciliation;
 use App\Models\AccountingVatDocument;
 use App\Models\BusinessAsset;
-use App\Support\PilotAccess;
+use App\Models\JournalEntry;
+use App\Support\PermissionAccess;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AccountingController extends Controller
 {
     private $service;
+    private $postingService;
+    private $reversalService;
+    private $periodCloseService;
+    private $reconciliationService;
 
-    public function __construct(AccountingService $service)
-    {
+    public function __construct(
+        AccountingService $service,
+        JournalPostingService $postingService,
+        JournalReversalService $reversalService,
+        PeriodCloseService $periodCloseService,
+        ReconciliationService $reconciliationService
+    ) {
         $this->service = $service;
+        $this->postingService = $postingService;
+        $this->reversalService = $reversalService;
+        $this->periodCloseService = $periodCloseService;
+        $this->reconciliationService = $reconciliationService;
     }
 
     public function index(Request $request): JsonResponse
@@ -34,15 +57,7 @@ class AccountingController extends Controller
             'store_id' => 'nullable|integer',
         ]);
         $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        if (!PilotAccess::isAdmin($user)) {
-            if (!$user->store_id) {
-                return $this->errorResponse('Tài khoản chưa được gán cơ sở.', 403);
-            }
-            if ($storeId !== null && $storeId !== (int) $user->store_id) {
-                return $this->errorResponse('Bạn không có quyền xem kế toán của cơ sở khác.', 403);
-            }
-            $storeId = (int) $user->store_id;
-        }
+        PermissionAccess::can($user, 'accounting.view', $storeId);
 
         return $this->successResponse($this->service->dashboard([
             'start_date' => $validated['start_date'] ?? Carbon::now('Asia/Ho_Chi_Minh')->startOfMonth()->toDateString(),
@@ -51,10 +66,346 @@ class AccountingController extends Controller
         ]));
     }
 
+    public function getAccounts(): JsonResponse
+    {
+        $user = Auth::user();
+        PermissionAccess::can($user, 'accounting.view');
+
+        $accounts = AccountingAccount::orderBy('code')->get();
+        return $this->successResponse($accounts);
+    }
+
+    public function getJournalEntries(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d',
+            'store_id' => 'nullable|integer',
+            'status' => 'nullable|in:draft,posted,reversed',
+            'source_type' => 'nullable|string',
+        ]);
+
+        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'accounting.view', $storeId);
+
+        $query = JournalEntry::with(['lines.account', 'store:id,store_name'])
+            ->when($storeId, function ($q) use ($storeId) {
+                return $q->where('store_id', $storeId);
+            })
+            ->when(isset($validated['start_date']), function ($q) use ($validated) {
+                return $q->where('entry_date', '>=', $validated['start_date']);
+            })
+            ->when(isset($validated['end_date']), function ($q) use ($validated) {
+                return $q->where('entry_date', '<=', $validated['end_date']);
+            })
+            ->when(isset($validated['status']), function ($q) use ($validated) {
+                return $q->where('status', $validated['status']);
+            })
+            ->when(isset($validated['source_type']), function ($q) use ($validated) {
+                return $q->where('source_type', $validated['source_type']);
+            })
+            ->orderBy('entry_date', 'desc')
+            ->orderBy('id', 'desc');
+
+        $entries = $query->paginate($request->input('per_page', 50));
+        return $this->successResponse($entries);
+    }
+
+    public function getJournalEntry(int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $entry = JournalEntry::with(['lines.account', 'store', 'reversedEntry', 'createdByUser:id,name', 'postedByUser:id,name'])
+            ->findOrFail($id);
+
+        PermissionAccess::can($user, 'accounting.view', $entry->store_id);
+
+        return $this->successResponse($entry);
+    }
+
+    public function postJournalEntry(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'entry_date' => 'required|date_format:Y-m-d',
+            'store_id' => 'nullable|integer|exists:stores,id',
+            'description' => 'required|string|max:500',
+            'source_type' => 'nullable|string|max:100',
+            'source_id' => 'nullable|integer',
+            'idempotency_key' => 'nullable|string|max:100',
+            'lines' => 'required|array|min:2',
+            'lines.*.account_id' => 'required|integer|exists:accounting_accounts,id',
+            'lines.*.debit' => 'nullable|numeric|min:0',
+            'lines.*.credit' => 'nullable|numeric|min:0',
+            'lines.*.description' => 'nullable|string|max:500',
+            'lines.*.store_id' => 'nullable|integer|exists:stores,id',
+        ]);
+
+        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'accounting.post', $storeId);
+
+        $entry = $this->postingService->post($validated, $user->id);
+        return $this->successResponse($entry, 'Đã ghi nhận bút toán kế toán thành công.');
+    }
+
+    public function reverseJournalEntry(Request $request, int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $entry = JournalEntry::findOrFail($id);
+        PermissionAccess::can($user, 'accounting.reverse', $entry->store_id);
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+            'reversal_date' => 'nullable|date_format:Y-m-d',
+        ]);
+
+        $reversalEntry = $this->reversalService->reverse($id, $validated['reason'], $user->id, $validated['reversal_date'] ?? null);
+        return $this->successResponse($reversalEntry, 'Đã đảo bút toán thành công.');
+    }
+
+    public function getPeriods(): JsonResponse
+    {
+        $user = Auth::user();
+        PermissionAccess::can($user, 'accounting.view');
+
+        $periods = AccountingPeriod::with(['closedByUser:id,name', 'reopenedByUser:id,name'])
+            ->orderBy('fiscal_year', 'desc')
+            ->orderBy('period_month', 'desc')
+            ->get();
+
+        return $this->successResponse($periods);
+    }
+
+    public function closePeriod(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        PermissionAccess::can($user, 'accounting.close_period');
+
+        $validated = $request->validate([
+            'fiscal_year' => 'required|integer|min:2020|max:2050',
+            'period_month' => 'required|integer|min:1|max:12',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $period = $this->periodCloseService->closePeriod(
+            (int) $validated['fiscal_year'],
+            (int) $validated['period_month'],
+            $user->id,
+            $validated['notes'] ?? null
+        );
+
+        return $this->successResponse($period, "Đã khóa kỳ kế toán tháng {$period->period_month}/{$period->fiscal_year}.");
+    }
+
+    public function reopenPeriod(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        PermissionAccess::can($user, 'accounting.close_period');
+
+        $validated = $request->validate([
+            'fiscal_year' => 'required|integer|min:2020|max:2050',
+            'period_month' => 'required|integer|min:1|max:12',
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $period = $this->periodCloseService->reopenPeriod(
+            (int) $validated['fiscal_year'],
+            (int) $validated['period_month'],
+            $user->id,
+            $validated['reason']
+        );
+
+        return $this->successResponse($period, "Đã mở lại kỳ kế toán tháng {$period->period_month}/{$period->fiscal_year}.");
+    }
+
+    public function getReconciliations(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'store_id' => 'nullable|integer',
+            'account_type' => 'nullable|in:cash,bank',
+            'status' => 'nullable|string',
+        ]);
+
+        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'accounting.view', $storeId);
+
+        $reconciliations = AccountingReconciliation::with(['store:id,store_name', 'period', 'reconciledByUser:id,name'])
+            ->when($storeId, function ($q) use ($storeId) {
+                return $q->where('store_id', $storeId);
+            })
+            ->when(isset($validated['account_type']), function ($q) use ($validated) {
+                return $q->where('account_type', $validated['account_type']);
+            })
+            ->when(isset($validated['status']), function ($q) use ($validated) {
+                return $q->where('status', $validated['status']);
+            })
+            ->orderBy('reconciliation_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        return $this->successResponse($reconciliations);
+    }
+
+    public function reconcileCash(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'store_id' => 'required|integer|exists:stores,id',
+            'date' => 'required|date_format:Y-m-d',
+            'actual_balance' => 'required|numeric',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        PermissionAccess::can($user, 'accounting.reconcile', (int) $validated['store_id']);
+
+        $rec = $this->reconciliationService->reconcileCash(
+            (int) $validated['store_id'],
+            $validated['date'],
+            (float) $validated['actual_balance'],
+            $user->id,
+            $validated['notes'] ?? null
+        );
+
+        return $this->successResponse($rec, 'Đã hoàn tất đối soát két tiền mặt.');
+    }
+
+    public function reconcileBank(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'date' => 'required|date_format:Y-m-d',
+            'actual_balance' => 'required|numeric',
+            'store_id' => 'nullable|integer|exists:stores,id',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'accounting.reconcile', $storeId);
+
+        $rec = $this->reconciliationService->reconcileBank(
+            $validated['date'],
+            (float) $validated['actual_balance'],
+            $user->id,
+            $storeId,
+            $validated['notes'] ?? null
+        );
+
+        return $this->successResponse($rec, 'Đã hoàn tất đối soát sao kê ngân hàng.');
+    }
+
+    public function approveReconciliation(Request $request, int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $rec = AccountingReconciliation::findOrFail($id);
+        PermissionAccess::can($user, 'accounting.reconcile', $rec->store_id);
+
+        $validated = $request->validate([
+            'resolution_note' => 'required|string|max:500',
+        ]);
+
+        $updated = $this->reconciliationService->approveDiscrepancy($id, $validated['resolution_note'], $user->id);
+        return $this->successResponse($updated, 'Đã phê duyệt xử lý chênh lệch đối soát.');
+    }
+
+    public function getTrialBalance(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'start_date' => 'required|date_format:Y-m-d',
+            'end_date' => 'required|date_format:Y-m-d',
+            'store_id' => 'nullable|integer',
+        ]);
+
+        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'accounting.view', $storeId);
+
+        $data = $this->reconciliationService->getTrialBalance(
+            $validated['start_date'],
+            $validated['end_date'],
+            $storeId
+        );
+
+        return $this->successResponse($data);
+    }
+
+    public function getGeneralLedger(Request $request, int $accountId): JsonResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'start_date' => 'required|date_format:Y-m-d',
+            'end_date' => 'required|date_format:Y-m-d',
+            'store_id' => 'nullable|integer',
+        ]);
+
+        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'accounting.view', $storeId);
+
+        $data = $this->reconciliationService->getGeneralLedger(
+            $accountId,
+            $validated['start_date'],
+            $validated['end_date'],
+            $storeId
+        );
+
+        return $this->successResponse($data);
+    }
+
+    public function legacyShadowAnalysis(): JsonResponse
+    {
+        $user = Auth::user();
+        PermissionAccess::can($user, 'accounting.view');
+
+        // Check legacy transactions table if exists
+        $hasTransactions = DB::getSchemaBuilder()->hasTable('transactions');
+        if (!$hasTransactions) {
+            return $this->successResponse(['status' => 'not_available', 'message' => 'Bảng transactions không tồn tại.']);
+        }
+
+        $totalCount = DB::table('transactions')->count();
+        $transactionSchema = DB::getSchemaBuilder();
+        $amountColumn = $transactionSchema->hasColumn('transactions', 'value') ? 'value' : null;
+        $methodColumn = $transactionSchema->hasColumn('transactions', 'payment_method') ? 'payment_method' : null;
+
+        if ($amountColumn && $methodColumn) {
+            $mappedCount = DB::table('transactions')
+                ->whereNotNull($methodColumn)
+                ->where($amountColumn, '>', 0)
+                ->count();
+            $ambiguousCount = DB::table('transactions')
+                ->whereNull($methodColumn)
+                ->orWhere($amountColumn, '<=', 0)
+                ->count();
+        } else {
+            // Legacy installations only have value/type and cannot be safely
+            // auto-mapped to a journal. Report them as ambiguous instead of
+            // issuing a SQL error or inventing an accounting classification.
+            $mappedCount = 0;
+            $ambiguousCount = $totalCount;
+        }
+
+        $postedJournalCount = JournalEntry::where('source_type', 'transaction')->count();
+
+        return $this->successResponse([
+            'legacy_transactions' => [
+                'total' => $totalCount,
+                'mapped_eligible' => $mappedCount,
+                'ambiguous_or_invalid' => $ambiguousCount,
+            ],
+            'journal_entries' => [
+                'posted_from_transactions' => $postedJournalCount,
+                'total_journal_entries' => JournalEntry::count(),
+            ],
+            'shadow_mode' => [
+                'status' => 'active',
+                'policy' => 'Không tự động backfill mục ambiguous; chỉ post các giao dịch có đầy đủ chứng từ và được kế toán phê duyệt.',
+            ],
+        ]);
+    }
+
     public function saveVatDocument(Request $request): JsonResponse
     {
         $user = Auth::user();
-        PilotAccess::admin($user);
         $id = $request->input('id');
         $validated = $request->validate([
             'id' => 'nullable|integer|exists:accounting_vat_documents,id',
@@ -75,18 +426,30 @@ class AccountingController extends Controller
             'store_id' => 'nullable|integer|exists:stores,id',
             'transaction_id' => 'nullable|integer|exists:transactions,id',
             'notes' => 'nullable|string|max:1000',
+            'auto_post_journal' => 'nullable|boolean',
         ]);
 
-        return $this->successResponse(
-            $this->service->saveVatDocument($validated, $user->id, $id ? (int) $id : null),
-            'Đã lưu chứng từ VAT.'
-        );
+        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'accounting.post', $storeId);
+
+        $doc = $this->service->saveVatDocument($validated, $user->id, $id ? (int) $id : null);
+        AuditService::log('accounting.vat_document.save', $doc, null, $doc->toArray(), 'Lưu chứng từ VAT', $doc->store_id);
+
+        // Optionally post journal entry
+        if (!empty($validated['auto_post_journal'])) {
+            try {
+                $this->postingService->postVatDocument($doc, $user->id);
+            } catch (\Exception $e) {
+                // Keep document saved, surface warning
+            }
+        }
+
+        return $this->successResponse($doc, 'Đã lưu chứng từ VAT.');
     }
 
     public function saveAsset(Request $request): JsonResponse
     {
         $user = Auth::user();
-        PilotAccess::admin($user);
         $id = $request->input('id');
         $validated = $request->validate([
             'id' => 'nullable|integer|exists:business_assets,id',
@@ -102,23 +465,40 @@ class AccountingController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        return $this->successResponse(
-            $this->service->saveAsset($validated, $user->id, $id ? (int) $id : null),
-            'Đã lưu tài sản.'
-        );
+        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'accounting.post', $storeId);
+
+        $asset = $this->service->saveAsset($validated, $user->id, $id ? (int) $id : null);
+        AuditService::log('accounting.asset.save', $asset, null, $asset->toArray(), 'Lưu tài sản', $asset->store_id);
+
+        return $this->successResponse($asset, 'Đã lưu tài sản.');
     }
 
     public function deleteVatDocument(int $id): JsonResponse
     {
-        PilotAccess::admin(Auth::user());
-        AccountingVatDocument::findOrFail($id)->delete();
-        return $this->successResponse(null, 'Đã xóa chứng từ VAT.');
+        $user = Auth::user();
+        PermissionAccess::can($user, 'accounting.reverse');
+        $doc = AccountingVatDocument::findOrFail($id);
+        $before = $doc->toArray();
+        $doc->payment_status = 'unpaid';
+        $doc->notes = trim(($doc->notes ? $doc->notes . "\n" : "") . "[Đã hủy bởi " . $user->name . " lúc " . Carbon::now()->format('d/m/Y H:i') . "]");
+        $doc->save();
+        AuditService::log('accounting.vat_document.cancel', $doc, $before, $doc->toArray(), 'Hủy chứng từ VAT', $doc->store_id);
+
+        return $this->successResponse($doc, 'Đã hủy chứng từ VAT.');
     }
 
     public function deleteAsset(int $id): JsonResponse
     {
-        PilotAccess::admin(Auth::user());
-        BusinessAsset::findOrFail($id)->delete();
-        return $this->successResponse(null, 'Đã xóa tài sản.');
+        $user = Auth::user();
+        PermissionAccess::can($user, 'accounting.reverse');
+        $asset = BusinessAsset::findOrFail($id);
+        $before = $asset->toArray();
+        $asset->status = 'disposed';
+        $asset->notes = trim(($asset->notes ? $asset->notes . "\n" : "") . "[Đã thanh lý bởi " . $user->name . " lúc " . Carbon::now()->format('d/m/Y H:i') . "]");
+        $asset->save();
+        AuditService::log('accounting.asset.dispose', $asset, $before, $asset->toArray(), 'Thanh lý tài sản', $asset->store_id);
+
+        return $this->successResponse($asset, 'Đã thanh lý tài sản.');
     }
 }

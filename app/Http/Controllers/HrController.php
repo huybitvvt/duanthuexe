@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Services\HrService;
+use App\Http\Services\AuditService;
+use App\Models\StaffAttendance;
 use App\Models\StoreDutySchedule;
 use App\Models\StaffProfile;
-use App\Support\PilotAccess;
+use App\Support\PermissionAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,21 +33,17 @@ class HrController extends Controller
         }
 
         $filters = $request->all();
-        $isAdmin = PilotAccess::isAdmin($user);
+        $requestedStoreId = $request->filled('store_id') ? (int) $request->input('store_id') : null;
+        PermissionAccess::can($user, 'hr.view', $requestedStoreId);
 
-        // Nhân viên chỉ được xem danh sách nhân sự tại cơ sở của mình
-        if (!$isAdmin) {
-            if (!$user->store_id) {
-                return $this->errorResponse('Tài khoản chưa được gán cơ sở.', 403);
-            }
-            if ($request->filled('store_id') && (int)$request->input('store_id') !== (int)$user->store_id) {
-                return $this->errorResponse('Bạn không có quyền xem nhân sự của cơ sở khác.', 403);
-            }
+        // Store-scoped roles must never broaden a missing filter into a
+        // company-wide HR query. Company HR/BGĐ accounts have no store_id.
+        if (!PermissionAccess::isAdmin($user) && $user->store_id) {
             $filters['store_id'] = (int) $user->store_id;
         }
 
-        // Che số CCCD/id_card nếu người xem không phải Admin
-        $maskSensitive = !$isAdmin;
+        // Only HR managers/admins may receive the full identity number.
+        $maskSensitive = !PermissionAccess::allows($user, 'hr.manage_staff', $requestedStoreId);
         $staff = $this->hrService->getStaffList($filters, $maskSensitive);
 
         return $this->successResponse($staff);
@@ -59,10 +57,6 @@ class HrController extends Controller
         $user = Auth::user();
         if (!$user) {
             return $this->errorResponse('Chưa đăng nhập.', 401);
-        }
-
-        if (!PilotAccess::isAdmin($user)) {
-            return $this->errorResponse('Chỉ Admin mới có quyền tạo hoặc chỉnh sửa hồ sơ nhân sự.', 403);
         }
 
         $staffId = $request->input('id');
@@ -86,8 +80,24 @@ class HrController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
+        $existing = $staffId ? StaffProfile::findOrFail((int) $staffId) : null;
+        $targetStoreId = isset($validated['store_id'])
+            ? (int) $validated['store_id']
+            : ($existing && $existing->store_id ? (int) $existing->store_id : null);
+        PermissionAccess::can($user, 'hr.manage_staff', $targetStoreId);
+
         try {
+            $before = $existing ? $existing->toArray() : null;
             $staff = $this->hrService->saveStaffProfile($validated, $staffId);
+            AuditService::log(
+                $existing ? 'hr.staff.update' : 'hr.staff.create',
+                $staff,
+                $before,
+                $staff->toArray(),
+                $existing ? 'Cập nhật hồ sơ nhân sự' : 'Tạo hồ sơ nhân sự',
+                $staff->store_id,
+                $user->id
+            );
             return $this->successResponse($staff, 'Lưu thông tin nhân sự thành công.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -111,13 +121,8 @@ class HrController extends Controller
         }
 
         $requestedStoreId = $request->filled('store_id') ? (int) $request->input('store_id') : null;
-        if (!PilotAccess::isAdmin($user)) {
-            if (!$user->store_id) {
-                return $this->errorResponse('Tài khoản chưa được gán cơ sở.', 403);
-            }
-            if ($requestedStoreId !== null && $requestedStoreId !== (int) $user->store_id) {
-                return $this->errorResponse('Bạn không có quyền xem nhân sự của cơ sở khác.', 403);
-            }
+        PermissionAccess::can($user, 'hr.view', $requestedStoreId);
+        if (!PermissionAccess::isAdmin($user) && $user->store_id) {
             $requestedStoreId = (int) $user->store_id;
         }
 
@@ -136,14 +141,9 @@ class HrController extends Controller
             'store_id' => 'nullable|integer',
         ]);
         $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        PermissionAccess::can($user, 'hr.view', $storeId);
 
-        if (!PilotAccess::isAdmin($user)) {
-            if (!$user->store_id) {
-                return $this->errorResponse('Tài khoản chưa được gán cơ sở.', 403);
-            }
-            if ($storeId !== null && $storeId !== (int) $user->store_id) {
-                return $this->errorResponse('Bạn không có quyền xem chấm công của cơ sở khác.', 403);
-            }
+        if (!PermissionAccess::isAdmin($user) && $user->store_id) {
             $storeId = (int) $user->store_id;
         }
 
@@ -169,16 +169,23 @@ class HrController extends Controller
 
         try {
             $staff = StaffProfile::findOrFail((int) $validated['staff_id']);
-            if (!$staff->store_id && !PilotAccess::isAdmin($user)) {
-                return $this->errorResponse('Nhân sự chưa được gán cơ sở.', 422);
-            }
-            if ($staff->store_id) {
-                PilotAccess::store($user, (int) $staff->store_id);
-            } elseif (!PilotAccess::isAdmin($user)) {
-                return $this->errorResponse('Bạn không có quyền cập nhật nhân sự này.', 403);
-            }
+            PermissionAccess::can($user, 'hr.manage_attendance', $staff->store_id ? (int) $staff->store_id : null);
+
+            $beforeModel = StaffAttendance::where('staff_id', $staff->id)
+                ->where('attendance_date', $validated['attendance_date'])
+                ->first();
+            $before = $beforeModel ? $beforeModel->toArray() : null;
 
             $attendance = $this->hrService->saveAttendance($validated, $user->id);
+            AuditService::log(
+                $beforeModel ? 'hr.attendance.update' : 'hr.attendance.create',
+                $attendance,
+                $before,
+                $attendance->toArray(),
+                'Lưu chấm công nhân sự',
+                $staff->store_id,
+                $user->id
+            );
             return $this->successResponse($attendance, 'Đã lưu chấm công.');
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return $this->errorResponse($e->getMessage(), 403);
@@ -203,17 +210,13 @@ class HrController extends Controller
 
         $date = $request->input('date', date('Y-m-d'));
         $requestedStoreId = $request->input('store_id');
+        $requestedStoreId = $requestedStoreId !== null ? (int) $requestedStoreId : null;
+        PermissionAccess::can($user, 'hr.view', $requestedStoreId);
 
-        if (!PilotAccess::isAdmin($user)) {
-            if (!$user->store_id) {
-                return $this->errorResponse('Tài khoản chưa được gán cơ sở.', 403);
-            }
-            if ($requestedStoreId !== null && (int)$requestedStoreId !== (int)$user->store_id) {
-                return $this->errorResponse('Bạn không có quyền xem lịch trực của cơ sở khác.', 403);
-            }
+        if (!PermissionAccess::isAdmin($user) && $user->store_id) {
             $storeId = (int)$user->store_id;
         } else {
-            $storeId = $requestedStoreId ? (int)$requestedStoreId : null;
+            $storeId = $requestedStoreId;
         }
 
         $schedules = $this->hrService->getStoreDutySchedules($date, $storeId);
@@ -242,8 +245,17 @@ class HrController extends Controller
         ]);
 
         try {
-            PilotAccess::store($user, $validated['store_id']);
+            PermissionAccess::can($user, 'hr.manage_schedule', (int) $validated['store_id']);
             $schedule = $this->hrService->saveStoreDutySchedule($validated, $user->id);
+            AuditService::log(
+                'hr.schedule.create',
+                $schedule,
+                null,
+                $schedule->toArray(),
+                'Tạo lịch trực cơ sở',
+                $schedule->store_id,
+                $user->id
+            );
             return $this->successResponse($schedule, 'Đã lưu lịch trực cửa hàng thành công.');
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return $this->errorResponse($e->getMessage(), 403);
@@ -270,9 +282,19 @@ class HrController extends Controller
 
         try {
             $schedule = StoreDutySchedule::findOrFail($id);
-            PilotAccess::store($user, $schedule->store_id);
+            PermissionAccess::can($user, 'hr.manage_schedule', (int) $schedule->store_id);
+            $before = $schedule->toArray();
 
             $this->hrService->deleteStoreDutySchedule($id, $user->id);
+            AuditService::log(
+                'hr.schedule.delete',
+                $schedule,
+                $before,
+                null,
+                'Xóa lịch trực cơ sở',
+                $schedule->store_id,
+                $user->id
+            );
             return $this->successResponse(null, 'Đã xoá ca trực thành công.');
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return $this->errorResponse($e->getMessage(), 403);

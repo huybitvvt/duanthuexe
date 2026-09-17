@@ -310,6 +310,15 @@ class ReviewDefectFixesTest extends HimotoCashRegisterAndHrTest
             'staff_name' => 'Nhân viên bảo mật',
         ], $this->adminUser->id);
 
+        DB::table('roles')->insert([
+            'id' => 2,
+            'name' => 'Quản lý cửa hàng',
+            'display_name' => 'Quản lý cửa hàng',
+            'slug' => 'quan-ly-cua-hang',
+        ]);
+        $this->staffUser->role_id = 2;
+        $this->staffUser->save();
+
         Auth::setUser($this->staffUser);
         $response = app(HrController::class)->dutySchedules(Request::create('/review-duty', 'GET', ['date' => '2026-09-16']));
         $this->assertEquals(200, $response->getStatusCode());

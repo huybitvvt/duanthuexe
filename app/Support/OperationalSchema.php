@@ -21,6 +21,19 @@ class OperationalSchema
         ],
         'accounting' => [
             '2026_09_17_000010_create_accounting_vat_and_assets_tables',
+            '2026_09_17_000011_create_double_entry_accounting_tables',
+        ],
+        'audit' => [
+            '2026_09_17_000001_create_audit_events_table',
+        ],
+        'ownership' => [
+            '2026_09_17_000003_create_lease_ownership_tables',
+        ],
+        'reminder' => [
+            '2026_09_17_000004_enhance_customer_reminder_outbox_table',
+        ],
+        'gps' => [
+            '2026_09_17_000005_create_gps_tracking_tables',
         ],
     ];
 
@@ -79,6 +92,47 @@ class OperationalSchema
             'business_assets' => [
                 'asset_code', 'name', 'store_id', 'purchase_cost', 'residual_value',
                 'depreciation_months', 'status',
+            ],
+        ],
+        'audit' => [
+            'audit_events' => [
+                'actor_user_id', 'action', 'subject_type', 'subject_id', 'store_id',
+                'before_json', 'after_json', 'reason', 'request_id', 'ip_hash', 'created_at',
+            ],
+        ],
+        'ownership' => [
+            'lease_ownership_requests' => [
+                'lease_contract_id', 'vehicle_id', 'customer_id', 'store_id', 'status',
+                'remaining_debt', 'requested_by', 'approved_by', 'executed_by', 'idempotency_key',
+            ],
+            'lease_ownership_events' => [
+                'ownership_request_id', 'from_status', 'to_status', 'actor_user_id', 'created_at',
+            ],
+            'vehicle_ownerships' => [
+                'vehicle_id', 'customer_id', 'lease_contract_id', 'ownership_request_id', 'transferred_at',
+            ],
+        ],
+        'reminder' => [
+            'customer_reminder_outbox' => [
+                'status', 'scheduled_at', 'idempotency_key', 'provider', 'provider_message_id',
+                'next_attempt_at', 'locked_at', 'retry_count', 'cancel_reason',
+            ],
+            'reminder_delivery_events' => [
+                'outbox_id', 'provider', 'provider_message_id', 'event_type', 'payload_json', 'created_at',
+            ],
+        ],
+        'gps' => [
+            'gps_devices' => [
+                'vehicle_id', 'provider', 'external_device_id', 'mapping_status', 'last_sync_at',
+            ],
+            'gps_positions' => [
+                'gps_device_id', 'latitude', 'longitude', 'provider_recorded_at', 'received_at', 'normalized_status',
+            ],
+            'gps_alerts' => [
+                'gps_device_id', 'vehicle_id', 'alert_type', 'status', 'opened_at',
+            ],
+            'gps_recovery_actions' => [
+                'vehicle_id', 'status', 'recovery_plan', 'created_by',
             ],
         ],
     ];

@@ -128,9 +128,13 @@ class OperationalSchemaMigrationTest extends TestCase
     public function testAccountingMigrationIsRetrySafeAndReversible()
     {
         require_once database_path('migrations/2026_09_17_000010_create_accounting_vat_and_assets_tables.php');
+        require_once database_path('migrations/2026_09_17_000011_create_double_entry_accounting_tables.php');
         $migration = new \CreateAccountingVatAndAssetsTables();
+        $doubleEntryMigration = new \CreateDoubleEntryAccountingTables();
         $migration->up();
         $migration->up();
+        $doubleEntryMigration->up();
+        $doubleEntryMigration->up();
 
         $this->assertTrue(app(OperationalSchema::class)->isReady('accounting'));
         DB::table('business_assets')->insert([
@@ -143,6 +147,7 @@ class OperationalSchemaMigrationTest extends TestCase
         ]);
         $this->assertEquals(1, DB::table('business_assets')->count());
 
+        $doubleEntryMigration->down();
         $migration->down();
         $this->assertFalse(Schema::hasTable('business_assets'));
         $this->assertFalse(Schema::hasTable('accounting_vat_documents'));

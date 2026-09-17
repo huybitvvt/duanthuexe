@@ -71,6 +71,7 @@ class Kernel extends HttpKernel
         'non.sale' => NonSale::class,
         'check.status' => \App\Http\Middleware\CheckUserStatus::class,
         'schema.ready' => \App\Http\Middleware\EnsureOperationalSchema::class,
+        'permission' => \App\Http\Middleware\CheckPermission::class,
     ];
 
     /**

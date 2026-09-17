@@ -33,6 +33,7 @@ use App\Http\Controllers\HrController;
 use App\Http\Controllers\KpiReportController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\CustomerReminderController;
+use App\Http\Controllers\LeaseOwnershipController;
 
 /*
 |--------------------------------------------------------------------------
@@ -64,6 +65,8 @@ Route::get('/health', function () {
 });
 
 Route::get('/check-timezone', [Order\OrderController::class, 'check_timezone'])->middleware('auth.jwt');
+Route::post('/customer-reminders/webhook/{provider}', [CustomerReminderController::class, 'webhook'])
+    ->middleware(['schema.ready:reminder', 'schema.ready:audit']);
 
 Route::group(['middleware' => 'api'], function ($router) {
     Route::group(['middleware' => 'check.status'],function () {
@@ -258,16 +261,28 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             });
             Route::get('/vehicles/{vehicleId}/movement-history', [WarehouseController::class, 'movementHistory']);
 
-            Route::group(['prefix' => 'lease-contracts', 'middleware' => 'schema.ready:lease'], function () {
+            Route::group(['prefix' => 'lease-contracts', 'middleware' => ['schema.ready:lease', 'schema.ready:ownership', 'schema.ready:audit']], function () {
                 Route::get('/', [LeaseContractController::class, 'index']);
                 Route::get('/stats', [LeaseContractController::class, 'stats']);
                 Route::get('/export', [LeaseContractController::class, 'export']);
                 Route::get('/{id}', [LeaseContractController::class, 'show']);
+                Route::get('/{id}/pdf', [LeaseContractController::class, 'pdf']);
+                Route::get('/{id}/debt-statement.pdf', [LeaseContractController::class, 'debtStatementPdf']);
                 Route::post('/', [LeaseContractController::class, 'store']);
                 Route::post('/{id}/payments', [LeaseContractController::class, 'allocatePayment']);
                 Route::post('/{id}/settle', [LeaseContractController::class, 'settle']);
                 Route::post('/reverse-allocation/{allocationId}', [LeaseContractController::class, 'reverse']);
                 Route::post('/{id}/notes', [LeaseContractController::class, 'addNote']);
+                Route::post('/{id}/ownership-requests', [LeaseOwnershipController::class, 'createDraft']);
+            });
+
+            Route::group(['prefix' => 'lease-ownership-requests', 'middleware' => ['schema.ready:ownership', 'schema.ready:audit']], function () {
+                Route::get('/', [LeaseOwnershipController::class, 'index']);
+                Route::get('/{id}', [LeaseOwnershipController::class, 'show']);
+                Route::post('/{id}/submit', [LeaseOwnershipController::class, 'submit']);
+                Route::post('/{id}/approve', [LeaseOwnershipController::class, 'approve']);
+                Route::post('/{id}/reject', [LeaseOwnershipController::class, 'reject']);
+                Route::post('/{id}/execute', [LeaseOwnershipController::class, 'executeTransfer']);
             });
 
             Route::group(['prefix' => 'daily-cash-registers', 'middleware' => 'schema.ready:cash_register'], function () {
@@ -277,32 +292,47 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::get('/history', [DailyCashRegisterController::class, 'history']);
             });
 
-            Route::group(['prefix' => 'hr'], function () {
-                Route::get('/staff', [HrController::class, 'staffIndex']);
-                Route::post('/staff', [HrController::class, 'staffStore']);
-                Route::get('/organization-chart', [HrController::class, 'organizationChart']);
-                Route::get('/attendance', [HrController::class, 'attendanceIndex'])->middleware('schema.ready:attendance');
-                Route::post('/attendance', [HrController::class, 'attendanceStore'])->middleware('schema.ready:attendance');
-                Route::get('/duty-schedules', [HrController::class, 'dutySchedules']);
-                Route::post('/duty-schedules', [HrController::class, 'saveDutySchedule']);
-                Route::delete('/duty-schedules/{id}', [HrController::class, 'deleteDutySchedule']);
+            Route::group(['prefix' => 'hr', 'middleware' => 'schema.ready:audit'], function () {
+                Route::get('/staff', [HrController::class, 'staffIndex'])->middleware('permission:hr.view');
+                Route::post('/staff', [HrController::class, 'staffStore'])->middleware('permission:hr.manage_staff');
+                Route::get('/organization-chart', [HrController::class, 'organizationChart'])->middleware('permission:hr.view');
+                Route::get('/attendance', [HrController::class, 'attendanceIndex'])->middleware(['schema.ready:attendance', 'permission:hr.view']);
+                Route::post('/attendance', [HrController::class, 'attendanceStore'])->middleware(['schema.ready:attendance', 'permission:hr.manage_attendance']);
+                Route::get('/duty-schedules', [HrController::class, 'dutySchedules'])->middleware('permission:hr.view');
+                Route::post('/duty-schedules', [HrController::class, 'saveDutySchedule'])->middleware('permission:hr.manage_schedule');
+                Route::delete('/duty-schedules/{id}', [HrController::class, 'deleteDutySchedule'])->middleware('permission:hr.manage_schedule');
             });
 
-            Route::group(['prefix' => 'accounting', 'middleware' => 'schema.ready:accounting'], function () {
+            Route::group(['prefix' => 'accounting', 'middleware' => ['schema.ready:accounting', 'schema.ready:audit']], function () {
                 Route::get('/', [AccountingController::class, 'index']);
+                Route::get('/accounts', [AccountingController::class, 'getAccounts']);
+                Route::get('/journal-entries', [AccountingController::class, 'getJournalEntries']);
+                Route::get('/journal-entries/{id}', [AccountingController::class, 'getJournalEntry']);
+                Route::post('/journal-entries', [AccountingController::class, 'postJournalEntry']);
+                Route::post('/journal-entries/{id}/reverse', [AccountingController::class, 'reverseJournalEntry']);
+                Route::get('/periods', [AccountingController::class, 'getPeriods']);
+                Route::post('/periods/close', [AccountingController::class, 'closePeriod']);
+                Route::post('/periods/reopen', [AccountingController::class, 'reopenPeriod']);
+                Route::get('/reconciliations', [AccountingController::class, 'getReconciliations']);
+                Route::post('/reconciliations/cash', [AccountingController::class, 'reconcileCash']);
+                Route::post('/reconciliations/bank', [AccountingController::class, 'reconcileBank']);
+                Route::post('/reconciliations/{id}/approve', [AccountingController::class, 'approveReconciliation']);
+                Route::get('/trial-balance', [AccountingController::class, 'getTrialBalance']);
+                Route::get('/general-ledger/{accountId}', [AccountingController::class, 'getGeneralLedger']);
+                Route::get('/legacy-shadow-analysis', [AccountingController::class, 'legacyShadowAnalysis']);
                 Route::post('/vat-documents', [AccountingController::class, 'saveVatDocument']);
                 Route::delete('/vat-documents/{id}', [AccountingController::class, 'deleteVatDocument']);
                 Route::post('/assets', [AccountingController::class, 'saveAsset']);
                 Route::delete('/assets/{id}', [AccountingController::class, 'deleteAsset']);
             });
 
-            Route::group(['prefix' => 'customer-reminders'], function () {
+            Route::group(['prefix' => 'customer-reminders', 'middleware' => ['schema.ready:reminder', 'schema.ready:audit']], function () {
                 Route::get('/action-list', [CustomerReminderController::class, 'actionList']);
                 Route::post('/scan', [CustomerReminderController::class, 'scan']);
                 Route::post('/dispatch', [CustomerReminderController::class, 'dispatchOutbox']);
             });
 
-            Route::group(['prefix' => 'gps'], function () {
+            Route::group(['prefix' => 'gps', 'middleware' => ['schema.ready:gps', 'schema.ready:audit']], function () {
                 Route::get('/overview', [CustomerReminderController::class, 'gpsOverview']);
             });
 

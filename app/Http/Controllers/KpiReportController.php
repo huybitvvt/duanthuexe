@@ -32,7 +32,12 @@ class KpiReportController extends Controller
         ]);
 
         $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        if (!PilotAccess::isAdmin($user)) {
+
+        // Quyền xem toàn công ty (Admin, BGĐ)
+        if (\App\Support\PermissionAccess::allows($user, 'kpi.view_company')) {
+            // Cho phép xem mọi cơ sở hoặc lọc theo $storeId
+        } elseif (\App\Support\PermissionAccess::allows($user, 'kpi.view_store', $user->store_id)) {
+            // Chỉ xem được cơ sở của mình
             if (!$user->store_id) {
                 return $this->errorResponse('Tài khoản chưa được gán cơ sở.', 403);
             }
@@ -40,6 +45,8 @@ class KpiReportController extends Controller
                 return $this->errorResponse('Bạn không có quyền xem KPI của cơ sở khác.', 403);
             }
             $storeId = (int) $user->store_id;
+        } else {
+            return $this->errorResponse('Bạn không có quyền truy cập báo cáo KPI.', 403);
         }
 
         $startDate = $validated['start_date'] ?? Carbon::now('Asia/Ho_Chi_Minh')->startOfMonth()->toDateString();

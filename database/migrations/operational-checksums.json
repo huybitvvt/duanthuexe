@@ -1,7 +1,14 @@
 {
+    "2026_09_17_000001_create_audit_events_table": "30decbdc3851b93ad3d456054a125da762acf321903ea7bef577b53677c6ec05",
+    "2026_09_17_000002_seed_rbac_permissions_and_roles": "197d19c9bfb2a67519b3950ec7b796c8f31fcf6f01390aee91629d0842f72ade",
+    "2026_09_17_000003_create_lease_ownership_tables": "bd86016129286957e752aecf016e77997b64b25f8a4236161eaed72c580571fd",
+    "2026_09_17_000004_enhance_customer_reminder_outbox_table": "204282cdfb10038de5e982732b11cb7fa507a8e78ebd8a6c04b82f48e67e3942",
+    "2026_09_17_000005_create_gps_tracking_tables": "60b2b198659e5216d61207ca5882da20179f700df501095eee2311a49cafdeb7",
     "2026_09_16_000006_add_reversal_fields_to_lease_payment_allocations_table": "20c4d8c5300374bbb09dd1d1e1b7448e953059e354d162bd95e63a65e80277b4",
     "2026_09_16_000007_add_bank_expenses_to_daily_cash_registers_table": "d2e267b634d0ac59ecc5736f0a61fef2de5322a915bd73db55a0c4217e28b5bd",
     "2026_09_16_000008_create_staff_attendances_table": "29cc0d5d3a1e6fdb5c5ab24122bdd89f6af0037e17fcb2b20116fb1264a0715e",
     "2026_09_16_000009_add_attribution_to_leads_table": "733565ca919a8aedd1a13a317075a3c60a0d9a45318fd5b2dc08725e6826dbb0",
-    "2026_09_17_000010_create_accounting_vat_and_assets_tables": "1a134a3c9fd43569d67efb9c257026dd1c0fc08f80c411b4e7cce6a5f94505ab"
+    "2026_09_17_000010_create_accounting_vat_and_assets_tables": "1a134a3c9fd43569d67efb9c257026dd1c0fc08f80c411b4e7cce6a5f94505ab",
+    "2026_09_17_000011_create_double_entry_accounting_tables": "a54d69bba32ff738822b9853f8f80b3b6b734f58649f0ca18cfafc590a6b5185",
+    "2026_09_17_000012_add_document_snapshot_to_lease_contracts_table": "d6951ca08c32b8882f46ed5761eca5509c8db364762eb78b6f9aade9b4969554"
 }

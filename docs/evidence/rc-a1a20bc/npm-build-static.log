@@ -1,0 +1,290 @@
+
+> build:static
+> npm run production && node scripts/build-static.js
+
+
+> production
+> cross-env NODE_OPTIONS=--openssl-legacy-provider NODE_ENV=production node_modules/webpack/bin/webpack.js --no-progress --hide-modules --config=node_modules/laravel-mix/setup/webpack.config.js
+
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($spacer, 2) or calc($spacer / 2)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+    ╷
+395 │ $headings-margin-bottom:                            $spacer / 2 !default;
+    │                                                     ^^^^^^^^^^^
+    ╵
+    resources\js\src\assets\sass\components\_variables.bootstrap.scss 395:53  @import
+    resources\js\src\assets\sass\_init.scss 19:9                              @import
+    resources\js\src\assets\sass\style.vue.scss 11:9                          @import
+    stdin 14:9                                                                root stylesheet
+
+DEPRECATION WARNING: Passing percentage units to the global abs() function is deprecated.
+In the future, this will emit a CSS abs() function to be resolved by the browser.
+To preserve current behavior: math.abs(100%)
+To emit a CSS abs() now: abs(#{100%})
+More info: https://sass-lang.com/d/abs-percent
+
+   ╷
+54 │   $dividend: abs($dividend);
+   │              ^^^^^^^^^^^^^^
+   ╵
+    node_modules\bootstrap\scss\vendor\_rfs.scss 54:14             divide()
+    node_modules\bootstrap\scss\mixins\_grid.scss 66:15            row-cols()
+    node_modules\bootstrap\scss\mixins\_grid-framework.scss 43:13  @content
+    node_modules\bootstrap\scss\mixins\_breakpoints.scss 65:5      media-breakpoint-up()
+    node_modules\bootstrap\scss\mixins\_grid-framework.scss 32:5   make-grid-columns()
+    node_modules\bootstrap\scss\_grid.scss 72:3                    @import
+    node_modules\bootstrap\scss\bootstrap.scss 16:9                @import
+    resources\js\src\assets\sass\style.vue.scss 14:9               @import
+    stdin 14:9                                                     root stylesheet
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($opacity * 20, 1000) or calc($opacity * 20 / 1000)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+61 │             background-color: rgba($value, ($opacity * 20 / 1000)) !important;
+   │                                             ^^^^^^^^^^^^^^^^^^^^
+   ╵
+    resources\js\src\assets\sass\components\utilities\_background.scss 61:36  @import
+    resources\js\src\assets\sass\components\_utilities.scss 7:5               @import
+    resources\js\src\assets\sass\style.vue.scss 19:5                          @import
+    stdin 14:9                                                                root stylesheet
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($opacity * 20, 100) or calc($opacity * 20 / 100)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+70 │                 background-color: rgba($value, $opacity * 20 / 100) !important;
+   │                                                ^^^^^^^^^^^^^^^^^^^
+   ╵
+    resources\js\src\assets\sass\components\utilities\_background.scss 70:36  @import
+    resources\js\src\assets\sass\components\_utilities.scss 7:5               @import
+    resources\js\src\assets\sass\style.vue.scss 19:5                          @import
+    stdin 14:9                                                                root stylesheet
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($opacity, 100) or calc($opacity / 100)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+12 │                 opacity: $opacity / 100 !important;
+   │                          ^^^^^^^^^^^^^^
+   ╵
+    resources\js\src\assets\sass\components\utilities\_opacity.scss 12:14  @content
+    node_modules\bootstrap\scss\mixins\_breakpoints.scss 65:5              media-breakpoint-up()
+    resources\js\src\assets\sass\components\utilities\_opacity.scss 7:2    @import
+    resources\js\src\assets\sass\components\_utilities.scss 9:5            @import
+    resources\js\src\assets\sass\style.vue.scss 19:5                       @import
+    stdin 14:9                                                             root stylesheet
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($opacity, 100) or calc($opacity / 100)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+21 │                     opacity: $opacity / 100 !important;
+   │                              ^^^^^^^^^^^^^^
+   ╵
+    resources\js\src\assets\sass\components\utilities\_opacity.scss 21:15  @content
+    node_modules\bootstrap\scss\mixins\_breakpoints.scss 65:5              media-breakpoint-up()
+    resources\js\src\assets\sass\components\utilities\_opacity.scss 7:2    @import
+    resources\js\src\assets\sass\components\_utilities.scss 9:5            @import
+    resources\js\src\assets\sass\style.vue.scss 19:5                       @import
+    stdin 14:9                                                             root stylesheet
+
+WARNING: 27 repetitive deprecation warnings omitted.
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($border-radius-root, 2) or calc($border-radius-root / 2)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+14 │     'sm': $border-radius-root / 2,
+   │           ^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    node_modules\vuetify\src\styles\settings\_variables.scss 14:11  @import
+    node_modules\vuetify\src\styles\settings\_index.sass 1:9        @import
+    stdin 4:9                                                       root stylesheet
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($grid-gutter, 2) or calc($grid-gutter / 2)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+58 │ $container-padding-x: $grid-gutter / 2 !default;
+   │                       ^^^^^^^^^^^^^^^^
+   ╵
+    node_modules\vuetify\src\styles\settings\_variables.scss 58:23  @import
+    node_modules\vuetify\src\styles\settings\_index.sass 1:9        @import
+    stdin 4:9                                                       root stylesheet
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($grid-gutter, 12) or calc($grid-gutter / 12)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+63 │     'xs': $grid-gutter / 12,
+   │           ^^^^^^^^^^^^^^^^^
+   ╵
+    node_modules\vuetify\src\styles\settings\_variables.scss 63:11  @import
+    node_modules\vuetify\src\styles\settings\_index.sass 1:9        @import
+    stdin 4:9                                                       root stylesheet
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($grid-gutter, 6) or calc($grid-gutter / 6)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+64 │     'sm': $grid-gutter / 6,
+   │           ^^^^^^^^^^^^^^^^
+   ╵
+    node_modules\vuetify\src\styles\settings\_variables.scss 64:11  @import
+    node_modules\vuetify\src\styles\settings\_index.sass 1:9        @import
+    stdin 4:9                                                       root stylesheet
+
+DEPRECATION WARNING: Using / for division outside of calc() is deprecated and will be removed in Dart Sass 2.0.0.
+
+Recommendation: math.div($grid-gutter, 3) or calc($grid-gutter / 3)
+
+More info and automated migrator: https://sass-lang.com/d/slash-div
+
+   ╷
+65 │     'md': $grid-gutter / 3,
+   │           ^^^^^^^^^^^^^^^^
+   ╵
+    node_modules\vuetify\src\styles\settings\_variables.scss 65:11  @import
+    node_modules\vuetify\src\styles\settings\_index.sass 1:9        @import
+    stdin 4:9                                                       root stylesheet
+
+WARNING: 1 repetitive deprecation warnings omitted.
+
+ DONE  Compiled successfully in 14359ms09:05:55
+
+                                                                                              Asset       Size  Chunks                    Chunk Names
+                                                                                         /js/app.js   7.31 MiB       8  [emitted]  [big]  /js/app
+                                                                             /js/app.js.LICENSE.txt   4.29 KiB          [emitted]         
+                                                                                    /js/manifest.js    2.2 KiB       9  [emitted]         /js/manifest
+                                                                                      /js/vendor.js     81 KiB      10  [emitted]         /js/vendor
+                                                                          /js/vendor.js.LICENSE.txt   87 bytes          [emitted]         
+                                                                                               0.js   66.5 KiB       0  [emitted]         
+                                                                                               1.js    767 KiB       1  [emitted]  [big]  
+                                                                                   1.js.LICENSE.txt  159 bytes          [emitted]         
+                                                                                              11.js    245 KiB   11, 4  [emitted]  [big]  
+                                                                                              12.js   23.4 KiB      12  [emitted]         
+                                                                                              13.js    159 KiB      13  [emitted]         
+                                                                                              14.js   81.1 KiB      14  [emitted]         
+                                                                                              15.js   26.9 KiB      15  [emitted]         
+                                                                                              16.js   24.5 KiB      16  [emitted]         
+                                                                                              17.js   63.1 KiB      17  [emitted]         
+                                                                                              18.js     22 KiB      18  [emitted]         
+                                                                                              19.js   20.9 KiB      19  [emitted]         
+                                                                                               2.js   9.42 KiB       2  [emitted]         
+                                                                                              20.js   46.5 KiB      20  [emitted]         
+                                                                                              21.js   34.3 KiB      21  [emitted]         
+                                                                                              22.js   37.6 KiB      22  [emitted]         
+                                                                                              23.js   13.3 KiB      23  [emitted]         
+                                                                                              24.js   13.9 KiB      24  [emitted]         
+                                                                                              25.js   15.8 KiB      25  [emitted]         
+                                                                                              26.js   41.7 KiB      26  [emitted]         
+                                                                                              27.js   16.6 KiB      27  [emitted]         
+                                                                                              28.js   48.1 KiB      28  [emitted]         
+                                                                                              29.js     23 KiB      29  [emitted]         
+                                                                                               3.js   30.2 KiB       3  [emitted]         
+                                                                                              30.js   59.8 KiB      30  [emitted]         
+                                                                                              31.js     17 KiB      31  [emitted]         
+                                                                                              32.js   17.8 KiB      32  [emitted]         
+                                                                                              33.js   22.8 KiB      33  [emitted]         
+                                                                                              34.js   8.38 KiB      34  [emitted]         
+                                                                                              35.js   8.13 KiB      35  [emitted]         
+                                                                                              36.js   8.54 KiB      36  [emitted]         
+                                                                                              37.js   6.54 KiB      37  [emitted]         
+                                                                                              38.js   7.73 KiB      38  [emitted]         
+                                                                                              39.js   3.64 KiB      39  [emitted]         
+                                                                                               4.js   47.3 KiB       4  [emitted]         
+                                                                                              40.js    4.4 KiB      40  [emitted]         
+                                                                                              41.js   6.37 KiB      41  [emitted]         
+                                                                                              42.js   6.86 KiB      42  [emitted]         
+                                                                                              43.js  840 bytes      43  [emitted]         
+                                                                                              44.js    1.5 KiB      44  [emitted]         
+                                                                                              45.js   3.85 KiB      45  [emitted]         
+                                                                                              46.js   4.08 KiB      46  [emitted]         
+                                                                                              47.js   4.13 KiB      47  [emitted]         
+                                                                                               5.js   70.8 KiB       5  [emitted]         
+                                                                                   5.js.LICENSE.txt  336 bytes          [emitted]         
+                                                                                               6.js   60.8 KiB       6  [emitted]         
+                                                                                               7.js   17.7 KiB       7  [emitted]         
+                                                fonts/Flaticon.eot?35d544eaaa4cf3c6355866280d53ba73   74.2 KiB          [emitted]         
+                                                fonts/Flaticon.svg?c1729513a8741b7b61bae040816e426f    547 KiB          [emitted]  [big]  
+                                                fonts/Flaticon.ttf?3e4331ee31764c999add7e0b048c4ba3     74 KiB          [emitted]         
+                                               fonts/Flaticon.woff?5be3e43c13c3eb021d15e6682d098d4c   44.5 KiB          [emitted]         
+                                               fonts/Flaticon2.eot?29586ff0f963f4d1fdfc182822b8b27a   48.2 KiB          [emitted]         
+                                               fonts/Flaticon2.svg?e1e2b6e05bbfd279181c693555c61bad    274 KiB          [emitted]  [big]  
+                                               fonts/Flaticon2.ttf?eafcbac04cdb0a39fe38a36ebd786290     48 KiB          [emitted]         
+                                              fonts/Flaticon2.woff?b242ac810bd8cccaa03abc2128b7c3c3   29.1 KiB          [emitted]         
+                                                      fonts/Ki.eot?31f3692ca10d2f6d0bc467adba4533f7   11.3 KiB          [emitted]         
+                                                      fonts/Ki.svg?451fd5bee09962b6977544325ace633f   55.8 KiB          [emitted]         
+                                                      fonts/Ki.ttf?2a5ff834d12f21b421748941d6057d04   11.1 KiB          [emitted]         
+                                                     fonts/Ki.woff?8f9a1a6cffbd1826644e12714ec106d0   5.91 KiB          [emitted]         
+   fonts/vendor/@fortawesome/fontawesome-free/webfa-brands-400.eot?592643a83b8541edc52063d84c468700    131 KiB          [emitted]         
+   fonts/vendor/@fortawesome/fontawesome-free/webfa-brands-400.svg?1d5619cd804367cefe6da2d79289218a    730 KiB          [emitted]  [big]  
+   fonts/vendor/@fortawesome/fontawesome-free/webfa-brands-400.ttf?513aa607d398efaccc559916c3431403    131 KiB          [emitted]         
+ fonts/vendor/@fortawesome/fontawesome-free/webfa-brands-400.woff2?ed311c7a0ade9a75bb3ebf5a7670f31d   74.9 KiB          [emitted]         
+  fonts/vendor/@fortawesome/fontawesome-free/webfa-brands-400.woff?1a575a4138e5f366474f0e7c5bd614a5   87.9 KiB          [emitted]         
+  fonts/vendor/@fortawesome/fontawesome-free/webfa-regular-400.eot?b0e2db3b634d1bc3928e127458d993d8   33.2 KiB          [emitted]         
+  fonts/vendor/@fortawesome/fontawesome-free/webfa-regular-400.svg?c5d109be8edd3de0f60eb472bd9ef691    141 KiB          [emitted]         
+  fonts/vendor/@fortawesome/fontawesome-free/webfa-regular-400.ttf?766913e6c0088ab8c9f73e18b4127bc4   32.9 KiB          [emitted]         
+fonts/vendor/@fortawesome/fontawesome-free/webfa-regular-400.woff2?b91d376b8d7646d671cd820950d5f7f1   12.9 KiB          [emitted]         
+ fonts/vendor/@fortawesome/fontawesome-free/webfa-regular-400.woff?d1d7e3b4c219fde0f7376c6facfd7149   15.9 KiB          [emitted]         
+    fonts/vendor/@fortawesome/fontawesome-free/webfa-solid-900.eot?0c6bfc668a72935760178f91327aed3a    198 KiB          [emitted]         
+    fonts/vendor/@fortawesome/fontawesome-free/webfa-solid-900.svg?37bc7099f6f1ba80236164f22e905837    897 KiB          [emitted]  [big]  
+    fonts/vendor/@fortawesome/fontawesome-free/webfa-solid-900.ttf?b9625119ce4300f0ef890a8f3234c773    198 KiB          [emitted]         
+  fonts/vendor/@fortawesome/fontawesome-free/webfa-solid-900.woff2?d824df7eb2e268626a2dd9a6a741ac4e   76.4 KiB          [emitted]         
+   fonts/vendor/@fortawesome/fontawesome-free/webfa-solid-900.woff?d745348d289b149026921f197929a893   99.3 KiB          [emitted]         
+                 fonts/vendor/@mdi/materialdesignicons-webfont.eot?541e65fb46e44ecdf7a9da8a9b881446    648 KiB          [emitted]  [big]  
+                 fonts/vendor/@mdi/materialdesignicons-webfont.ttf?fc03f7f15facede623faa7666c7d1f5a    647 KiB          [emitted]  [big]  
+               fonts/vendor/@mdi/materialdesignicons-webfont.woff2?c61b9c12f68ee1ba045a4b49dba29ca5    219 KiB          [emitted]         
+                fonts/vendor/@mdi/materialdesignicons-webfont.woff?ff13d121c1a1cf74d8e06bd39e1746c3    312 KiB          [emitted]  [big]  
+     fonts/vendor/line-awesome/dist/line-awesome/la-brands-400.eot?a38ca9f0501109549cb659c1fe9ade65    153 KiB          [emitted]         
+     fonts/vendor/line-awesome/dist/line-awesome/la-brands-400.svg?9769d0a6a42cf73df12bc63a7a994131    906 KiB          [emitted]  [big]  
+     fonts/vendor/line-awesome/dist/line-awesome/la-brands-400.ttf?bbf83f8bb1039cd860051299d64ebcfd    152 KiB          [emitted]         
+   fonts/vendor/line-awesome/dist/line-awesome/la-brands-400.woff2?54b0b4e7de85711c3796882b2b19eb00   82.8 KiB          [emitted]         
+    fonts/vendor/line-awesome/dist/line-awesome/la-brands-400.woff?fb598c9ccecd5fa1c6c769d0be60973b   96.4 KiB          [emitted]         
+    fonts/vendor/line-awesome/dist/line-awesome/la-regular-400.eot?2746742c09b070f74bd7d555e6b959fa   33.1 KiB          [emitted]         
+    fonts/vendor/line-awesome/dist/line-awesome/la-regular-400.svg?55c57a74937e6de260b67c62522f7ea1    111 KiB          [emitted]         
+    fonts/vendor/line-awesome/dist/line-awesome/la-regular-400.ttf?87dab6ff12ea107dafe1d52ec19c2ed8   32.9 KiB          [emitted]         
+  fonts/vendor/line-awesome/dist/line-awesome/la-regular-400.woff2?88d9d9416c58bde56378dc4439e3a144   12.6 KiB          [emitted]         
+   fonts/vendor/line-awesome/dist/line-awesome/la-regular-400.woff?338f6f873b90c8045204f8ac52408166   15.1 KiB          [emitted]         
+      fonts/vendor/line-awesome/dist/line-awesome/la-solid-900.eot?8c65fd3e9b53a609735fd6335fd05841    221 KiB          [emitted]         
+      fonts/vendor/line-awesome/dist/line-awesome/la-solid-900.svg?79be4e9fcffc796ec3b2cb9a1f46d39e    902 KiB          [emitted]  [big]  
+      fonts/vendor/line-awesome/dist/line-awesome/la-solid-900.ttf?bb49393b04bbf312a6cd055a051121d3    221 KiB          [emitted]         
+    fonts/vendor/line-awesome/dist/line-awesome/la-solid-900.woff2?36fc297902c9a2e857858baa6ac25f2c   94.5 KiB          [emitted]         
+     fonts/vendor/line-awesome/dist/line-awesome/la-solid-900.woff?87292218024ee1cab93406e228a0b7dd    122 KiB          [emitted]         
+                                  fonts/vendor/socicon/socicon.eot?60e5857089e98edd838074c264d6c951   51.4 KiB          [emitted]         
+                                  fonts/vendor/socicon/socicon.svg?a35b65744f557fab5424e99bb6d4e980    128 KiB          [emitted]         
+                                  fonts/vendor/socicon/socicon.ttf?9a64ef938f9e55a70a4defc6ac9790bf   51.2 KiB          [emitted]         
+                                 fonts/vendor/socicon/socicon.woff?944f06f5f65ef84a3a36e6c1c2d4b7ad   37.8 KiB          [emitted]         
+Static frontend created at E:\duanthuexe\happyride-1.1\static-dist (Commit: a1a20bc)

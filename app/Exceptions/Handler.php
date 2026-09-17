@@ -46,6 +46,14 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Exception $exception)
     {
+        if ($exception instanceof \Illuminate\Auth\Access\AuthorizationException) {
+            return response()->json([
+                'status' => 'error',
+                'error' => 'Forbidden',
+                'message' => $exception->getMessage() ?: 'Bạn không có quyền thực hiện chức năng này hoặc không thuộc cơ sở được phân công.',
+            ], 403);
+        }
+
         return parent::render($request, $exception);
     }
 }

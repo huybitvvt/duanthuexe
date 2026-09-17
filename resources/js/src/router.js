@@ -273,6 +273,12 @@ export default new Router({
             redirect: "/404",
         },
         {
+            // the 403 route for permission denied
+            path: "/403",
+            name: "403",
+            component: () => import("@/view/pages/error/Error-403.vue"),
+        },
+        {
             // the 404 route, when none of the above matches
             path: "/404",
             name: "404",

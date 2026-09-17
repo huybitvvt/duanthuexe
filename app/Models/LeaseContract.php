@@ -32,6 +32,10 @@ class LeaseContract extends Model
         'status',
         'discount_amount',
         'settled_at',
+        'document_snapshot',
+        'document_snapshot_hash',
+        'document_snapshot_version',
+        'document_snapshot_locked_at',
         'assigned_user_id',
         'notes',
     ];
@@ -44,6 +48,8 @@ class LeaseContract extends Model
         'period_amount' => 'float',
         'discount_amount' => 'float',
         'settled_at' => 'datetime',
+        'document_snapshot' => 'array',
+        'document_snapshot_locked_at' => 'datetime',
     ];
 
     public function customer(): BelongsTo

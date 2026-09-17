@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Exports\LeaseDebtExport;
 use App\Http\Services\LeaseContractService;
+use App\Http\Services\LeasePdfService;
+use App\Models\LeaseContract;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -217,5 +219,37 @@ class LeaseContractController extends Controller
         $user = Auth::user();
         $fileName = 'bao-cao-cong-no-thue-so-huu-' . date('Ymd_His') . '.xlsx';
         return Excel::download(new LeaseDebtExport($request->all(), $user, $this->leaseService), $fileName);
+    }
+
+    /**
+     * Download Contract PDF snapshot.
+     */
+    public function pdf(int $id, LeasePdfService $pdfService)
+    {
+        $user = Auth::user();
+        $contract = LeaseContract::findOrFail($id);
+        $pdfContent = $pdfService->generateContractPdf($contract, $user);
+        $fileName = 'hop-dong-thue-so-huu-' . ($contract->contract_code ?: $contract->id) . '.pdf';
+
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
+    }
+
+    /**
+     * Download Debt Statement PDF.
+     */
+    public function debtStatementPdf(int $id, LeasePdfService $pdfService)
+    {
+        $user = Auth::user();
+        $contract = LeaseContract::findOrFail($id);
+        $pdfContent = $pdfService->generateDebtStatementPdf($contract, $user);
+        $fileName = 'doi-soat-cong-no-' . ($contract->contract_code ?: $contract->id) . '.pdf';
+
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
     }
 }

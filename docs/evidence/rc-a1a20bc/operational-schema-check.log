@@ -1,0 +1,7 @@
+﻿.\php.cmd : [ERROR] Unable to verify the database schema.
+At line:1 char:1
++ .\php.cmd scripts/check_operational_schema.php 2>&1 | Out-File -Encod ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([ERROR] Unable ...atabase schema.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

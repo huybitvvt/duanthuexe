@@ -6,7 +6,7 @@ Ngày lập: 16/09/2026. Tài liệu này đối chiếu `himoto-pilot-implement
 
 | Excel | Đã có trong pilot | Còn phải làm để đạt yêu cầu |
 |---|---|---|
-| Màu sắc | Có Inter, responsive một số màn hình | Audit toàn bộ theme, giảm màu chói, bỏ icon |
+| Màu sắc | Có Inter, responsive một số màn hình | Audit toàn bộ theme, giảm màu chói, bỏ icon trang trí dư thừa |
 | Tạo hợp đồng | Form, preview, in A4, mã cũ `YYYY/MM/DD-0001`, snapshot, thu tiền | Xác nhận đổi sang `YYYYMMDD-0001`; đủ trường theo PDF; preview mọi kích thước |
 | Đơn trong ngày | Có danh sách nền | Bố cục dễ đọc, bộ lọc ngày, vùng ảnh sau này |
 | Két tính tiền | Có transaction/cash/bank cơ bản | Sổ két theo ngày/cơ sở, số đơn, tiền mặt, ngân hàng, đối soát và khóa kỳ |
@@ -20,7 +20,7 @@ Ngày lập: 16/09/2026. Tài liệu này đối chiếu `himoto-pilot-implement
 
 ## 2. Quy tắc giao việc bắt buộc
 
-1. **Bỏ toàn bộ icon** trong UI nghiệp vụ: icon trong menu, nút, tiêu đề, badge, bảng, thông báo và placeholder đều phải bỏ; dùng chữ, màu trạng thái, đường viền và khoảng cách. Không thêm icon mới để thay thế.
+1. **Icon chức năng được phép sử dụng** khi giúp nhận biết thao tác (ví dụ mở/thu gọn, tìm kiếm, in, sửa), nhưng phải có `aria-label`/`title`, vùng bấm đủ lớn và trạng thái focus rõ. Bỏ icon chỉ để trang trí, icon trùng ý nghĩa với chữ hoặc icon gây rối; nút quan trọng không được chỉ dùng icon khó hiểu.
 2. Giữ Inter; nội dung 400–500, tiêu đề 600–700. Màu nền dịu, tương phản WCAG, không dùng gradient/chớp/chói.
 3. Không sửa hoặc xóa giao dịch/số HĐ cũ. Dữ liệu mới phải có audit log, người sửa, thời điểm và lý do.
 4. Mọi API phải kiểm quyền ở server; ẩn nút không được coi là phân quyền.
@@ -59,12 +59,12 @@ Với mỗi bảng nghiệp vụ (`stores`, `vehicles`, `orders`, `order_vehicle
 
 Lưu `supabase-verification-<date>.md` gồm commit, migration, bảng đã kiểm, test_run_id đã xóa, query checksum, HTTP status, ảnh UI và kết luận PASS/BLOCKED. Không lưu token, mật khẩu, full phone/CCCD hoặc dữ liệu khách thật.
 
-## 4. Chặng A — nền tảng UI và bỏ icon
+## 4. Chặng A — nền tảng UI và chuẩn hóa icon
 
 1. Tìm toàn bộ `<i>`, SVG icon, FontAwesome/Material icon, icon button, `flaticon`, emoji trong `resources`, layout, static bundle.
-2. Lập danh sách trước/sau; thay nút icon-only bằng chữ rõ nghĩa (`Xem`, `Sửa`, `Xóa`, `In`, `Lưu`, `Điều chuyển`).
+2. Lập danh sách trước/sau; giữ icon chức năng dễ hiểu, bổ sung `aria-label`/`title`; thay icon-only khó hiểu bằng chữ rõ nghĩa (`Xem`, `Sửa`, `Xóa`, `In`, `Lưu`, `Điều chuyển`) hoặc icon kèm chữ.
 3. Chuẩn hóa CSS biến màu, font weight, spacing, focus keyboard, mobile breakpoints.
-4. Chạy screenshot 360/390/768/1024/1440px; kiểm không có icon còn sót, không tràn ngang, nhãn không xuống dòng sai.
+4. Chạy screenshot 360/390/768/1024/1440px; kiểm icon thống nhất, không có icon trang trí dư thừa, không tràn ngang, nhãn không xuống dòng sai.
 5. Build bundle, kiểm `git diff --check`, chạy accessibility smoke.
 
 ## 5. Chặng B — hợp đồng và thu tiền (P0)
@@ -142,4 +142,4 @@ Browser E2E phải dùng staging Supabase riêng với test_run_id; kiểm 360/3
 
 ## 11. Prompt giao nguyên văn cho AI khác
 
-> Đọc `docs/himoto-pilot-implementation-handoff.md`, tài liệu này, `E:/duanthuexe/Thông tin yêu cầu về APP.xlsx` và mẫu PDF. Đối chiếu từng dòng, không coi code/mock là đã nghiệm thu. Làm theo chặng A–F, ưu tiên P0 hợp đồng/thu tiền/két. Bỏ toàn bộ icon trong UI, giữ Inter và màu dịu. Kiểm quyền server, snapshot, số cũ, giá theo từng xe và ngày Việt Nam. Mọi tạo/sửa/xóa phải kiểm chứng đọc lại từ Supabase thật sau refresh, có test concurrency, audit và bằng chứng checksum; không dùng cache/state làm bằng chứng. Không chạy migration live khi chưa được duyệt, không gửi nhắc khách/GPS thật khi thiếu provider, không tự đặt chính sách tài chính. Mỗi chặng phải báo file/commit/test/screenshot/query Supabase và PASS/BLOCKED; chỉ tuyên bố hoàn thiện khi mọi yêu cầu Excel đã có bằng chứng.
+> Đọc `docs/himoto-pilot-implementation-handoff.md`, tài liệu này, `E:/duanthuexe/Thông tin yêu cầu về APP.xlsx` và mẫu PDF. Đối chiếu từng dòng, không coi code/mock là đã nghiệm thu. Làm theo chặng A–F, ưu tiên P0 hợp đồng/thu tiền/két. Icon chức năng được phép dùng nhưng phải dễ hiểu, có nhãn trợ năng; bỏ icon trang trí dư thừa. Giữ Inter và màu dịu. Kiểm quyền server, snapshot, số cũ, giá theo từng xe và ngày Việt Nam. Mọi tạo/sửa/xóa phải kiểm chứng đọc lại từ Supabase thật sau refresh, có test concurrency, audit và bằng chứng checksum; không dùng cache/state làm bằng chứng. Không chạy migration live khi chưa được duyệt, không gửi nhắc khách/GPS thật khi thiếu provider, không tự đặt chính sách tài chính. Mỗi chặng phải báo file/commit/test/screenshot/query Supabase và PASS/BLOCKED; chỉ tuyên bố hoàn thiện khi mọi yêu cầu Excel đã có bằng chứng.

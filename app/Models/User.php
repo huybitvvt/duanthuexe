@@ -74,6 +74,11 @@ class User extends Authenticatable implements JWTSubject, CanResetPasswordContra
         return $this->belongsTo(Store::class, 'store_id', 'id');
     }
 
+    public function stores()
+    {
+        return $this->belongsToMany(Store::class, 'store_user', 'user_id', 'store_id');
+    }
+
     public function roles()
     {
         return $this->belongsToMany(Role::class, 'user_role', 'role_id', 'user_id');
