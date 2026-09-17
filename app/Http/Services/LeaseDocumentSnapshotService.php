@@ -15,6 +15,17 @@ class LeaseDocumentSnapshotService
      */
     public function captureSnapshot(LeaseContract $contract, ?int $actorUserId = null): array
     {
+        return DB::transaction(function () use ($contract, $actorUserId) {
+            $lockedContract = LeaseContract::where('id', $contract->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            return $this->captureLockedSnapshot($lockedContract, $actorUserId);
+        });
+    }
+
+    private function captureLockedSnapshot(LeaseContract $contract, ?int $actorUserId = null): array
+    {
         // 1. If already locked, do not overwrite to guarantee legal immutability
         if ($contract->document_snapshot_locked_at && !empty($contract->document_snapshot)) {
             return [
@@ -25,7 +36,7 @@ class LeaseDocumentSnapshotService
             ];
         }
 
-        $contract->loadMissing(['customer', 'vehicle', 'store']);
+        $contract->loadMissing(['customer', 'vehicle', 'store', 'installments']);
 
         $customer = $contract->customer;
         $vehicle = $contract->vehicle;
@@ -41,19 +52,21 @@ class LeaseDocumentSnapshotService
             'created_at' => Carbon::now('Asia/Ho_Chi_Minh')->toIso8601String(),
             'parties' => [
                 'lessor' => [
-                    'company_name' => 'CÔNG TY TNHH HIMOTO VIỆT NAM',
+                    'company_name' => config('contract.company_name'),
                     'brand_name' => 'HIMOTO',
                     'store_id' => $store ? $store->id : null,
                     'store_name' => $store ? $store->store_name : 'Cơ sở Himoto',
-                    'address' => $store ? ($store->address ?? 'Hà Nội') : 'Hà Nội',
+                    'address' => $store ? ($store->store_address ?? 'Hà Nội') : 'Hà Nội',
                 ],
                 'lessee' => [
                     'customer_id' => $customer ? $customer->id : null,
                     'name' => $customer ? ($customer->name ?? $customer->customer_name ?? 'Khách hàng') : 'Khách hàng',
                     'phone' => $customer ? ($customer->phone ?? $customer->customer_phone ?? '') : '',
                     'id_card' => $customer ? ($customer->id_card ?? $customer->identity_card ?? '') : '',
-                    'id_card_date' => $customer ? ($customer->id_card_date ?? '') : '',
-                    'id_card_place' => $customer ? ($customer->id_card_place ?? '') : '',
+                    'id_card_date' => $customer && $customer->id_card_issued_on
+                        ? Carbon::parse($customer->id_card_issued_on)->toDateString()
+                        : '',
+                    'id_card_place' => $customer ? ($customer->id_card_issued_by ?? '') : '',
                     'address' => $customer ? ($customer->address ?? '') : '',
                 ],
             ],
@@ -77,6 +90,15 @@ class LeaseDocumentSnapshotService
                 'period_amount_in_words' => self::numberToWordsVietnamese($periodAmount),
                 'discount_amount' => (float) ($contract->discount_amount ?? 0),
             ],
+            'installments' => $contract->installments->map(function ($installment) {
+                return [
+                    'period_number' => (int) ($installment->period_number ?? $installment->installment_number),
+                    'due_date' => $installment->due_date ? Carbon::parse($installment->due_date)->toDateString() : null,
+                    'amount_due' => (float) ($installment->amount_due ?? $installment->amount ?? 0),
+                    'amount_paid' => (float) ($installment->amount_paid ?? $installment->paid_amount ?? 0),
+                    'status' => (string) $installment->status,
+                ];
+            })->values()->all(),
             'meta' => [
                 'logo_asset_version' => 'himoto-logo-v1',
                 'signer_user_id' => $contract->assigned_user_id,
@@ -122,7 +144,7 @@ class LeaseDocumentSnapshotService
             return 'Không đồng';
         }
 
-        $digits = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+        $digits = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
         $units = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'];
 
         $blocks = [];

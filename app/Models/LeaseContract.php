@@ -32,10 +32,6 @@ class LeaseContract extends Model
         'status',
         'discount_amount',
         'settled_at',
-        'document_snapshot',
-        'document_snapshot_hash',
-        'document_snapshot_version',
-        'document_snapshot_locked_at',
         'assigned_user_id',
         'notes',
     ];

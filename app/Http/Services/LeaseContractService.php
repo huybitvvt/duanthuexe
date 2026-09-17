@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class LeaseContractService
@@ -138,7 +139,16 @@ class LeaseContractService
                 ]);
             }
 
-            return $contract->load(['customer', 'vehicle', 'store', 'installments']);
+            // New installations capture the legal snapshot in the same
+            // transaction as contract creation. The column guard preserves
+            // backward compatibility for old databases until migration 000012.
+            if (Schema::hasColumn('lease_contracts', 'document_snapshot')
+                && Schema::hasColumn('lease_contracts', 'document_snapshot_hash')
+                && Schema::hasColumn('lease_contracts', 'document_snapshot_locked_at')) {
+                app(LeaseDocumentSnapshotService::class)->captureSnapshot($contract, $user->id);
+            }
+
+            return $contract->fresh()->load(['customer', 'vehicle', 'store', 'installments']);
         });
         });
     }

@@ -153,6 +153,11 @@ class LeasePdfSnapshotTest extends TestCase
         $vehicle->name = 'Tên Xe Đã Đổi';
         $vehicle->save();
 
+        $installment = LeaseInstallment::where('lease_contract_id', $this->contract->id)->first();
+        $installment->amount_due = 987654321;
+        $installment->due_date = '2030-12-31';
+        $installment->save();
+
         // 3. Xuất lại PDF lần hai
         $pdf2 = $this->pdfService->generateContractPdf($this->contract, $this->admin);
         $this->contract->refresh();
@@ -168,6 +173,21 @@ class LeasePdfSnapshotTest extends TestCase
         // Tuyệt đối KHÔNG bị ảnh hưởng bởi dữ liệu sửa sau này
         $this->assertStringNotContainsString('Ten Moi Da Bi Sua', $pdf2);
         $this->assertStringNotContainsString('30H-99999', $pdf2);
+        $this->assertStringNotContainsString('987.654.321', $pdf2);
+        $this->assertStringNotContainsString('31/12/2030', $pdf2);
+    }
+
+    public function test_contract_pdf_rejects_tampered_snapshot(): void
+    {
+        $this->pdfService->generateContractPdf($this->contract, $this->admin);
+        $this->contract->refresh();
+        $snapshot = $this->contract->document_snapshot;
+        $snapshot['financial_terms']['total_amount'] = 1;
+        $this->contract->document_snapshot = $snapshot;
+        $this->contract->save();
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $this->pdfService->generateContractPdf($this->contract->fresh(), $this->admin);
     }
 
     protected function createTestTables(): void
@@ -290,6 +310,7 @@ class LeasePdfSnapshotTest extends TestCase
             $table->string('document_snapshot_hash', 64)->nullable();
             $table->string('document_snapshot_version', 20)->default('1.0');
             $table->dateTime('document_snapshot_locked_at')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
 

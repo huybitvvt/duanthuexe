@@ -10,6 +10,9 @@ class OperationalSchema
         'lease' => [
             '2026_09_16_000006_add_reversal_fields_to_lease_payment_allocations_table',
         ],
+        'lease_document' => [
+            '2026_09_17_000012_add_document_snapshot_to_lease_contracts_table',
+        ],
         'cash_register' => [
             '2026_09_16_000007_add_bank_expenses_to_daily_cash_registers_table',
         ],
@@ -25,6 +28,9 @@ class OperationalSchema
         ],
         'audit' => [
             '2026_09_17_000001_create_audit_events_table',
+        ],
+        'rbac' => [
+            '2026_09_17_000002_seed_rbac_permissions_and_roles',
         ],
         'ownership' => [
             '2026_09_17_000003_create_lease_ownership_tables',
@@ -55,6 +61,14 @@ class OperationalSchema
             'lease_contracts' => [
                 'discount_amount',
                 'settled_at',
+            ],
+        ],
+        'lease_document' => [
+            'lease_contracts' => [
+                'document_snapshot',
+                'document_snapshot_hash',
+                'document_snapshot_version',
+                'document_snapshot_locked_at',
             ],
         ],
         'cash_register' => [
@@ -93,12 +107,35 @@ class OperationalSchema
                 'asset_code', 'name', 'store_id', 'purchase_cost', 'residual_value',
                 'depreciation_months', 'status',
             ],
+            'accounting_accounts' => [
+                'code', 'name', 'type', 'normal_balance', 'is_active',
+            ],
+            'accounting_periods' => [
+                'fiscal_year', 'period_month', 'start_date', 'end_date', 'status',
+                'closed_at', 'closed_by', 'reopened_at', 'reopened_by',
+            ],
+            'journal_entries' => [
+                'entry_number', 'entry_date', 'store_id', 'source_type', 'source_id',
+                'status', 'description', 'posted_by', 'posted_at', 'idempotency_key',
+            ],
+            'journal_lines' => [
+                'journal_entry_id', 'account_id', 'store_id', 'debit', 'credit',
+            ],
+            'accounting_reconciliations' => [
+                'period_id', 'store_id', 'account_type', 'reconciliation_date',
+                'book_balance', 'actual_balance', 'difference', 'status',
+            ],
         ],
         'audit' => [
             'audit_events' => [
                 'actor_user_id', 'action', 'subject_type', 'subject_id', 'store_id',
                 'before_json', 'after_json', 'reason', 'request_id', 'ip_hash', 'created_at',
             ],
+        ],
+        'rbac' => [
+            'roles' => ['slug', 'name'],
+            'permissions' => ['slug', 'name'],
+            'roles_permissions' => ['role_id', 'permission_id'],
         ],
         'ownership' => [
             'lease_ownership_requests' => [

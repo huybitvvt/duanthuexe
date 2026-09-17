@@ -29,7 +29,7 @@ class CustomerReminderController extends Controller
         $user = Auth::user();
         PermissionAccess::can($user, 'reminder.view');
 
-        $data = $this->reminderService->getStaffActionList($request->all());
+        $data = $this->reminderService->getStaffActionList($request->all(), $user);
         return $this->successResponse($data);
     }
 
@@ -135,9 +135,9 @@ class CustomerReminderController extends Controller
         $user = Auth::user();
         $device = \App\Models\GpsDevice::with('vehicle')->findOrFail($deviceId);
         if ($device->vehicle && $device->vehicle->store_id) {
-            PermissionAccess::can($user, 'gps.view', (int) $device->vehicle->store_id);
+            PermissionAccess::can($user, 'gps.manage_devices', (int) $device->vehicle->store_id);
         } else {
-            PermissionAccess::can($user, 'gps.view');
+            PermissionAccess::can($user, 'gps.manage_devices');
         }
 
         $pos = $this->gpsService->syncDeviceLocation($device);

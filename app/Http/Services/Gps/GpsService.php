@@ -230,10 +230,20 @@ class GpsService
      */
     public function createRecoveryAction(array $data, User $actor): GpsRecoveryAction
     {
-        PermissionAccess::can($actor, 'gps.recovery_action');
+        $vehicle = Vehicle::findOrFail((int) $data['vehicle_id']);
+        PermissionAccess::can($actor, 'gps.recovery_action', $vehicle->store_id ? (int) $vehicle->store_id : null);
+
+        if (!empty($data['gps_device_id'])) {
+            $device = GpsDevice::findOrFail((int) $data['gps_device_id']);
+            if ((int) $device->vehicle_id !== (int) $vehicle->id) {
+                throw ValidationException::withMessages([
+                    'gps_device_id' => 'Thiết bị GPS không thuộc xe được yêu cầu thu hồi.',
+                ]);
+            }
+        }
 
         $action = GpsRecoveryAction::create([
-            'vehicle_id' => $data['vehicle_id'],
+            'vehicle_id' => $vehicle->id,
             'gps_device_id' => $data['gps_device_id'] ?? null,
             'assigned_to' => $data['assigned_to'] ?? $actor->id,
             'recovery_plan' => $data['recovery_plan'] ?? 'Kế hoạch thu hồi xe quá hạn/mất tín hiệu',
@@ -243,7 +253,7 @@ class GpsService
             'created_by' => $actor->id,
         ]);
 
-        AuditService::log('gps.recovery.create', $action, null, $action->toArray(), 'Khởi tạo kế hoạch thu hồi xe');
+        AuditService::log('gps.recovery.create', $action, null, $action->toArray(), 'Khởi tạo kế hoạch thu hồi xe', $vehicle->store_id, $actor->id);
 
         return $action;
     }

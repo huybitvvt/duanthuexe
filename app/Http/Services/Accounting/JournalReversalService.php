@@ -35,24 +35,28 @@ class JournalReversalService
             ]);
         }
 
-        $original = JournalEntry::with('lines')->findOrFail($entryId);
-
-        if ($original->status === 'reversed') {
-            throw ValidationException::withMessages([
-                'status' => "Bút toán {$original->entry_number} đã được đảo trước đó, không thể đảo lần hai.",
-            ]);
-        }
-
-        if ($original->status !== 'posted') {
-            throw ValidationException::withMessages([
-                'status' => "Chỉ có thể đảo bút toán đã ghi nhận (posted). Trạng thái hiện tại: {$original->status}.",
-            ]);
-        }
-
         $date = $reversalDate ? Carbon::parse($reversalDate)->toDateString() : Carbon::now('Asia/Ho_Chi_Minh')->toDateString();
-        $this->postingService->assertPeriodOpen($date);
 
-        return DB::transaction(function () use ($original, $reason, $userId, $date) {
+        return DB::transaction(function () use ($entryId, $reason, $userId, $date) {
+            // All accounting mutations lock period first, then document rows.
+            // This matches period close and avoids a journal/period deadlock.
+            $this->postingService->assertPeriodOpen($date);
+
+            $original = JournalEntry::where('id', $entryId)->lockForUpdate()->firstOrFail();
+            $original->load('lines');
+
+            if ($original->status === 'reversed') {
+                throw ValidationException::withMessages([
+                    'status' => "Bút toán {$original->entry_number} đã được đảo trước đó, không thể đảo lần hai.",
+                ]);
+            }
+
+            if ($original->status !== 'posted') {
+                throw ValidationException::withMessages([
+                    'status' => "Chỉ có thể đảo bút toán đã ghi nhận (posted). Trạng thái hiện tại: {$original->status}.",
+                ]);
+            }
+
             // Build inverted lines
             $invertedLines = [];
             foreach ($original->lines as $line) {
@@ -74,6 +78,7 @@ class JournalReversalService
                 'source_type' => 'reversal',
                 'source_id' => $original->id,
                 'description' => "Đảo bút toán {$original->entry_number}: {$reason}",
+                'idempotency_key' => 'journal-reversal-' . $original->id,
                 'lines' => $invertedLines,
             ], $userId);
 

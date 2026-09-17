@@ -19,10 +19,9 @@ class ReconciliationService
      */
     public function reconcileCash(int $storeId, string $date, float $actualBalance, int $userId, ?string $notes = null): AccountingReconciliation
     {
+        return DB::transaction(function () use ($storeId, $date, $actualBalance, $userId, $notes) {
         $dt = Carbon::parse($date);
-        $period = AccountingPeriod::where('fiscal_year', $dt->year)
-            ->where('period_month', $dt->month)
-            ->first();
+        $period = $this->lockOpenPeriod($dt);
 
         // Look up Account 1111 (Tiền mặt quỹ cơ sở)
         $account = AccountingAccount::where('code', '1111')->first();
@@ -72,6 +71,7 @@ class ReconciliationService
         );
 
         return $rec->fresh(['store', 'period']);
+        });
     }
 
     /**
@@ -79,10 +79,9 @@ class ReconciliationService
      */
     public function reconcileBank(string $date, float $actualBalance, int $userId, ?int $storeId = null, ?string $notes = null): AccountingReconciliation
     {
+        return DB::transaction(function () use ($date, $actualBalance, $userId, $storeId, $notes) {
         $dt = Carbon::parse($date);
-        $period = AccountingPeriod::where('fiscal_year', $dt->year)
-            ->where('period_month', $dt->month)
-            ->first();
+        $period = $this->lockOpenPeriod($dt);
 
         // Look up Account 1121 (Tiền gửi NH công ty)
         $account = AccountingAccount::where('code', '1121')->first();
@@ -129,6 +128,7 @@ class ReconciliationService
         );
 
         return $rec->fresh(['store', 'period']);
+        });
     }
 
     /**
@@ -142,23 +142,57 @@ class ReconciliationService
             ]);
         }
 
-        $rec = AccountingReconciliation::findOrFail($recId);
-        $before = $rec->toArray();
+        return DB::transaction(function () use ($recId, $resolutionNote, $userId) {
+            $candidate = AccountingReconciliation::findOrFail($recId);
+            if ($candidate->period_id) {
+                $period = AccountingPeriod::where('id', $candidate->period_id)->lockForUpdate()->firstOrFail();
+                if ($period->status === 'closed') {
+                    throw ValidationException::withMessages([
+                        'period' => 'Kỳ kế toán đã khóa; không thể phê duyệt thay đổi đối soát trong kỳ này.',
+                    ]);
+                }
+            }
 
-        $rec->status = 'approved';
-        $rec->notes = trim(($rec->notes ? $rec->notes . "\n" : "") . "[Phê duyệt xử lý chênh lệch]: " . $resolutionNote);
-        $rec->save();
+            $rec = AccountingReconciliation::where('id', $recId)->lockForUpdate()->firstOrFail();
+            $before = $rec->toArray();
 
-        AuditService::log(
-            'accounting.reconciliation.approve',
-            $rec,
-            $before,
-            $rec->toArray(),
-            "Phê duyệt xử lý chênh lệch đối soát ID {$rec->id}: {$resolutionNote}",
-            $rec->store_id
+            $rec->status = 'approved';
+            $rec->notes = trim(($rec->notes ? $rec->notes . "\n" : "") . "[Phê duyệt xử lý chênh lệch]: " . $resolutionNote);
+            $rec->save();
+
+            AuditService::log(
+                'accounting.reconciliation.approve',
+                $rec,
+                $before,
+                $rec->toArray(),
+                "Phê duyệt xử lý chênh lệch đối soát ID {$rec->id}: {$resolutionNote}",
+                $rec->store_id,
+                $userId
+            );
+
+            return $rec->fresh(['store', 'period']);
+        });
+    }
+
+    private function lockOpenPeriod(Carbon $date): AccountingPeriod
+    {
+        $period = AccountingPeriod::firstOrCreate(
+            ['fiscal_year' => $date->year, 'period_month' => $date->month],
+            [
+                'start_date' => $date->copy()->startOfMonth()->toDateString(),
+                'end_date' => $date->copy()->endOfMonth()->toDateString(),
+                'status' => 'open',
+            ]
         );
+        $period = AccountingPeriod::where('id', $period->id)->lockForUpdate()->firstOrFail();
 
-        return $rec->fresh(['store', 'period']);
+        if ($period->status === 'closed') {
+            throw ValidationException::withMessages([
+                'period' => "Kỳ kế toán tháng {$date->month}/{$date->year} đã khóa; không thể tạo hoặc sửa đối soát.",
+            ]);
+        }
+
+        return $period;
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\LeaseInstallment;
 use App\Models\User;
 use App\Support\PermissionAccess;
 use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class LeasePdfService
 {
@@ -95,10 +96,18 @@ class LeasePdfService
         $hash = $contract->document_snapshot_hash ?? 'N/A';
         $version = $contract->document_snapshot_version ?? '1.0';
 
+        $computedHash = hash('sha256', json_encode($snap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        if (!is_string($hash) || !hash_equals($hash, $computedHash)) {
+            throw ValidationException::withMessages([
+                'document_snapshot' => 'Snapshot hợp đồng không còn khớp checksum; đã chặn xuất PDF để bảo vệ tính toàn vẹn.',
+            ]);
+        }
+
         // 2. Read strictly from immutable snapshot payload
         $code = $snap['contract_code'] ?? ($contract->contract_code ?? ('HD-' . str_pad($contract->id, 5, '0', STR_PAD_LEFT)));
         $createdAt = isset($snap['created_at']) ? Carbon::parse($snap['created_at'])->format('d/m/Y H:i') : ($contract->created_at ? $contract->created_at->format('d/m/Y H:i') : Carbon::now()->format('d/m/Y H:i'));
         $storeName = $snap['parties']['lessor']['store_name'] ?? ($contract->store ? ($contract->store->store_name ?? 'HIMOTO') : 'HIMOTO');
+        $lessorName = $snap['parties']['lessor']['company_name'] ?? config('contract.company_name');
         $customerName = $snap['parties']['lessee']['name'] ?? 'N/A';
         $phone = $snap['parties']['lessee']['phone'] ?? 'N/A';
         $idCard = $snap['parties']['lessee']['id_card'] ?? 'N/A';
@@ -135,7 +144,7 @@ class LeasePdfService
             ],
             'sections' => [
                 'BEN CHO THUÊ (BEN A)' => [
-                    'Don vi' => 'CONG TY CO PHAN CONG NGHE VA XE DIEN HIMOTO',
+                    'Don vi' => $this->sanitizeAscii($lessorName),
                     'Dia diem' => $this->sanitizeAscii($storeName),
                     'Dai dien' => 'Giam doc chi nhanh / Nguoi dai dien theo phap luat',
                 ],
@@ -158,14 +167,15 @@ class LeasePdfService
                     'Tien thanh toan moi ky' => number_format($monthly, 0, ',', '.') . ' VND/ky',
                 ],
             ],
-            'installments' => $contract->installments->map(function ($inst) {
-                $num = $inst->period_number ?? $inst->installment_number;
-                $due = $inst->amount_due ?? $inst->amount;
-                $paid = $inst->amount_paid ?? $inst->paid_amount;
-                $st = $inst->status === LeaseInstallment::STATUS_PAID ? 'DA TRA' : (($inst->status === LeaseInstallment::STATUS_PARTIALLY_PAID || $inst->status === 'partial') ? 'TRA 1 PHAN' : 'CHUA TRA');
+            'installments' => collect($snap['installments'] ?? [])->map(function ($inst) {
+                $num = $inst['period_number'] ?? null;
+                $due = $inst['amount_due'] ?? 0;
+                $paid = $inst['amount_paid'] ?? 0;
+                $status = $inst['status'] ?? LeaseInstallment::STATUS_UNPAID;
+                $st = $status === LeaseInstallment::STATUS_PAID ? 'DA TRA' : (($status === LeaseInstallment::STATUS_PARTIALLY_PAID || $status === 'partial') ? 'TRA 1 PHAN' : 'CHUA TRA');
                 return [
                     'ky' => $num,
-                    'han' => $inst->due_date ? Carbon::parse($inst->due_date)->format('d/m/Y') : 'N/A',
+                    'han' => !empty($inst['due_date']) ? Carbon::parse($inst['due_date'])->format('d/m/Y') : 'N/A',
                     'so_tien' => number_format((float) $due, 0, ',', '.') . ' đ',
                     'da_tra' => number_format((float) $paid, 0, ',', '.') . ' đ',
                     'trang_thai' => $st,
@@ -187,10 +197,12 @@ class LeasePdfService
         $code = $contract->contract_code ?? ('HD-' . str_pad($contract->id, 5, '0', STR_PAD_LEFT));
         $now = Carbon::now();
 
-        $activePaid = (float) $contract->allocations()->where('status', 'active')->sum('amount');
+        $activePaid = (float) $contract->allocations()->effectivePayments()->sum('amount');
         $discount = (float) ($contract->discount_amount ?? 0);
         $deposit = (float) $contract->deposit_amount;
-        $totalReceived = $activePaid + $deposit;
+        // deposit_amount is the contractual deposit obligation. It is only
+        // received when an active payment allocation proves the collection.
+        $totalReceived = $activePaid;
         $totalAmount = (float) $contract->total_amount;
         $remainingDebt = max(0, $totalAmount - $totalReceived - $discount);
         $overdueCount = $contract->installments()->where('status', '!=', LeaseInstallment::STATUS_PAID)
@@ -215,8 +227,8 @@ class LeasePdfService
             'sections' => [
                 'TONG HOP CONG NO' => [
                     'Tong gia tri hop dong' => number_format($totalAmount, 0, ',', '.') . ' VND',
-                    'Tien coc da thu' => number_format($deposit, 0, ',', '.') . ' VND',
-                    'Tien ky da thanh toan' => number_format($activePaid, 0, ',', '.') . ' VND',
+                    'Tien coc theo hop dong' => number_format($deposit, 0, ',', '.') . ' VND',
+                    'Tong tien da thu' => number_format($activePaid, 0, ',', '.') . ' VND',
                     'Chiet khau / giam tru' => number_format($discount, 0, ',', '.') . ' VND',
                     'Tong tien da ghi nhan' => number_format($totalReceived + $discount, 0, ',', '.') . ' VND',
                     'DU NO CON LAI' => number_format($remainingDebt, 0, ',', '.') . ' VND',

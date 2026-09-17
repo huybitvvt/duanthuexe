@@ -7,10 +7,12 @@ use App\Models\CustomerReminderOutbox;
 use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
 use App\Models\ReminderDeliveryEvent;
+use App\Models\User;
 use App\Services\Reminders\MockReminderProvider;
 use App\Services\Reminders\SandboxReminderProvider;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class ReminderDispatchConcurrencyTest extends TestCase
@@ -43,22 +45,58 @@ class ReminderDispatchConcurrencyTest extends TestCase
         }
 
         // Worker 1 claims limit 2
-        $res1 = $this->service->claimAndDispatchBatch(2, 'worker-A', $this->mockProvider, ['ignore_quiet_hours' => true]);
+        $res1 = $this->service->claimAndDispatchBatch(2, 'worker-A', $this->mockProvider, ['ignore_quiet_hours' => true, 'allow_sandbox' => true]);
         $this->assertEquals(2, $res1['claimed']);
         $this->assertEquals(2, $res1['dispatched']);
 
         // Worker 2 claims limit 2 concurrently
-        $res2 = $this->service->claimAndDispatchBatch(2, 'worker-B', $this->mockProvider, ['ignore_quiet_hours' => true]);
+        $res2 = $this->service->claimAndDispatchBatch(2, 'worker-B', $this->mockProvider, ['ignore_quiet_hours' => true, 'allow_sandbox' => true]);
         $this->assertEquals(2, $res2['claimed']);
         $this->assertEquals(2, $res2['dispatched']);
 
         // Worker 3 attempts to claim: should find 0 pending items
-        $res3 = $this->service->claimAndDispatchBatch(2, 'worker-C', $this->mockProvider, ['ignore_quiet_hours' => true]);
+        $res3 = $this->service->claimAndDispatchBatch(2, 'worker-C', $this->mockProvider, ['ignore_quiet_hours' => true, 'allow_sandbox' => true]);
         $this->assertEquals(0, $res3['claimed']);
 
         // Total dispatched items across both workers must be 4, with exactly 4 distinct sent records
         $this->assertCount(4, $this->mockProvider->sentItems);
         $this->assertEquals(4, CustomerReminderOutbox::where('status', 'sent')->count());
+    }
+
+    public function test_live_dispatch_is_locked_without_explicit_live_provider_configuration(): void
+    {
+        putenv('REMINDER_LIVE_ENABLED=false');
+
+        $this->expectException(ValidationException::class);
+        $this->service->claimAndDispatchBatch(1, 'worker-live-guard', $this->mockProvider, [
+            'ignore_quiet_hours' => true,
+        ]);
+    }
+
+    public function test_staff_action_list_is_restricted_to_assigned_store(): void
+    {
+        $storeOneContract = LeaseContract::create([
+            'contract_code' => 'STORE-1', 'customer_id' => 1, 'vehicle_id' => 1,
+            'store_id' => 1, 'total_amount' => 1000000, 'status' => 'active',
+        ]);
+        $storeTwoContract = LeaseContract::create([
+            'contract_code' => 'STORE-2', 'customer_id' => 2, 'vehicle_id' => 2,
+            'store_id' => 2, 'total_amount' => 1000000, 'status' => 'active',
+        ]);
+        CustomerReminderOutbox::create([
+            'contract_type' => 'lease', 'contract_id' => $storeOneContract->id,
+            'recipient_phone' => '0900000001', 'status' => 'pending', 'idempotency_key' => 'scope-1',
+        ]);
+        CustomerReminderOutbox::create([
+            'contract_type' => 'lease', 'contract_id' => $storeTwoContract->id,
+            'recipient_phone' => '0900000002', 'status' => 'pending', 'idempotency_key' => 'scope-2',
+        ]);
+
+        $staff = new User(['role' => 'nhan-vien', 'store_id' => 1]);
+        $result = $this->service->getStaffActionList(['per_page' => 20], $staff);
+
+        $this->assertEquals(1, $result['total']);
+        $this->assertEquals('0900000001', $result['data'][0]['recipient_phone']);
     }
 
     public function test_installment_paid_before_dispatch_is_skipped(): void
@@ -91,7 +129,7 @@ class ReminderDispatchConcurrencyTest extends TestCase
             'idempotency_key' => 'idemp-paid-skip',
         ]);
 
-        $res = $this->service->claimAndDispatchBatch(10, 'worker-1', $this->mockProvider, ['ignore_quiet_hours' => true]);
+        $res = $this->service->claimAndDispatchBatch(10, 'worker-1', $this->mockProvider, ['ignore_quiet_hours' => true, 'allow_sandbox' => true]);
         $this->assertEquals(1, $res['claimed']);
         $this->assertEquals(0, $res['dispatched']);
         $this->assertEquals(1, $res['skipped']);
@@ -122,6 +160,7 @@ class ReminderDispatchConcurrencyTest extends TestCase
         // Attempt 1: Force HTTP 503 (transient error)
         $res1 = $this->service->claimAndDispatchBatch(1, 'worker-retry', $sandbox, [
             'ignore_quiet_hours' => true,
+            'allow_sandbox' => true,
             'force_http_status' => 503,
         ]);
         $this->assertEquals(1, $res1['failed']);
@@ -137,6 +176,7 @@ class ReminderDispatchConcurrencyTest extends TestCase
         $item->update(['next_attempt_at' => Carbon::now('Asia/Ho_Chi_Minh')->subMinute()]);
         $this->service->claimAndDispatchBatch(1, 'worker-retry', $sandbox, [
             'ignore_quiet_hours' => true,
+            'allow_sandbox' => true,
             'force_http_status' => 503,
         ]);
 
@@ -148,6 +188,7 @@ class ReminderDispatchConcurrencyTest extends TestCase
         $item->update(['next_attempt_at' => Carbon::now('Asia/Ho_Chi_Minh')->subMinute()]);
         $res3 = $this->service->claimAndDispatchBatch(1, 'worker-retry', $sandbox, [
             'ignore_quiet_hours' => true,
+            'allow_sandbox' => true,
             'force_http_status' => 503,
         ]);
         $this->assertEquals(1, $res3['dead_letter']);
@@ -207,6 +248,13 @@ class ReminderDispatchConcurrencyTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::dropIfExists('customers');
+        Schema::create('customers', function ($table) {
+            $table->increments('id');
+            $table->string('name')->nullable();
+            $table->timestamps();
+        });
+
         Schema::dropIfExists('lease_contracts');
         Schema::create('lease_contracts', function ($table) {
             $table->increments('id');
@@ -216,6 +264,15 @@ class ReminderDispatchConcurrencyTest extends TestCase
             $table->integer('store_id');
             $table->decimal('total_amount', 15, 2);
             $table->string('status')->default('active');
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
+        Schema::dropIfExists('orders');
+        Schema::create('orders', function ($table) {
+            $table->increments('id');
+            $table->integer('store_id')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
 

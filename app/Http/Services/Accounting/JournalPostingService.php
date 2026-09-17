@@ -38,7 +38,6 @@ class JournalPostingService
         }
 
         $entryDate = Carbon::parse($data['entry_date'] ?? Carbon::now('Asia/Ho_Chi_Minh'))->toDateString();
-        $this->assertPeriodOpen($entryDate);
 
         $lines = $data['lines'] ?? [];
         if (count($lines) < 2) {
@@ -136,10 +135,26 @@ class JournalPostingService
     public function assertPeriodOpen(string $date): void
     {
         $dt = Carbon::parse($date);
-        $period = AccountingPeriod::where('fiscal_year', $dt->year)
-            ->where('period_month', $dt->month)
-            ->lockForUpdate()
-            ->first();
+        $periodQuery = AccountingPeriod::where('fiscal_year', $dt->year)
+            ->where('period_month', $dt->month);
+
+        $period = $periodQuery->first();
+        if (!$period) {
+            $period = AccountingPeriod::firstOrCreate(
+                ['fiscal_year' => $dt->year, 'period_month' => $dt->month],
+                [
+                    'start_date' => $dt->copy()->startOfMonth()->toDateString(),
+                    'end_date' => $dt->copy()->endOfMonth()->toDateString(),
+                    'status' => 'open',
+                ]
+            );
+        }
+
+        // A row lock is meaningful only inside a transaction. post() always
+        // calls this method inside its transaction before allocating a number.
+        if (DB::transactionLevel() > 0) {
+            $period = AccountingPeriod::where('id', $period->id)->lockForUpdate()->firstOrFail();
+        }
 
         if ($period && $period->status === 'closed') {
             throw ValidationException::withMessages([

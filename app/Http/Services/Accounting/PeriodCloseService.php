@@ -50,7 +50,6 @@ class PeriodCloseService
             // Check 1: Any draft journal entries
             $draftEntriesCount = JournalEntry::whereBetween('entry_date', [$startDate, $endDate])
                 ->where('status', 'draft')
-                ->lockForUpdate()
                 ->count();
 
             if ($draftEntriesCount > 0) {
@@ -62,7 +61,6 @@ class PeriodCloseService
             // Check 2: Any unapproved discrepancies
             $discrepanciesCount = AccountingReconciliation::where('period_id', $period->id)
                 ->where('status', 'discrepancy')
-                ->lockForUpdate()
                 ->count();
 
             if ($discrepanciesCount > 0) {
@@ -104,31 +102,34 @@ class PeriodCloseService
             ]);
         }
 
-        $period = AccountingPeriod::where('fiscal_year', $year)
-            ->where('period_month', $month)
-            ->first();
+        return DB::transaction(function () use ($year, $month, $userId, $reason) {
+            $period = AccountingPeriod::where('fiscal_year', $year)
+                ->where('period_month', $month)
+                ->lockForUpdate()
+                ->first();
 
-        if (!$period || $period->status !== 'closed') {
-            throw ValidationException::withMessages([
-                'period' => "Kỳ kế toán tháng {$month}/{$year} hiện không ở trạng thái khóa.",
-            ]);
-        }
+            if (!$period || $period->status !== 'closed') {
+                throw ValidationException::withMessages([
+                    'period' => "Kỳ kế toán tháng {$month}/{$year} hiện không ở trạng thái khóa.",
+                ]);
+            }
 
-        $before = $period->toArray();
-        $period->status = 'open';
-        $period->reopened_at = Carbon::now('Asia/Ho_Chi_Minh');
-        $period->reopened_by = $userId;
-        $period->notes = trim(($period->notes ? $period->notes . "\n" : "") . "[Mở lại kỳ]: " . $reason);
-        $period->save();
+            $before = $period->toArray();
+            $period->status = 'open';
+            $period->reopened_at = Carbon::now('Asia/Ho_Chi_Minh');
+            $period->reopened_by = $userId;
+            $period->notes = trim(($period->notes ? $period->notes . "\n" : "") . "[Mở lại kỳ]: " . $reason);
+            $period->save();
 
-        AuditService::log(
-            'accounting.period.reopen',
-            $period,
-            $before,
-            $period->toArray(),
-            "Mở lại kỳ kế toán tháng {$month}/{$year} - Lý do: {$reason}"
-        );
+            AuditService::log(
+                'accounting.period.reopen',
+                $period,
+                $before,
+                $period->toArray(),
+                "Mở lại kỳ kế toán tháng {$month}/{$year} - Lý do: {$reason}"
+            );
 
-        return $period;
+            return $period;
+        });
     }
 }

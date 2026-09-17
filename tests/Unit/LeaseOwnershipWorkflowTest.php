@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleOwnership;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -46,6 +47,17 @@ class LeaseOwnershipWorkflowTest extends TestCase
         $adminRole = Role::create(['name' => 'Quản trị viên', 'slug' => 'quan-tri-vien']);
         $managerRole = Role::create(['name' => 'Quản lý cơ sở', 'slug' => 'quan-ly-cua-hang']);
         $bodRole = Role::create(['name' => 'Ban Giám Đốc', 'slug' => 'ban-giam-doc']);
+
+        $requestPermissionId = DB::table('permissions')->insertGetId([
+            'name' => 'Yêu cầu chuyển quyền', 'slug' => 'lease.ownership_request',
+        ]);
+        $approvePermissionId = DB::table('permissions')->insertGetId([
+            'name' => 'Duyệt chuyển quyền', 'slug' => 'lease.ownership_approve',
+        ]);
+        DB::table('roles_permissions')->insert([
+            ['role_id' => $managerRole->id, 'permission_id' => $requestPermissionId],
+            ['role_id' => $bodRole->id, 'permission_id' => $approvePermissionId],
+        ]);
 
         $this->admin = User::create([
             'name' => 'Admin System',
@@ -167,6 +179,9 @@ class LeaseOwnershipWorkflowTest extends TestCase
 
     public function test_complete_transfer_lifecycle_when_fully_paid(): void
     {
+        putenv('HIMOTO_ENABLE_OWNERSHIP_EXECUTE=true');
+
+        try {
         // Simulate fully paid obligations, including period 0 deposit.
         foreach ($this->contract->installments as $inst) {
             $due = (float) ($inst->amount_due ?? $inst->amount);
@@ -234,6 +249,9 @@ class LeaseOwnershipWorkflowTest extends TestCase
         // 10. Verify Idempotency on retry
         $retry = $this->service->executeTransfer($approved->id, $this->admin, 'Thử lại', 'IDEMP-TRANSFER-001');
         $this->assertEquals($executed->id, $retry->id);
+        } finally {
+            putenv('HIMOTO_ENABLE_OWNERSHIP_EXECUTE');
+        }
     }
 
     public function test_execute_transfer_is_blocked_when_feature_flag_is_disabled(): void
@@ -267,8 +285,7 @@ class LeaseOwnershipWorkflowTest extends TestCase
             $this->assertTrue(true);
             $this->assertArrayHasKey('feature_flag', $e->errors());
         } finally {
-            // Restore
-            putenv('HIMOTO_ENABLE_OWNERSHIP_EXECUTE=true');
+            putenv('HIMOTO_ENABLE_OWNERSHIP_EXECUTE');
         }
     }
 

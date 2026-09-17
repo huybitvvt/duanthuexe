@@ -9,7 +9,9 @@ use App\Models\LeaseInstallment;
 use App\Models\Order;
 use App\Models\OrderVehicleDetail;
 use App\Models\ReminderDeliveryEvent;
+use App\Models\User;
 use App\Services\Reminders\SandboxReminderProvider;
+use App\Support\PermissionAccess;
 use App\Validators\OrderValidator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +26,13 @@ class CustomerReminderService
     public function __construct(?ReminderProviderInterface $defaultProvider = null)
     {
         $this->defaultProvider = $defaultProvider ?: new SandboxReminderProvider();
+    }
+
+    public function isLiveDeliveryConfigured(): bool
+    {
+        $enabled = filter_var(env('REMINDER_LIVE_ENABLED', false), FILTER_VALIDATE_BOOLEAN);
+
+        return $enabled && !($this->defaultProvider instanceof SandboxReminderProvider);
     }
 
     /**
@@ -177,10 +186,27 @@ class CustomerReminderService
      * @param array $params
      * @return array
      */
-    public function getStaffActionList(array $params = []): array
+    public function getStaffActionList(array $params = [], ?User $user = null): array
     {
         $query = CustomerReminderOutbox::with(['customer', 'installment'])
             ->orderBy('id', 'desc');
+
+        // A store-scoped operator must not see reminder recipients from other
+        // stores simply by omitting store_id from the request.
+        if ($user && !PermissionAccess::isAdmin($user)
+            && !PermissionAccess::allows($user, 'kpi.view_company')
+            && $user->store_id) {
+            $storeId = (int) $user->store_id;
+            $query->where(function ($scope) use ($storeId) {
+                $scope->where(function ($lease) use ($storeId) {
+                    $lease->where('contract_type', 'lease')
+                        ->whereIn('contract_id', LeaseContract::select('id')->where('store_id', $storeId));
+                })->orWhere(function ($rental) use ($storeId) {
+                    $rental->where('contract_type', 'rental_order')
+                        ->whereIn('contract_id', Order::select('id')->where('store_id', $storeId));
+                });
+            });
+        }
 
         if (!empty($params['status'])) {
             $query->where('status', $params['status']);
@@ -213,6 +239,12 @@ class CustomerReminderService
         $workerId = $workerId ?: ('worker-' . getmypid() . '-' . Str::random(4));
         $provider = $provider ?: $this->defaultProvider;
         $now = Carbon::now('Asia/Ho_Chi_Minh');
+
+        if (!$this->isLiveDeliveryConfigured() && empty($options['allow_sandbox'])) {
+            throw ValidationException::withMessages([
+                'provider' => 'Gửi nhắc nợ thật đang bị khóa: chưa cấu hình provider live và REMINDER_LIVE_ENABLED=true.',
+            ]);
+        }
 
         // Check Quiet Hours (08:00 to 20:30 Vietnam time)
         $hour = (int) $now->format('G');
@@ -327,7 +359,7 @@ class CustomerReminderService
                 'event_type' => 'dispatched',
                 'http_status' => null,
                 'payload_json' => [
-                    'recipient' => $item->recipient_phone,
+                    'recipient' => AuditService::maskPhone((string) $item->recipient_phone),
                     'attempt' => $item->retry_count + 1,
                     'worker_id' => $workerId,
                 ],
@@ -354,7 +386,7 @@ class CustomerReminderService
                     'provider_message_id' => $resp['provider_message_id'] ?? null,
                     'event_type' => 'accepted',
                     'http_status' => $resp['http_status'] ?? 200,
-                    'payload_json' => $resp,
+                    'payload_json' => AuditService::sanitizeData($resp),
                 ]);
 
                 $dispatched++;
@@ -393,7 +425,7 @@ class CustomerReminderService
                     'provider_message_id' => $resp['provider_message_id'] ?? null,
                     'event_type' => $resp['retryable'] ? 'failed_retryable' : 'rejected',
                     'http_status' => $resp['http_status'] ?? 500,
-                    'payload_json' => $resp,
+                    'payload_json' => AuditService::sanitizeData($resp),
                 ]);
             }
         }
@@ -461,7 +493,7 @@ class CustomerReminderService
                 'provider_message_id' => $providerMsgId,
                 'event_type' => 'delivered',
                 'http_status' => 200,
-                'payload_json' => $payload,
+                'payload_json' => AuditService::sanitizeData($payload),
             ]);
         } else {
             $item->status = 'failed';
@@ -475,7 +507,7 @@ class CustomerReminderService
                 'provider_message_id' => $providerMsgId,
                 'event_type' => 'failed',
                 'http_status' => 200,
-                'payload_json' => $payload,
+                'payload_json' => AuditService::sanitizeData($payload),
             ]);
         }
 

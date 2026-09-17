@@ -94,6 +94,8 @@ class PermissionMatrixTest extends TestCase
 
     protected function setupSchema(): void
     {
+        Schema::dropIfExists('roles_permissions');
+        Schema::dropIfExists('permissions');
         Schema::dropIfExists('roles');
         Schema::create('roles', function ($table) {
             $table->increments('id');
@@ -177,6 +179,28 @@ class PermissionMatrixTest extends TestCase
         // Kế toán không được quản lý nhân sự hay thu hồi GPS
         $this->assertFalse(PermissionAccess::allows($this->accountantUser, 'hr.manage_staff'));
         $this->assertFalse(PermissionAccess::allows($this->accountantUser, 'gps.recovery_action'));
+    }
+
+    public function test_database_permission_revocation_is_not_overridden_by_fallback_map(): void
+    {
+        Schema::create('permissions', function ($table) {
+            $table->increments('id');
+            $table->string('slug')->unique();
+        });
+        Schema::create('roles_permissions', function ($table) {
+            $table->integer('role_id');
+            $table->integer('permission_id');
+        });
+
+        $viewId = DB::table('permissions')->insertGetId(['slug' => 'accounting.view']);
+        DB::table('roles_permissions')->insert([
+            'role_id' => $this->accountantUser->role_id,
+            'permission_id' => $viewId,
+        ]);
+
+        $this->assertTrue(PermissionAccess::allows($this->accountantUser, 'accounting.view'));
+        $this->assertFalse(PermissionAccess::allows($this->accountantUser, 'accounting.post'));
+        $this->assertEquals(['accounting.view'], PermissionAccess::capabilities($this->accountantUser));
     }
 
     public function testHrStaffCanManageHrAndCannotAccessAccountingOrCompanyKpi(): void

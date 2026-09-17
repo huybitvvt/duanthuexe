@@ -89,8 +89,13 @@ class PermissionAccess
         // Check if role has permission
         $hasPermission = false;
 
-        // 1. Check database pivot if available
-        if (Schema::hasTable('roles_permissions') && Schema::hasTable('permissions') && $user->role_id) {
+        // 1. The database matrix is authoritative when installed. A missing
+        // pivot row is an explicit denial; do not silently re-grant it from
+        // the fallback map after an administrator revokes a permission.
+        $hasDatabaseMatrix = Schema::hasTable('roles_permissions')
+            && Schema::hasTable('permissions')
+            && !empty($user->role_id);
+        if ($hasDatabaseMatrix) {
             $hasPermission = DB::table('roles_permissions')
                 ->join('permissions', 'roles_permissions.permission_id', '=', 'permissions.id')
                 ->where('roles_permissions.role_id', $user->role_id)
@@ -102,7 +107,7 @@ class PermissionAccess
         }
 
         // 2. Fallback to capability map
-        if (!$hasPermission && $roleSlug && isset(self::$roleCapabilities[$roleSlug])) {
+        if (!$hasDatabaseMatrix && !$hasPermission && $roleSlug && isset(self::$roleCapabilities[$roleSlug])) {
             $caps = self::$roleCapabilities[$roleSlug];
             $hasPermission = in_array('*', $caps, true) || in_array($permission, $caps, true);
         }
@@ -154,8 +159,12 @@ class PermissionAccess
         $roleSlug = self::getRoleSlug($user);
         $caps = [];
 
-        // DB Permissions
-        if (Schema::hasTable('roles_permissions') && Schema::hasTable('permissions') && $user->role_id) {
+        // DB permissions are authoritative once the matrix exists, including
+        // the valid case where a role intentionally has zero capabilities.
+        $hasDatabaseMatrix = Schema::hasTable('roles_permissions')
+            && Schema::hasTable('permissions')
+            && !empty($user->role_id);
+        if ($hasDatabaseMatrix) {
             $caps = DB::table('roles_permissions')
                 ->join('permissions', 'roles_permissions.permission_id', '=', 'permissions.id')
                 ->where('roles_permissions.role_id', $user->role_id)
@@ -164,7 +173,7 @@ class PermissionAccess
         }
 
         // Fallback map
-        if (empty($caps) && $roleSlug && isset(self::$roleCapabilities[$roleSlug])) {
+        if (!$hasDatabaseMatrix && empty($caps) && $roleSlug && isset(self::$roleCapabilities[$roleSlug])) {
             $caps = self::$roleCapabilities[$roleSlug];
         }
 

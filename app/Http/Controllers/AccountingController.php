@@ -16,6 +16,7 @@ use App\Models\BusinessAsset;
 use App\Models\JournalEntry;
 use App\Support\PermissionAccess;
 use Carbon\Carbon;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,8 +57,7 @@ class AccountingController extends Controller
             'end_date' => 'nullable|date_format:Y-m-d',
             'store_id' => 'nullable|integer',
         ]);
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.view', $storeId);
+        $storeId = $this->authorizeStoreScope($user, 'accounting.view', isset($validated['store_id']) ? (int) $validated['store_id'] : null);
 
         return $this->successResponse($this->service->dashboard([
             'start_date' => $validated['start_date'] ?? Carbon::now('Asia/Ho_Chi_Minh')->startOfMonth()->toDateString(),
@@ -86,8 +86,7 @@ class AccountingController extends Controller
             'source_type' => 'nullable|string',
         ]);
 
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.view', $storeId);
+        $storeId = $this->authorizeStoreScope($user, 'accounting.view', isset($validated['store_id']) ? (int) $validated['store_id'] : null);
 
         $query = JournalEntry::with(['lines.account', 'store:id,store_name'])
             ->when($storeId, function ($q) use ($storeId) {
@@ -141,8 +140,17 @@ class AccountingController extends Controller
             'lines.*.store_id' => 'nullable|integer|exists:stores,id',
         ]);
 
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.post', $storeId);
+        $requestedStoreId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
+        $storeId = $this->authorizeStoreScope($user, 'accounting.post', $requestedStoreId);
+        $validated['store_id'] = $storeId;
+        if ($storeId !== null) {
+            foreach ($validated['lines'] as $index => $line) {
+                if (isset($line['store_id']) && (int) $line['store_id'] !== $storeId) {
+                    PermissionAccess::can($user, 'accounting.post', (int) $line['store_id']);
+                }
+                $validated['lines'][$index]['store_id'] = $storeId;
+            }
+        }
 
         $entry = $this->postingService->post($validated, $user->id);
         return $this->successResponse($entry, 'Đã ghi nhận bút toán kế toán thành công.');
@@ -179,7 +187,7 @@ class AccountingController extends Controller
     public function closePeriod(Request $request): JsonResponse
     {
         $user = Auth::user();
-        PermissionAccess::can($user, 'accounting.close_period');
+        $this->authorizeCompanyWideAccounting($user, 'accounting.close_period');
 
         $validated = $request->validate([
             'fiscal_year' => 'required|integer|min:2020|max:2050',
@@ -200,7 +208,7 @@ class AccountingController extends Controller
     public function reopenPeriod(Request $request): JsonResponse
     {
         $user = Auth::user();
-        PermissionAccess::can($user, 'accounting.close_period');
+        $this->authorizeCompanyWideAccounting($user, 'accounting.close_period');
 
         $validated = $request->validate([
             'fiscal_year' => 'required|integer|min:2020|max:2050',
@@ -227,8 +235,7 @@ class AccountingController extends Controller
             'status' => 'nullable|string',
         ]);
 
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.view', $storeId);
+        $storeId = $this->authorizeStoreScope($user, 'accounting.view', isset($validated['store_id']) ? (int) $validated['store_id'] : null);
 
         $reconciliations = AccountingReconciliation::with(['store:id,store_name', 'period', 'reconciledByUser:id,name'])
             ->when($storeId, function ($q) use ($storeId) {
@@ -280,8 +287,7 @@ class AccountingController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.reconcile', $storeId);
+        $storeId = $this->authorizeStoreScope($user, 'accounting.reconcile', isset($validated['store_id']) ? (int) $validated['store_id'] : null);
 
         $rec = $this->reconciliationService->reconcileBank(
             $validated['date'],
@@ -317,8 +323,7 @@ class AccountingController extends Controller
             'store_id' => 'nullable|integer',
         ]);
 
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.view', $storeId);
+        $storeId = $this->authorizeStoreScope($user, 'accounting.view', isset($validated['store_id']) ? (int) $validated['store_id'] : null);
 
         $data = $this->reconciliationService->getTrialBalance(
             $validated['start_date'],
@@ -338,8 +343,7 @@ class AccountingController extends Controller
             'store_id' => 'nullable|integer',
         ]);
 
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.view', $storeId);
+        $storeId = $this->authorizeStoreScope($user, 'accounting.view', isset($validated['store_id']) ? (int) $validated['store_id'] : null);
 
         $data = $this->reconciliationService->getGeneralLedger(
             $accountId,
@@ -354,7 +358,7 @@ class AccountingController extends Controller
     public function legacyShadowAnalysis(): JsonResponse
     {
         $user = Auth::user();
-        PermissionAccess::can($user, 'accounting.view');
+        $storeId = $this->authorizeStoreScope($user, 'accounting.view', null);
 
         // Check legacy transactions table if exists
         $hasTransactions = DB::getSchemaBuilder()->hasTable('transactions');
@@ -362,19 +366,31 @@ class AccountingController extends Controller
             return $this->successResponse(['status' => 'not_available', 'message' => 'Bảng transactions không tồn tại.']);
         }
 
-        $totalCount = DB::table('transactions')->count();
         $transactionSchema = DB::getSchemaBuilder();
+        if ($storeId !== null && !$transactionSchema->hasColumn('transactions', 'store_id')) {
+            return $this->successResponse([
+                'status' => 'not_available_for_store_scope',
+                'message' => 'Dữ liệu giao dịch cũ không có trường cơ sở nên đã chặn báo cáo toàn công ty cho tài khoản giới hạn cơ sở.',
+            ]);
+        }
+        $transactionQuery = DB::table('transactions');
+        if ($storeId !== null && $transactionSchema->hasColumn('transactions', 'store_id')) {
+            $transactionQuery->where('store_id', $storeId);
+        }
+        $totalCount = (clone $transactionQuery)->count();
         $amountColumn = $transactionSchema->hasColumn('transactions', 'value') ? 'value' : null;
         $methodColumn = $transactionSchema->hasColumn('transactions', 'payment_method') ? 'payment_method' : null;
 
         if ($amountColumn && $methodColumn) {
-            $mappedCount = DB::table('transactions')
+            $mappedCount = (clone $transactionQuery)
                 ->whereNotNull($methodColumn)
                 ->where($amountColumn, '>', 0)
                 ->count();
-            $ambiguousCount = DB::table('transactions')
-                ->whereNull($methodColumn)
-                ->orWhere($amountColumn, '<=', 0)
+            $ambiguousCount = (clone $transactionQuery)
+                ->where(function ($query) use ($methodColumn, $amountColumn) {
+                    $query->whereNull($methodColumn)
+                        ->orWhere($amountColumn, '<=', 0);
+                })
                 ->count();
         } else {
             // Legacy installations only have value/type and cannot be safely
@@ -384,7 +400,10 @@ class AccountingController extends Controller
             $ambiguousCount = $totalCount;
         }
 
-        $postedJournalCount = JournalEntry::where('source_type', 'transaction')->count();
+        $journalQuery = JournalEntry::query()->when($storeId !== null, function ($query) use ($storeId) {
+            return $query->where('store_id', $storeId);
+        });
+        $postedJournalCount = (clone $journalQuery)->where('source_type', 'transaction')->count();
 
         return $this->successResponse([
             'legacy_transactions' => [
@@ -394,7 +413,7 @@ class AccountingController extends Controller
             ],
             'journal_entries' => [
                 'posted_from_transactions' => $postedJournalCount,
-                'total_journal_entries' => JournalEntry::count(),
+                'total_journal_entries' => (clone $journalQuery)->count(),
             ],
             'shadow_mode' => [
                 'status' => 'active',
@@ -429,8 +448,12 @@ class AccountingController extends Controller
             'auto_post_journal' => 'nullable|boolean',
         ]);
 
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.post', $storeId);
+        if ($id) {
+            $existing = AccountingVatDocument::findOrFail((int) $id);
+            PermissionAccess::can($user, 'accounting.post', $existing->store_id);
+        }
+        $storeId = $this->authorizeStoreScope($user, 'accounting.post', isset($validated['store_id']) ? (int) $validated['store_id'] : null);
+        $validated['store_id'] = $storeId;
 
         $doc = $this->service->saveVatDocument($validated, $user->id, $id ? (int) $id : null);
         AuditService::log('accounting.vat_document.save', $doc, null, $doc->toArray(), 'Lưu chứng từ VAT', $doc->store_id);
@@ -465,8 +488,12 @@ class AccountingController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        $storeId = isset($validated['store_id']) ? (int) $validated['store_id'] : null;
-        PermissionAccess::can($user, 'accounting.post', $storeId);
+        if ($id) {
+            $existing = BusinessAsset::findOrFail((int) $id);
+            PermissionAccess::can($user, 'accounting.post', $existing->store_id);
+        }
+        $storeId = $this->authorizeStoreScope($user, 'accounting.post', isset($validated['store_id']) ? (int) $validated['store_id'] : null);
+        $validated['store_id'] = $storeId;
 
         $asset = $this->service->saveAsset($validated, $user->id, $id ? (int) $id : null);
         AuditService::log('accounting.asset.save', $asset, null, $asset->toArray(), 'Lưu tài sản', $asset->store_id);
@@ -477,8 +504,8 @@ class AccountingController extends Controller
     public function deleteVatDocument(int $id): JsonResponse
     {
         $user = Auth::user();
-        PermissionAccess::can($user, 'accounting.reverse');
         $doc = AccountingVatDocument::findOrFail($id);
+        PermissionAccess::can($user, 'accounting.reverse', $doc->store_id);
         $before = $doc->toArray();
         $doc->payment_status = 'unpaid';
         $doc->notes = trim(($doc->notes ? $doc->notes . "\n" : "") . "[Đã hủy bởi " . $user->name . " lúc " . Carbon::now()->format('d/m/Y H:i') . "]");
@@ -491,8 +518,8 @@ class AccountingController extends Controller
     public function deleteAsset(int $id): JsonResponse
     {
         $user = Auth::user();
-        PermissionAccess::can($user, 'accounting.reverse');
         $asset = BusinessAsset::findOrFail($id);
+        PermissionAccess::can($user, 'accounting.reverse', $asset->store_id);
         $before = $asset->toArray();
         $asset->status = 'disposed';
         $asset->notes = trim(($asset->notes ? $asset->notes . "\n" : "") . "[Đã thanh lý bởi " . $user->name . " lúc " . Carbon::now()->format('d/m/Y H:i') . "]");
@@ -500,5 +527,31 @@ class AccountingController extends Controller
         AuditService::log('accounting.asset.dispose', $asset, $before, $asset->toArray(), 'Thanh lý tài sản', $asset->store_id);
 
         return $this->successResponse($asset, 'Đã thanh lý tài sản.');
+    }
+
+    /**
+     * Resolve the effective store before querying or writing accounting data.
+     * Store-scoped users cannot turn a request into a company-wide query by
+     * omitting store_id.
+     */
+    private function authorizeStoreScope($user, string $permission, ?int $requestedStoreId): ?int
+    {
+        PermissionAccess::can($user, $permission, $requestedStoreId);
+
+        if (!PermissionAccess::isAdmin($user)
+            && !PermissionAccess::allows($user, 'kpi.view_company')
+            && $user->store_id) {
+            return (int) $user->store_id;
+        }
+
+        return $requestedStoreId;
+    }
+
+    private function authorizeCompanyWideAccounting($user, string $permission): void
+    {
+        PermissionAccess::can($user, $permission);
+        if (!PermissionAccess::isAdmin($user) && $user->store_id) {
+            throw new AuthorizationException('Tài khoản kế toán giới hạn cơ sở không được khóa hoặc mở kỳ kế toán toàn công ty.');
+        }
     }
 }
