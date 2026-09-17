@@ -1,19 +1,22 @@
-# HIMOTO — Kiểm chứng Supabase staging/live ngày 17/09/2026
+# HIMOTO — Kiểm chứng Supabase ngày 17/09/2026
 
 ## Kết luận
 
-**BLOCKED — không chạy migration và không ghi/xóa dữ liệu.**
+**PASS về schema/migration; UAT nghiệp vụ vẫn BLOCKED.**
 
-Lệnh kiểm tra chỉ đọc `scripts/check_operational_schema.php` được chạy qua `.env.supabase`, schema được cấu hình là `himoto`. Các migration cũ `000006`–`000010` đã có trong kết quả kiểm tra trước; các bảng mới của chặng RBAC/audit, ownership, reminder nâng cao, GPS và kế toán sổ kép hiện chưa có trên database đích.
+Theo chỉ đạo trực tiếp của chủ hệ thống, các migration còn thiếu được áp dụng vào Supabase đang sử dụng, schema `himoto`, từ commit RC `af8cacf6eaf54334bbbe5bf7baf034b90de87c39`.
 
-## Bằng chứng
+## Bảo vệ dữ liệu trước khi chạy
 
-- Script: `scripts/check_operational_schema.php`
-- Chế độ: chỉ đọc `information_schema.columns` và bảng `migrations`
-- Kết quả: exit code `2`, `Operational schema is incomplete`
-- Không chạy `artisan migrate`, không chạy canary CRUD, không seed, không xóa dữ liệu.
+- Backup trước migration: `backups/himoto-20260917-101823.dump`.
+- SHA-256: `4E075CC16C0AF7F4E1BFC765C8A8AD93E01E1FE034DC106153E8D886D38C8850`.
+- Archive custom-format đọc được bằng `pg_restore --list`, gồm 908 dòng TOC.
+- Đã chạy `artisan migrate --pretend` trước khi chạy thật.
+- Không dùng `migrate:fresh`, `migrate:refresh`, rollback hoặc hard-delete dữ liệu nghiệp vụ.
 
-Migration còn pending trên database đích:
+## Migration đã áp dụng
+
+Các migration sau được ghi nhận ở batch 40:
 
 | Migration | Phạm vi |
 |---|---|
@@ -23,14 +26,26 @@ Migration còn pending trên database đích:
 | `2026_09_17_000004_enhance_customer_reminder_outbox_table` | outbox/provider/retry |
 | `2026_09_17_000005_create_gps_tracking_tables` | thiết bị/vị trí/cảnh báo GPS |
 | `2026_09_17_000011_create_double_entry_accounting_tables` | tài khoản/kỳ/journal/đối soát |
+| `2026_09_17_000012_add_document_snapshot_to_lease_contracts_table` | snapshot PDF thuê sở hữu |
 
-## Điều kiện để kiểm lại
+## Kết quả hậu kiểm
 
-1. Xác nhận database đích là staging, không phải production.
-2. Backup và thử restore staging vào database khác.
-3. Duyệt SQL/migration, checksum và thứ tự áp dụng.
-4. Chạy migration trên staging bởi người được ủy quyền.
-5. Chạy lại script này, sau đó mới chạy CRUD/concurrency/browser UAT với `test_run_id` riêng.
+`scripts/check_operational_schema.php --json` trả:
 
-Không được kết luận provider GPS/nhắc nợ hoặc kế toán đã PASS chỉ vì unit test local đạt.
+- `ready: true`
+- `schema: himoto`
+- `missing_columns: []`
+- `pending_migrations: []`
+- `checksum_mismatches: []`
 
+Đã tạo thêm backup sau migration: `backups/himoto-20260917-102213.dump`, SHA-256 `E85204C825F7C683CD04304BFCEAFF94063013D36F6179D0086C4255B545FCE3`; archive đọc được và có 1.062 dòng TOC.
+
+## Phần chưa được chứng minh
+
+- Chưa chạy CRUD/concurrency/browser UAT có `test_run_id` trên API Render release candidate.
+- Chưa kiểm thử restore backup vào database khác.
+- GPS và nhắc nợ vẫn dùng sandbox, chưa có provider/delivery proof thật.
+- Chưa ký duyệt chart of accounts, posting rules, RBAC và quy trình chuyển quyền.
+- PDF thuê sở hữu vẫn cần mẫu pháp lý, font tiếng Việt và logo được duyệt.
+
+Không dùng kết quả schema PASS để kết luận toàn bộ yêu cầu Excel hoặc production UAT đã PASS.
