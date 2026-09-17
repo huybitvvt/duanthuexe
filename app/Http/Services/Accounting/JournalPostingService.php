@@ -79,13 +79,14 @@ class JournalPostingService
         $totalDebit = round($totalDebit, 2);
         $totalCredit = round($totalCredit, 2);
 
-        if ($totalDebit !== $totalCredit) {
+        if (abs($totalDebit - $totalCredit) > 0.001) {
             throw ValidationException::withMessages([
                 'balance' => "Bút toán không cân bằng: Tổng Nợ ({$totalDebit}) != Tổng Có ({$totalCredit}).",
             ]);
         }
 
         return DB::transaction(function () use ($data, $entryDate, $lines, $userId, $idempotencyKey, $totalDebit) {
+            $this->assertPeriodOpen($entryDate);
             $entryNumber = $this->generateEntryNumber($entryDate);
 
             $entry = JournalEntry::create([
@@ -137,6 +138,7 @@ class JournalPostingService
         $dt = Carbon::parse($date);
         $period = AccountingPeriod::where('fiscal_year', $dt->year)
             ->where('period_month', $dt->month)
+            ->lockForUpdate()
             ->first();
 
         if ($period && $period->status === 'closed') {
@@ -154,6 +156,7 @@ class JournalPostingService
         $prefix = 'JE-' . Carbon::parse($date)->format('Ym') . '-';
         $last = JournalEntry::where('entry_number', 'like', $prefix . '%')
             ->orderBy('id', 'desc')
+            ->lockForUpdate()
             ->value('entry_number');
 
         $nextSeq = 1;

@@ -64,6 +64,7 @@ class CustomerReminderController extends Controller
 
         if ($dryRun) {
             PermissionAccess::can($user, 'reminder.view');
+            $res = $this->reminderService->processOutbox($limit, true);
         } else {
             // Live dispatch strictly requires reminder.dispatch_live permission
             PermissionAccess::can($user, 'reminder.dispatch_live');
@@ -72,9 +73,10 @@ class CustomerReminderController extends Controller
                 'limit' => $limit,
                 'actor_id' => $user->id,
             ], 'Kích hoạt gửi nhắc nợ thực tế');
+
+            $res = $this->reminderService->claimAndDispatchBatch($limit);
         }
 
-        $res = $this->reminderService->processOutbox($limit, (bool) $dryRun);
         return $this->successResponse($res, $dryRun ? 'Xử lý mô phỏng (dry-run) hoàn tất.' : 'Xử lý gửi thật hoàn tất.');
     }
 
@@ -89,7 +91,7 @@ class CustomerReminderController extends Controller
         // Normalize header array format
         $normalizedHeaders = [];
         foreach ($headers as $k => $v) {
-            $normalizedHeaders[strtolower($k)] = is_array($v) ? ($v[0] ?? '') : $v;
+            $normalizedHeaders[$k] = is_array($v) ? ($v[0] ?? '') : (string) $v;
         }
 
         $result = $this->reminderService->handleWebhook($provider, $payload, $normalizedHeaders);
@@ -109,5 +111,54 @@ class CustomerReminderController extends Controller
         PermissionAccess::can($user, 'gps.view', $storeId);
         $res = $this->gpsService->getFleetOverview($user, $storeId);
         return $this->successResponse($res);
+    }
+
+    /**
+     * Get GPS device history.
+     */
+    public function gpsDeviceHistory(int $deviceId, Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $from = $request->get('from');
+        $to = $request->get('to');
+        $limit = (int) $request->get('limit', 100);
+
+        $positions = $this->gpsService->getDeviceHistory($deviceId, $user, $from, $to, $limit);
+        return $this->successResponse($positions);
+    }
+
+    /**
+     * Sync device location from provider.
+     */
+    public function gpsSyncDevice(int $deviceId): JsonResponse
+    {
+        $user = Auth::user();
+        $device = \App\Models\GpsDevice::with('vehicle')->findOrFail($deviceId);
+        if ($device->vehicle && $device->vehicle->store_id) {
+            PermissionAccess::can($user, 'gps.view', (int) $device->vehicle->store_id);
+        } else {
+            PermissionAccess::can($user, 'gps.view');
+        }
+
+        $pos = $this->gpsService->syncDeviceLocation($device);
+        return $this->successResponse($pos, 'Đồng bộ vị trí thiết bị thành công.');
+    }
+
+    /**
+     * Create GPS recovery action.
+     */
+    public function gpsRecoveryAction(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $validated = $request->validate([
+            'vehicle_id' => 'required|integer',
+            'gps_device_id' => 'nullable|integer',
+            'recovery_plan' => 'required|string',
+            'deadline' => 'nullable|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        $action = $this->gpsService->createRecoveryAction($validated, $user);
+        return $this->successResponse($action, 'Khởi tạo kế hoạch thu hồi xe thành công.');
     }
 }

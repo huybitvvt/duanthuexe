@@ -262,27 +262,27 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             Route::get('/vehicles/{vehicleId}/movement-history', [WarehouseController::class, 'movementHistory']);
 
             Route::group(['prefix' => 'lease-contracts', 'middleware' => ['schema.ready:lease', 'schema.ready:ownership', 'schema.ready:audit']], function () {
-                Route::get('/', [LeaseContractController::class, 'index']);
-                Route::get('/stats', [LeaseContractController::class, 'stats']);
-                Route::get('/export', [LeaseContractController::class, 'export']);
-                Route::get('/{id}', [LeaseContractController::class, 'show']);
-                Route::get('/{id}/pdf', [LeaseContractController::class, 'pdf']);
-                Route::get('/{id}/debt-statement.pdf', [LeaseContractController::class, 'debtStatementPdf']);
-                Route::post('/', [LeaseContractController::class, 'store']);
-                Route::post('/{id}/payments', [LeaseContractController::class, 'allocatePayment']);
-                Route::post('/{id}/settle', [LeaseContractController::class, 'settle']);
-                Route::post('/reverse-allocation/{allocationId}', [LeaseContractController::class, 'reverse']);
-                Route::post('/{id}/notes', [LeaseContractController::class, 'addNote']);
-                Route::post('/{id}/ownership-requests', [LeaseOwnershipController::class, 'createDraft']);
+                Route::get('/', [LeaseContractController::class, 'index'])->middleware('permission:lease.view');
+                Route::get('/stats', [LeaseContractController::class, 'stats'])->middleware('permission:lease.view');
+                Route::get('/export', [LeaseContractController::class, 'export'])->middleware('permission:lease.export');
+                Route::get('/{id}', [LeaseContractController::class, 'show'])->middleware('permission:lease.view');
+                Route::get('/{id}/pdf', [LeaseContractController::class, 'pdf'])->middleware('permission:lease.view');
+                Route::get('/{id}/debt-statement.pdf', [LeaseContractController::class, 'debtStatementPdf'])->middleware('permission:lease.view');
+                Route::post('/', [LeaseContractController::class, 'store'])->middleware('permission:lease.view');
+                Route::post('/{id}/payments', [LeaseContractController::class, 'allocatePayment'])->middleware('permission:lease.collect');
+                Route::post('/{id}/settle', [LeaseContractController::class, 'settle'])->middleware('permission:lease.collect');
+                Route::post('/reverse-allocation/{allocationId}', [LeaseContractController::class, 'reverse'])->middleware('permission:lease.reverse_payment');
+                Route::post('/{id}/notes', [LeaseContractController::class, 'addNote'])->middleware('permission:lease.view');
+                Route::post('/{id}/ownership-requests', [LeaseOwnershipController::class, 'createDraft'])->middleware('permission:lease.ownership_request');
             });
 
             Route::group(['prefix' => 'lease-ownership-requests', 'middleware' => ['schema.ready:ownership', 'schema.ready:audit']], function () {
-                Route::get('/', [LeaseOwnershipController::class, 'index']);
-                Route::get('/{id}', [LeaseOwnershipController::class, 'show']);
-                Route::post('/{id}/submit', [LeaseOwnershipController::class, 'submit']);
-                Route::post('/{id}/approve', [LeaseOwnershipController::class, 'approve']);
-                Route::post('/{id}/reject', [LeaseOwnershipController::class, 'reject']);
-                Route::post('/{id}/execute', [LeaseOwnershipController::class, 'executeTransfer']);
+                Route::get('/', [LeaseOwnershipController::class, 'index'])->middleware('permission:lease.view');
+                Route::get('/{id}', [LeaseOwnershipController::class, 'show'])->middleware('permission:lease.view');
+                Route::post('/{id}/submit', [LeaseOwnershipController::class, 'submit'])->middleware('permission:lease.ownership_request');
+                Route::post('/{id}/approve', [LeaseOwnershipController::class, 'approve'])->middleware('permission:lease.ownership_approve');
+                Route::post('/{id}/reject', [LeaseOwnershipController::class, 'reject'])->middleware('permission:lease.ownership_approve');
+                Route::post('/{id}/execute', [LeaseOwnershipController::class, 'executeTransfer'])->middleware('permission:lease.ownership_execute');
             });
 
             Route::group(['prefix' => 'daily-cash-registers', 'middleware' => 'schema.ready:cash_register'], function () {
@@ -304,36 +304,39 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             });
 
             Route::group(['prefix' => 'accounting', 'middleware' => ['schema.ready:accounting', 'schema.ready:audit']], function () {
-                Route::get('/', [AccountingController::class, 'index']);
-                Route::get('/accounts', [AccountingController::class, 'getAccounts']);
-                Route::get('/journal-entries', [AccountingController::class, 'getJournalEntries']);
-                Route::get('/journal-entries/{id}', [AccountingController::class, 'getJournalEntry']);
-                Route::post('/journal-entries', [AccountingController::class, 'postJournalEntry']);
-                Route::post('/journal-entries/{id}/reverse', [AccountingController::class, 'reverseJournalEntry']);
-                Route::get('/periods', [AccountingController::class, 'getPeriods']);
-                Route::post('/periods/close', [AccountingController::class, 'closePeriod']);
-                Route::post('/periods/reopen', [AccountingController::class, 'reopenPeriod']);
-                Route::get('/reconciliations', [AccountingController::class, 'getReconciliations']);
-                Route::post('/reconciliations/cash', [AccountingController::class, 'reconcileCash']);
-                Route::post('/reconciliations/bank', [AccountingController::class, 'reconcileBank']);
-                Route::post('/reconciliations/{id}/approve', [AccountingController::class, 'approveReconciliation']);
-                Route::get('/trial-balance', [AccountingController::class, 'getTrialBalance']);
-                Route::get('/general-ledger/{accountId}', [AccountingController::class, 'getGeneralLedger']);
-                Route::get('/legacy-shadow-analysis', [AccountingController::class, 'legacyShadowAnalysis']);
-                Route::post('/vat-documents', [AccountingController::class, 'saveVatDocument']);
-                Route::delete('/vat-documents/{id}', [AccountingController::class, 'deleteVatDocument']);
-                Route::post('/assets', [AccountingController::class, 'saveAsset']);
-                Route::delete('/assets/{id}', [AccountingController::class, 'deleteAsset']);
+                Route::get('/', [AccountingController::class, 'index'])->middleware('permission:accounting.view');
+                Route::get('/accounts', [AccountingController::class, 'getAccounts'])->middleware('permission:accounting.view');
+                Route::get('/journal-entries', [AccountingController::class, 'getJournalEntries'])->middleware('permission:accounting.view');
+                Route::get('/journal-entries/{id}', [AccountingController::class, 'getJournalEntry'])->middleware('permission:accounting.view');
+                Route::post('/journal-entries', [AccountingController::class, 'postJournalEntry'])->middleware('permission:accounting.post');
+                Route::post('/journal-entries/{id}/reverse', [AccountingController::class, 'reverseJournalEntry'])->middleware('permission:accounting.reverse');
+                Route::get('/periods', [AccountingController::class, 'getPeriods'])->middleware('permission:accounting.view');
+                Route::post('/periods/close', [AccountingController::class, 'closePeriod'])->middleware('permission:accounting.close_period');
+                Route::post('/periods/reopen', [AccountingController::class, 'reopenPeriod'])->middleware('permission:accounting.close_period');
+                Route::get('/reconciliations', [AccountingController::class, 'getReconciliations'])->middleware('permission:accounting.view');
+                Route::post('/reconciliations/cash', [AccountingController::class, 'reconcileCash'])->middleware('permission:accounting.reconcile');
+                Route::post('/reconciliations/bank', [AccountingController::class, 'reconcileBank'])->middleware('permission:accounting.reconcile');
+                Route::post('/reconciliations/{id}/approve', [AccountingController::class, 'approveReconciliation'])->middleware('permission:accounting.reconcile');
+                Route::get('/trial-balance', [AccountingController::class, 'getTrialBalance'])->middleware('permission:accounting.view');
+                Route::get('/general-ledger/{accountId}', [AccountingController::class, 'getGeneralLedger'])->middleware('permission:accounting.view');
+                Route::get('/legacy-shadow-analysis', [AccountingController::class, 'legacyShadowAnalysis'])->middleware('permission:accounting.view');
+                Route::post('/vat-documents', [AccountingController::class, 'saveVatDocument'])->middleware('permission:accounting.post');
+                Route::delete('/vat-documents/{id}', [AccountingController::class, 'deleteVatDocument'])->middleware('permission:accounting.post');
+                Route::post('/assets', [AccountingController::class, 'saveAsset'])->middleware('permission:accounting.post');
+                Route::delete('/assets/{id}', [AccountingController::class, 'deleteAsset'])->middleware('permission:accounting.post');
             });
 
             Route::group(['prefix' => 'customer-reminders', 'middleware' => ['schema.ready:reminder', 'schema.ready:audit']], function () {
-                Route::get('/action-list', [CustomerReminderController::class, 'actionList']);
-                Route::post('/scan', [CustomerReminderController::class, 'scan']);
-                Route::post('/dispatch', [CustomerReminderController::class, 'dispatchOutbox']);
+                Route::get('/action-list', [CustomerReminderController::class, 'actionList'])->middleware('permission:reminder.view');
+                Route::post('/scan', [CustomerReminderController::class, 'scan'])->middleware('permission:reminder.view');
+                Route::post('/dispatch', [CustomerReminderController::class, 'dispatchOutbox'])->middleware('permission:reminder.view');
             });
 
             Route::group(['prefix' => 'gps', 'middleware' => ['schema.ready:gps', 'schema.ready:audit']], function () {
-                Route::get('/overview', [CustomerReminderController::class, 'gpsOverview']);
+                Route::get('/overview', [CustomerReminderController::class, 'gpsOverview'])->middleware('permission:gps.view');
+                Route::get('/devices/{deviceId}/history', [CustomerReminderController::class, 'gpsDeviceHistory'])->middleware('permission:gps.view');
+                Route::post('/devices/{deviceId}/sync', [CustomerReminderController::class, 'gpsSyncDevice'])->middleware('permission:gps.view');
+                Route::post('/recovery-actions', [CustomerReminderController::class, 'gpsRecoveryAction'])->middleware('permission:gps.recovery_action');
             });
 
         });
