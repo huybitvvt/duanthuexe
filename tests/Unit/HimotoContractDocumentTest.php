@@ -273,6 +273,8 @@ class HimotoContractDocumentTest extends TestCase
         $this->assertEquals('FELIZ', $doc['primary_vehicle']['name']);
         $this->assertEquals('VinFast', $doc['primary_vehicle']['brand']);
         $this->assertEquals(150000, $doc['pricing']['unit_price']);
+        $this->assertEquals(3, $doc['pricing']['estimated_days']);
+        $this->assertEquals('Số ngày thuê tạm tính: 3 ngày x Đơn giá: 150.000 = 450.000 đ', $doc['pricing']['calculation_text']);
         $this->assertEquals(200000, $doc['pricing']['paid_amount']);
         $this->assertEquals('02/01/2026 09:00', $doc['rent_time']['start']['formatted']);
         $this->assertFalse($doc['is_preview']);
@@ -289,6 +291,44 @@ class HimotoContractDocumentTest extends TestCase
         $this->assertEquals('', $dto['primary_vehicle']['color']);
         $this->assertEquals('', $dto['primary_vehicle']['year']);
         $this->assertEquals('', $dto['deposit']['collateral_description']);
+    }
+
+    public function testPreviewUsesCustomerSourceShiftRepresentativeAndDetailedPaymentChannel()
+    {
+        $bank = Bank::create([
+            'bank_name' => 'MB Bank',
+            'account_number' => '0123456789',
+            'owner_name' => 'Himoto',
+            'owner_type' => Bank::OWNER_COMPANY,
+        ]);
+        $dto = ContractDocumentBuilder::buildFromFormData([
+            'customer_source' => 'Sale Đức Anh',
+            'customer_source_url' => 'https://example.com/lead/1',
+            'contract_signer_a_name' => 'Nguyễn Văn Ca Trực',
+            'total_rental_payment_method' => [
+                'payment_method' => 2,
+                'bank_id' => $bank->id,
+                'bank_transfer_amount' => 400000,
+                'cash_amount' => 0,
+            ],
+            'deposit_payment_method' => [
+                'payment_method' => 1,
+                'other_method_note' => 'Ví điện tử cửa hàng',
+            ],
+            'total_rental_fees' => 400000,
+            'unit_price' => 200000,
+            'order_items' => [[
+                'rent_at' => '17/09/2026 09:00',
+                'return_at' => '19/09/2026 09:00',
+            ]],
+        ]);
+
+        $this->assertEquals('Sale Đức Anh', $dto['customer_source']['name']);
+        $this->assertEquals('Nguyễn Văn Ca Trực', $dto['lessor']['representative_name']);
+        $this->assertEquals('Nhân viên hợp đồng tại ca', $dto['lessor']['representative_title']);
+        $this->assertEquals('CK tài khoản Công ty', $dto['pricing']['payment_method_text']);
+        $this->assertEquals('Khác: Ví điện tử cửa hàng', $dto['deposit']['payment_method_text']);
+        $this->assertEquals('Số ngày thuê tạm tính: 2 ngày x Đơn giá: 200.000 = 400.000 đ', $dto['pricing']['calculation_text']);
     }
 
     public function testLockPreservesLegacyNumberWithoutConsumingCounter()

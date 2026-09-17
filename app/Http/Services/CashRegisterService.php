@@ -6,12 +6,178 @@ use App\Models\DailyCashRegister;
 use App\Models\Order;
 use App\Models\Store;
 use App\Models\Transaction;
+use App\Models\Bank;
+use App\Models\Cash;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CashRegisterService
 {
+    public function getPaymentSources(int $storeId): array
+    {
+        $cashColumns = ['id', 'store_id'];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('cash', 'name')) {
+            $cashColumns[] = 'name';
+        }
+        $bankColumns = ['id', 'store_id'];
+        foreach (['bank_name', 'account_number', 'owner_name', 'owner_type'] as $column) {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('banks', $column)) {
+                $bankColumns[] = $column;
+            }
+        }
+        $bankQuery = Bank::where(function ($q) use ($storeId) {
+            $q->where('store_id', $storeId)->orWhere('store_id', 0);
+        });
+        if (\Illuminate\Support\Facades\Schema::hasColumn('banks', 'status')) {
+            $bankQuery->where(function ($q) {
+                $q->where('status', 'Active')->orWhereNull('status');
+            });
+        }
+
+        return [
+            'cash' => Cash::where('store_id', $storeId)->where(function ($q) {
+                $q->where('status', 'Active')->orWhereNull('status');
+            })->orderBy('id')->get($cashColumns),
+            'banks' => $bankQuery->orderBy('id')->get($bankColumns),
+        ];
+    }
+
+    public function getDailyTransactions(int $storeId, $date, int $limit = 100)
+    {
+        $dateStr = Carbon::parse($date)->format('Y-m-d');
+        $transactions = Transaction::with(['order.customer', 'bank', 'cash', 'user:id,name'])
+            ->where('store_id', $storeId)
+            ->whereDate('created_at', $dateStr)
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->limit(min(max($limit, 1), 500))
+            ->get();
+
+        return $transactions->map(function ($transaction) {
+            $customer = $transaction->order && $transaction->order->customer
+                ? $transaction->order->customer->name
+                : null;
+            $channel = (int)$transaction->payment_method === 2 || $transaction->bank_id
+                ? (($transaction->bank_owner_type === Bank::OWNER_COMPANY ? 'CK Công ty' : ($transaction->bank_owner_type === Bank::OWNER_PERSONAL ? 'CK Cá nhân' : 'Chuyển khoản')))
+                : 'Tiền mặt';
+            return [
+                'id' => $transaction->id,
+                'created_at' => $transaction->created_at ? $transaction->created_at->toDateTimeString() : null,
+                'type' => $transaction->type,
+                'value' => (float)$transaction->value,
+                'name' => $transaction->name,
+                'description' => $transaction->desc ?: $transaction->note,
+                'order_id' => $transaction->order_id,
+                'contract_number' => $transaction->order ? $transaction->order->contract_number : null,
+                'customer_name' => $customer,
+                'channel' => $channel,
+                'source_name' => $transaction->bank_id
+                    ? trim(($transaction->bank->bank_name ?? '') . ' ' . ($transaction->bank->account_number ?? ''))
+                    : ($transaction->cash->name ?? 'Két tiền mặt'),
+                'created_by_name' => $transaction->user ? $transaction->user->name : null,
+            ];
+        })->values();
+    }
+
+    public function createManualEntry(array $data, int $userId): Transaction
+    {
+        $storeId = (int)$data['store_id'];
+        $date = Carbon::parse($data['date']);
+        $this->assertRegisterOpen($storeId, $date);
+        $channel = $data['channel'];
+        $source = $this->validateSource($storeId, $channel, $data);
+
+        $payload = [
+            'order_id' => null,
+            'name' => 'cash_register:manual',
+            'type' => $data['type'],
+            'value' => (float)$data['amount'],
+            'note' => $data['description'],
+            'desc' => $data['description'],
+            'status' => 'approved',
+            'user_id' => $userId,
+            'store_id' => $storeId,
+            'payment_method' => $channel === 'bank' ? 2 : 1,
+            'bank_id' => $channel === 'bank' ? $source->id : null,
+            'cash_id' => $channel === 'cash' ? $source->id : null,
+            'bank_owner_type' => $channel === 'bank' ? ($source->owner_type ?: Bank::OWNER_UNKNOWN) : null,
+            'object_name' => 'daily_cash_register_manual',
+            'created_at' => $date->setTimeFrom(Carbon::now()),
+        ];
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('transactions', 'object_name')) {
+            unset($payload['object_name']);
+        }
+        return Transaction::create($payload);
+    }
+
+    public function createCashBankExchange(array $data, int $userId): array
+    {
+        $storeId = (int)$data['store_id'];
+        $date = Carbon::parse($data['date']);
+        $this->assertRegisterOpen($storeId, $date);
+        $cash = $this->validateSource($storeId, 'cash', $data);
+        $bank = $this->validateSource($storeId, 'bank', $data);
+        $direction = $data['direction'];
+        $amount = (float)$data['amount'];
+        $reference = 'EX-' . Carbon::now()->format('YmdHis') . '-' . strtoupper(substr(uniqid(), -5));
+        $createdAt = $date->setTimeFrom(Carbon::now());
+        $description = trim(($data['description'] ?? '') ?: 'Đổi tiền giữa két và tài khoản ngân hàng');
+
+        return DB::transaction(function () use ($storeId, $userId, $cash, $bank, $direction, $amount, $reference, $createdAt, $description) {
+            $common = [
+                'order_id' => null,
+                'name' => 'cash_register:exchange:' . $reference,
+                'value' => $amount,
+                'note' => $description . ' [' . $reference . ']',
+                'desc' => $description,
+                'status' => 'approved',
+                'user_id' => $userId,
+                'store_id' => $storeId,
+                'object_name' => 'daily_cash_register_exchange',
+                'created_at' => $createdAt,
+            ];
+            if (!\Illuminate\Support\Facades\Schema::hasColumn('transactions', 'object_name')) {
+                unset($common['object_name']);
+            }
+            if ($direction === 'cash_to_bank') {
+                $out = Transaction::create(array_merge($common, ['type' => Transaction::CHI, 'payment_method' => 1, 'cash_id' => $cash->id]));
+                $in = Transaction::create(array_merge($common, ['type' => Transaction::THU, 'payment_method' => 2, 'bank_id' => $bank->id, 'bank_owner_type' => $bank->owner_type]));
+            } else {
+                $out = Transaction::create(array_merge($common, ['type' => Transaction::CHI, 'payment_method' => 2, 'bank_id' => $bank->id, 'bank_owner_type' => $bank->owner_type]));
+                $in = Transaction::create(array_merge($common, ['type' => Transaction::THU, 'payment_method' => 1, 'cash_id' => $cash->id]));
+            }
+            return ['reference' => $reference, 'transactions' => [$out, $in]];
+        });
+    }
+
+    private function assertRegisterOpen(int $storeId, Carbon $date): void
+    {
+        $closed = DailyCashRegister::where('store_id', $storeId)
+            ->where('register_date', $date->format('Y-m-d'))
+            ->where('status', 'closed')
+            ->exists();
+        if ($closed) {
+            throw new \RuntimeException('Sổ két ngày đã chốt. Hãy mở lại trước khi ghi thêm giao dịch.');
+        }
+    }
+
+    private function validateSource(int $storeId, string $channel, array $data)
+    {
+        if ($channel === 'cash') {
+            $cash = Cash::findOrFail((int)$data['cash_id']);
+            if ((int)$cash->store_id !== $storeId) {
+                throw new \RuntimeException('Két tiền mặt không thuộc cơ sở đã chọn.');
+            }
+            return $cash;
+        }
+        $bank = Bank::findOrFail((int)$data['bank_id']);
+        if (!in_array((int)$bank->store_id, [$storeId, 0])) {
+            throw new \RuntimeException('Tài khoản ngân hàng không thuộc cơ sở đã chọn.');
+        }
+        return $bank;
+    }
+
     /**
      * Lấy tóm tắt số liệu thu chi trong ngày (cho 1 cơ sở hoặc toàn hệ thống).
      *

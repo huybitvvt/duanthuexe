@@ -17,6 +17,7 @@ class OrderValidator extends LaravelValidator
     const ORDER_TYPE_RENTING = 'rental';
     const ORDER_BAD_DEBT = 'bad_debt';
     const ORDER_DEPOSIT_CONTRACT = 'deposit_contract'; // Loại hợp đồng khách đặt cọc để giữ xe.
+    const ORDER_DRAFT = 'draft';
 
     public static function contractRules(): array
     {
@@ -27,6 +28,9 @@ class OrderValidator extends LaravelValidator
             'contract_collateral_description' => 'nullable|string|max:1000',
             'contract_signer_a_name' => 'nullable|string|max:191',
             'contract_signer_b_name' => 'nullable|string|max:191',
+            'customer_source' => 'nullable|string|max:191',
+            'customer_source_url' => 'nullable|url|max:1000',
+            'save_as_draft' => 'nullable|boolean',
             'customer_id_card_issued_on' => 'nullable|date',
             'id_card_issued_on' => 'nullable|date',
             'customer_id_card_issued_by' => 'nullable|string|max:191',

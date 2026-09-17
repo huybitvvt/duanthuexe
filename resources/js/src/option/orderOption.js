@@ -1,4 +1,5 @@
 export const ORDER_STATUS = [
+    {value: "draft", label: "Bản nháp giao xe"},
     {value: "pending", label: "Đang chờ duyệt"},
     {value: "renting", label: "Đang thuê"},
     {value: "wait_payment", label: "Chờ thanh toán"},
@@ -10,6 +11,7 @@ export const ORDER_STATUS = [
 export const STATUS_COMPLETED = "completed";
 
 export const ORDER_STATUS_DEFINE = {
+    draft: "Bản nháp giao xe",
     pending: "Đang chờ duyệt",
     renting: "Đang thuê",
     wait_payment: "Chờ thanh toán",
@@ -20,6 +22,7 @@ export const ORDER_STATUS_DEFINE = {
     deposit_contract: "Đặt cọc",
 };
 export const ORDER_STATUS_DEFINE_CSS = {
+    draft: "badge badge-light-info",
     pending: "badge badge-secondary",
     renting: "badge badge-primary",
     wait_payment: "badge badge-warning",
@@ -55,4 +58,3 @@ export const ORDER_OUTDATE_FILTERS = [
 		value: "expired-gt-10days",
 	},
 ];
-

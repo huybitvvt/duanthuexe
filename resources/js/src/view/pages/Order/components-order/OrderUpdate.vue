@@ -12,6 +12,7 @@
 									Số HĐ: <strong>{{ order.contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
 								</span>
 								<span v-if="id && is_deposit_contract_mode" class="font-weight-bold badge badge-success ml-2">Cọc giữ xe</span>
+								<span v-if="id && order.order_status === 'draft'" class="font-weight-bold badge badge-info ml-2">Bản nháp giao xe</span>
 								<span v-if="order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))" class="font-weight-bold badge badge-warning ml-2" style="font-size: 12px;">
 									Hợp đồng đã chốt
 								</span>
@@ -77,6 +78,24 @@
 						<div class="col-md-6 form-group" v-if="order.is_authorized_contract">
 							<label><strong>Ngày HĐ ủy quyền</strong></label>
 							<el-date-picker class="w-100" v-model="order.contract_authorization_date" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Ngày HĐ ủy quyền"></el-date-picker>
+						</div>
+						<div class="col-md-6 form-group">
+							<label><strong>Nhân viên đại diện Bên A tại ca</strong></label>
+							<el-select v-model="order.contract_responsible_user_id" filterable clearable class="w-100" placeholder="Chọn nhân viên" @change="onResponsibleStaffChange">
+								<el-option v-for="staff in staffByStore" :key="staff.id" :label="staff.name" :value="staff.id"></el-option>
+							</el-select>
+						</div>
+						<div class="col-md-6 form-group">
+							<label><strong>Tên người đại diện in trên hợp đồng</strong></label>
+							<el-input v-model="order.contract_signer_a_name" placeholder="Ông/Bà nhân viên đang trực ca"></el-input>
+						</div>
+						<div class="col-md-6 form-group">
+							<label><strong>Nguồn khách</strong></label>
+							<el-input v-model="order.customer_source" placeholder="VD: Sale Đức Anh, Telesale, Cửa hàng"></el-input>
+						</div>
+						<div class="col-md-6 form-group">
+							<label><strong>Liên kết nguồn khách</strong></label>
+							<el-input v-model="order.customer_source_url" placeholder="https://..."></el-input>
 						</div>
 						<div class="col-md-6 form-group" v-if="order.is_authorized_contract">
 							<label><strong>Bên được ủy quyền</strong></label>
@@ -480,8 +499,12 @@
 
 						<button type="button" class="btn btn-sm btn-outline-primary mr-2 font-weight-bold" :disabled="previewLoading" @click="onPreviewContract">
 							<span v-if="previewLoading">Đang chuẩn bị...</span>
-							<span v-else>Xem trước hợp đồng</span>
+							<span v-else>In bản nháp / Xem trước</span>
 						</button>
+						<el-button v-if="!id || order.order_status === 'draft'" type="button" class="btn btn-sm btn-outline-success mr-2"
+							:loading="loading" @click="saveDraft">
+							Lưu bản nháp giao xe
+						</el-button>
 
 						<el-button v-if="!id" native-type="submit" class="btn btn-sm btn-success mr-2"
 							style="color: #fff" :loading="loading">
@@ -495,6 +518,7 @@
 							:loading="loading" :disabled="Boolean(order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked)))">
 							<span v-if="start_this_contract">Kích hoạt hợp đồng</span>
 							<span v-else-if="order && (order.contract_is_locked || (order.contract_snapshot && order.contract_snapshot.is_locked))">Hợp đồng đã chốt</span>
+							<span v-else-if="order.order_status === 'draft'">Phát hành hợp đồng chính thức</span>
 							<span v-else>Cập nhật</span>
 						</el-button>
 
@@ -547,6 +571,7 @@ import { CUSTOMER_INDEX } from "@/core/services/store/customers.module";
 import { LEAD_INDEX } from "@/core/services/store/lead.module";
 import Swal from "sweetalert2";
 import PaymentMethod from "../../components/PaymentMethod";
+import { USER_GET_STAFF_BY_STORE } from "@/core/services/store/user.module";
 
 export default {
     name: "OrderUpdate",
@@ -586,6 +611,7 @@ export default {
             previewDocumentDto: null,
             previewLoading: false,
             banks: [],
+			staffByStore: [],
 			bank_outs: [], // Bank dùng để trả tiền thừa cho khách.
             hiringFeeAllItems: 0,
 			contract_type: 1,
@@ -603,6 +629,9 @@ export default {
                 contract_collateral_description: "",
                 contract_signer_a_name: "",
                 contract_signer_b_name: "",
+                contract_responsible_user_id: null,
+                customer_source: "",
+                customer_source_url: "",
                 transaction_ids_to_destroy: [],
                 store_id: "",
                 customer_name: "",
@@ -627,6 +656,7 @@ export default {
 					bank_id: null,
 					bank_transfer_amount: 0,
 					cash_amount: 0,
+					other_method_note: "",
 				},
 
 				total_rental_fees: 0,
@@ -635,6 +665,7 @@ export default {
 					bank_transfer_amount: 0, 
 					cash_amount: 0,
 					payment_method: 1,
+					other_method_note: "",
 				},
 
                 payment_method: 1,
@@ -649,6 +680,7 @@ export default {
 					bank_id: null,
 					bank_transfer_amount: 0,
 					cash_amount: 0,
+					other_method_note: "",
 				},
 
 				create_order_without_input_deposit: false,
@@ -691,21 +723,6 @@ export default {
 			editing_order_created_at: false,
         };
     },
-    components: {
-        // AddOnHistory,
-        ModalComplete,
-        ModalAddOnPrice,
-        ErrorMessage,
-        ItemsOrder,
-        Money,
-        // ExtendHistory,
-        ActivityHistory,
-        TransactionHistory,
-		ModalStart,
-		PaymentMethod,
-		ModalCloseDeposit,
-    },
-
     computed: {
         ...mapGetters(["currentUser"]),
 		is_deposit_contract_mode() {
@@ -906,6 +923,7 @@ export default {
         }
         // this.getBank();
         await this.getStore();
+        await this.getStaffByStore(this.order.store_id || this.currentUser?.store_id);
         await this.getListVehicles();
 
         await this.getListVehiclesPrice();
@@ -1011,6 +1029,8 @@ export default {
 					contract_signer_b_name: this.order.contract_signer_b_name || this.order.customer_name,
 					contract_responsible_user_id: this.order.contract_responsible_user_id,
 					contract_responsible_user_name: this.currentUser ? this.currentUser.name : '',
+					customer_source: this.order.customer_source,
+					customer_source_url: this.order.customer_source_url,
 					contract_authorization_date: this.order.contract_authorization_date,
 					contract_authorization_party_name: this.order.contract_authorization_party_name,
 					contract_collateral_description: this.order.contract_collateral_description,
@@ -1266,7 +1286,28 @@ export default {
             this.order.other_fee_bank_id = null;
             this.getBankByStoreId(val);
 			this.getBankOutByStoreId(val);
+			this.getStaffByStore(val);
         },
+		async getStaffByStore(storeId) {
+			if (!storeId) {
+				this.staffByStore = [];
+				return;
+			}
+			try {
+				const res = await this.$store.dispatch(USER_GET_STAFF_BY_STORE, { store_id: storeId });
+				this.staffByStore = res?.data || [];
+				if (!this.order.contract_responsible_user_id && this.currentUser?.id) {
+					this.order.contract_responsible_user_id = this.currentUser.id;
+					this.order.contract_signer_a_name = this.order.contract_signer_a_name || this.currentUser.name;
+				}
+			} catch (_) {
+				this.staffByStore = [];
+			}
+		},
+		onResponsibleStaffChange(userId) {
+			const staff = this.staffByStore.find(item => Number(item.id) === Number(userId));
+			if (staff) this.order.contract_signer_a_name = staff.name;
+		},
 
         deleteFee(id) {
             this.order.transaction_ids_to_destroy.push(id);
@@ -1308,6 +1349,8 @@ export default {
                         contract_collateral_description: res.data.contract_collateral_description || "",
                         contract_signer_a_name: res.data.contract_signer_a_name || "",
                         contract_signer_b_name: res.data.contract_signer_b_name || "",
+						customer_source: res.data.customer_source || "",
+						customer_source_url: res.data.customer_source_url || "",
                         customer_name: res.data.customer?.name || "",
                         warning: res.data.customer?.warning || "",
                         customer_phone: res.data.customer?.phone || "",
@@ -1339,6 +1382,7 @@ export default {
                     this.activityLogs = res.data.activity_logs;
                     this.getBankByStoreId(this.order.store_id);
                     this.getBankOutByStoreId(this.order.store_id);
+					this.getStaffByStore(this.order.store_id);
                 })
                 .finally(() => (this.loadingComponent = false));
         },
@@ -1539,6 +1583,9 @@ export default {
                 contract_collateral_description: "",
                 contract_signer_a_name: "",
                 contract_signer_b_name: "",
+                contract_responsible_user_id: null,
+                customer_source: "",
+                customer_source_url: "",
                 note_item: "",
                 note: "",
 				order_items: [],
@@ -1609,7 +1656,7 @@ export default {
             }
         },
 
-        onSubmit() {
+        onSubmit(saveAsDraft = false) {
 			Swal.fire({
                 title: this.start_this_contract ? "Bạn chắc chắn muốn kích hoạt hợp đồng này?" : "Bạn chắc chắn muốn sửa lại hợp đồng này?",
                 showDenyButton: true,
@@ -1620,6 +1667,7 @@ export default {
                 if (result.isConfirmed) {
                     this.loading = true;
 					let params = this.prepareRequestParams();
+					params.save_as_draft = saveAsDraft;
 					if ( this.editing_order_created_at ) {
 						params['editing_order_created_at'] = true;
 						params['created_at'] = moment(params['created_at']).format('DD-MM-YYYY HH:mm:ss');
@@ -1635,7 +1683,7 @@ export default {
 							this.$emit("updateSuccess");
 							this.noticeMessage(
 								"success",
-								"Cập nhật hợp đồng thành công",
+								saveAsDraft ? "Đã lưu bản nháp" : "Cập nhật hợp đồng thành công",
 								res.data?.message,
 							);
 						})
@@ -1647,9 +1695,10 @@ export default {
             });
         },
 
-        onSubmitCreate() {
+        onSubmitCreate(saveAsDraft = false) {
             this.loading = true;
             let params = this.prepareRequestParams();
+			params.save_as_draft = saveAsDraft;
 			if (params.created_at) {
 				params.created_at = moment(this.order.created_at).format('DD-MM-YYYY HH:mm:ss');
 			}
@@ -1661,7 +1710,7 @@ export default {
                     this.resetForm();
                     this.noticeMessage(
                         "success",
-                        "Tạo hợp đồng thành công",
+						saveAsDraft ? "Đã lưu bản nháp giao xe" : "Tạo hợp đồng thành công",
                         res.data?.message,
                     );
                 })
@@ -1670,6 +1719,10 @@ export default {
                 })
                 .finally(() => (this.loading = false));
         },
+		saveDraft() {
+			if (this.id) this.onSubmit(true);
+			else this.onSubmitCreate(true);
+		},
 
         onBlurCardId(event, errors) {
             const hasError = (errors || []).length > 0;

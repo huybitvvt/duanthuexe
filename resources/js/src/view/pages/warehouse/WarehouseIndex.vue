@@ -122,6 +122,37 @@
       </div>
     </div>
 
+    <div class="card card-custom gutter-b">
+      <div class="card-header border-0 py-4">
+        <div class="card-title"><h3 class="card-label font-weight-bolder">Biến động kho trong ngày</h3></div>
+        <div class="card-toolbar">
+          <el-date-picker v-model="transferDate" type="date" value-format="yyyy-MM-dd" format="yyyy-MM-dd" @change="fetchTransfers" />
+        </div>
+      </div>
+      <div class="card-body pt-0" v-loading="loadingTransfers">
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover">
+            <thead><tr><th>Mã phiếu</th><th>Luồng kho</th><th>Xe</th><th>Loại</th><th>Trạng thái</th><th>Thời gian</th><th>Thao tác</th></tr></thead>
+            <tbody>
+              <tr v-for="transfer in transferList" :key="transfer.id">
+                <td class="font-weight-bold">{{ transfer.transfer_code }}</td>
+                <td>{{ transfer.from_store && transfer.from_store.store_name }} → {{ transfer.to_store && transfer.to_store.store_name }}</td>
+                <td><span v-for="item in transfer.items" :key="item.id" class="badge badge-light-primary mr-1">{{ item.vehicle && item.vehicle.license }}</span></td>
+                <td>{{ transferTypeLabel(transfer.type) }}</td>
+                <td><span class="badge" :class="transfer.status === 'dispatched' ? 'badge-warning' : (transfer.status === 'completed' ? 'badge-success' : 'badge-secondary')">{{ transferStatusLabel(transfer.status) }}</span></td>
+                <td>{{ formatDateTime(transfer.received_at || transfer.dispatched_at) }}</td>
+                <td>
+                  <button v-if="canReceiveTransfer(transfer)" class="btn btn-xs btn-success mr-1" @click="receiveTransfer(transfer)">Xác nhận đã nhận</button>
+                  <button v-if="canCancelTransfer(transfer)" class="btn btn-xs btn-outline-danger" @click="cancelTransfer(transfer)">Hủy phiếu</button>
+                </td>
+              </tr>
+              <tr v-if="!transferList.length"><td colspan="7" class="text-center text-muted">Không có biến động kho trong ngày đã chọn.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- Khu vực Bảng danh sách xe của Kho được chọn -->
     <div class="card card-custom gutter-b">
       <div class="card-header border-0 py-5">
@@ -237,6 +268,7 @@
                   <th>Kho quản lý gốc</th>
                   <th>Nơi đang giữ xe</th>
                   <th>Trạng thái</th>
+                  <th>GPS / Cảnh báo</th>
                   <th>Hợp đồng đang thuê</th>
                   <th class="text-right" style="min-width: 160px;">Hành động</th>
                 </tr>
@@ -266,6 +298,15 @@
                     <span :class="getStatusBadgeClass(vehicle.status)" class="badge font-weight-bold">
                       {{ formatStatus(vehicle.status) }}
                     </span>
+                  </td>
+                  <td>
+                    <div v-if="vehicle.gps">
+                      <span v-if="vehicle.gps.has_lost_signal" class="badge badge-danger d-block mb-1">Mất tín hiệu / cần kiểm tra</span>
+                      <span v-else class="badge badge-light-success d-block mb-1">GPS {{ vehicle.gps.position_status }}</span>
+                      <a v-if="vehicle.gps.latitude !== null && vehicle.gps.longitude !== null" :href="gpsMapUrl(vehicle.gps)" target="_blank" rel="noopener noreferrer">Mở bản đồ</a>
+                      <small v-else class="text-muted d-block">Chưa có tọa độ</small>
+                    </div>
+                    <span v-else class="text-muted">Chưa gắn GPS</span>
                   </td>
                   <td>
                     <div v-if="vehicle.active_order">
@@ -301,7 +342,7 @@
                 </tr>
 
                 <tr v-if="vehicleList.length === 0 && !loadingVehicles">
-                  <td colspan="7" class="text-center py-5 text-muted">
+                  <td colspan="8" class="text-center py-5 text-muted">
                     Không tìm thấy xe nào phù hợp với bộ lọc hiện tại.
                   </td>
                 </tr>
@@ -357,6 +398,9 @@ import { mapGetters } from "vuex";
 import {
   WAREHOUSE_GET_SUMMARY,
   WAREHOUSE_GET_VEHICLES,
+  WAREHOUSE_GET_TRANSFERS,
+  WAREHOUSE_RECEIVE_TRANSFER,
+  WAREHOUSE_CANCEL_TRANSFER,
 } from "@/core/services/store/warehouse.module";
 import ModalStoreTransfer from "./components/ModalStoreTransfer.vue";
 import ModalReturnDifferentStore from "./components/ModalReturnDifferentStore.vue";
@@ -375,6 +419,9 @@ export default {
     return {
       loadingSummary: false,
       loadingVehicles: false,
+      loadingTransfers: false,
+      transferList: [],
+      transferDate: new Date().toISOString().slice(0, 10),
       summaryList: [],
       selectedStoreId: null,
       permissionDenied: false,
@@ -414,6 +461,7 @@ export default {
           this.selectStore(userStore ? userStore.id : this.summaryList[0].id);
         }
       });
+      this.fetchTransfers();
     },
     fetchSummary() {
       this.loadingSummary = true;
@@ -433,6 +481,7 @@ export default {
       this.selectedStoreId = storeId;
       this.pagination.page = 1;
       this.fetchVehicles();
+      this.fetchTransfers();
     },
     fetchVehicles() {
       if (!this.selectedStoreId) return;
@@ -490,6 +539,54 @@ export default {
       this.fetchSummary().then(() => {
         this.fetchVehicles();
       });
+      this.fetchTransfers();
+    },
+    fetchTransfers() {
+      this.loadingTransfers = true;
+      return this.$store.dispatch(WAREHOUSE_GET_TRANSFERS, {
+        store_id: this.selectedStoreId || undefined,
+        date: this.transferDate,
+        limit: 50,
+      }).then((res) => {
+        const data = res?.data || {};
+        this.transferList = data.data || data || [];
+      }).catch(() => {
+        this.transferList = [];
+      }).finally(() => {
+        this.loadingTransfers = false;
+      });
+    },
+    canReceiveTransfer(transfer) {
+      if (transfer.status !== 'dispatched') return false;
+      return this.currentUser?.role_id === 1 || Number(this.currentUser?.store_id) === Number(transfer.to_store_id);
+    },
+    canCancelTransfer(transfer) {
+      if (transfer.status !== 'dispatched') return false;
+      return this.currentUser?.role_id === 1 || Number(this.currentUser?.store_id) === Number(transfer.from_store_id);
+    },
+    receiveTransfer(transfer) {
+      this.$confirm(`Xác nhận cơ sở đã nhận đủ xe của phiếu ${transfer.transfer_code}?`, 'Xác nhận nhập kho', { type: 'warning' })
+        .then(() => this.$store.dispatch(WAREHOUSE_RECEIVE_TRANSFER, { transferId: transfer.id, payload: {} }))
+        .then(() => { this.$message.success('Đã xác nhận nhập kho.'); this.refreshData(); })
+        .catch((err) => { if (err !== 'cancel') this.$message.error(err?.data?.message || 'Không thể xác nhận nhập kho.'); });
+    },
+    cancelTransfer(transfer) {
+      this.$prompt('Nhập lý do hủy phiếu điều chuyển', 'Hủy phiếu', { inputPattern: /\S+/, inputErrorMessage: 'Phải nhập lý do' })
+        .then(({ value }) => this.$store.dispatch(WAREHOUSE_CANCEL_TRANSFER, { transferId: transfer.id, reason: value }))
+        .then(() => { this.$message.success('Đã hủy phiếu điều chuyển.'); this.refreshData(); })
+        .catch((err) => { if (err !== 'cancel') this.$message.error(err?.data?.message || 'Không thể hủy phiếu.'); });
+    },
+    transferTypeLabel(type) {
+      return { store_to_store: 'Điều chuyển', return_different_store: 'Trả khác cơ sở', vehicle_exchange: 'Đổi xe' }[type] || type;
+    },
+    transferStatusLabel(status) {
+      return { dispatched: 'Chờ kho nhận', completed: 'Đã nhận', cancelled: 'Đã hủy', draft: 'Nháp' }[status] || status;
+    },
+    formatDateTime(value) {
+      return value ? new Date(value).toLocaleString('vi-VN') : '-';
+    },
+    gpsMapUrl(gps) {
+      return `https://www.google.com/maps?q=${gps.latitude},${gps.longitude}`;
     },
     openStoreTransferModal() {
       this.$refs.modalStoreTransfer.open(null, this.selectedStoreId);

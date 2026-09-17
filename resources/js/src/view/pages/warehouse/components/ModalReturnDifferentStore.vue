@@ -16,6 +16,14 @@
       </div>
 
       <div class="row">
+        <div class="col-md-12 form-group">
+          <label class="font-weight-bold">Tra nhanh theo biển số xe</label>
+          <div class="d-flex">
+            <el-input v-model="licenseLookup" placeholder="VD: 29 B1-123.45 (có thể nhập có/không có khoảng trắng)" @keyup.enter.native="lookupByLicense" />
+            <button type="button" class="btn btn-primary ml-2" :disabled="lookupLoading || !licenseLookup" @click="lookupByLicense">Tra biển số</button>
+          </div>
+          <small v-if="sourceStoreName" class="form-text text-success">Kho/hợp đồng nguồn: <strong>{{ sourceStoreName }}</strong></small>
+        </div>
         <!-- ID Đơn hàng / Hợp đồng -->
         <div class="col-md-6 form-group">
           <label class="font-weight-bold">ID Đơn hàng / Hợp đồng đã hoàn tất <span class="text-danger">*</span></label>
@@ -139,6 +147,8 @@ export default {
       lookupLoading: false,
       orderInfo: null,
       vehicleOptions: [],
+      licenseLookup: "",
+      sourceStoreName: "",
       form: {
         order_id: null,
         vehicle_id: null,
@@ -176,6 +186,27 @@ export default {
       } catch (err) {
         const message = err.response?.data?.message || "Không tìm thấy đơn thuê hoặc bạn không có quyền xem đơn này.";
         this.$message.error(message);
+      } finally {
+        this.lookupLoading = false;
+      }
+    },
+    async lookupByLicense() {
+      if (!this.licenseLookup) return;
+      this.lookupLoading = true;
+      try {
+        const res = await ApiService.query('/api/auth/warehouses/return-lookup', { license: this.licenseLookup });
+        const data = res.data?.data || res.data;
+        this.form.order_id = Number(data.order_id);
+        this.form.vehicle_id = Number(data.vehicle.id);
+        this.vehicleOptions = [data.vehicle];
+        this.sourceStoreName = data.source_store?.name || '';
+        this.orderInfo = {
+          customer_name: data.customer_name || 'Chưa cập nhật',
+          contract_number: data.contract_number || `#${data.order_id}`,
+          status_label: this.orderStatusLabel(data.order_status),
+        };
+      } catch (err) {
+        this.$message.error(err.response?.data?.message || 'Không tìm thấy xe/đơn phù hợp.');
       } finally {
         this.lookupLoading = false;
       }
@@ -263,6 +294,8 @@ export default {
       };
       this.orderInfo = null;
       this.vehicleOptions = [];
+      this.licenseLookup = "";
+      this.sourceStoreName = "";
     },
   },
 };

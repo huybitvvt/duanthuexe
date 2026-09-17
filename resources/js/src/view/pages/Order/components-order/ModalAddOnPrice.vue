@@ -3,12 +3,12 @@
         <b-button
             class="btn btn-primary"
             @click="dialogVisible = !dialogVisible"
-            >Nạp tiền gia hạn
+            >Thu thêm / Gia hạn
         </b-button>
         <b-modal
             centered
             v-model="dialogVisible"
-            title="Nạp tiền gia hạn"
+            title="Thu thêm tiền hoặc gia hạn hợp đồng"
             hide-footer
         >
             <ValidationObserver v-slot="{ handleSubmit }" ref="form">

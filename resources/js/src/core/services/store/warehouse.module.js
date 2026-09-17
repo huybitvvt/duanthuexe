@@ -2,6 +2,7 @@ import ApiService from "@/core/services/api.service";
 
 export const WAREHOUSE_GET_SUMMARY = "warehouse_get_summary";
 export const WAREHOUSE_GET_VEHICLES = "warehouse_get_vehicles";
+export const WAREHOUSE_GET_TRANSFERS = "warehouse_get_transfers";
 export const WAREHOUSE_DISPATCH_TRANSFER = "warehouse_dispatch_transfer";
 export const WAREHOUSE_RECEIVE_TRANSFER = "warehouse_receive_transfer";
 export const WAREHOUSE_CANCEL_TRANSFER = "warehouse_cancel_transfer";
@@ -51,6 +52,14 @@ const actions = {
                 .catch((err) => {
                     reject(err?.response || err);
                 });
+        });
+    },
+
+    [WAREHOUSE_GET_TRANSFERS](context, params) {
+        return new Promise((resolve, reject) => {
+            ApiService.query("/api/auth/warehouses/transfers", params || {})
+                .then(({ data }) => resolve(data))
+                .catch((err) => reject(err?.response || err));
         });
     },
 

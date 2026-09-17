@@ -316,9 +316,16 @@ class HimotoWarehouseTransferTest extends TestCase
         $this->assertIsArray($summary);
         $this->assertGreaterThanOrEqual(2, count($summary));
 
-        $this->assertFalse($summary[0]['can_view_details']);
+        $ownCard = collect($summary)->firstWhere('id', $this->storeA->id);
+        $otherCard = collect($summary)->firstWhere('id', $this->storeB->id);
+        $this->assertTrue($ownCard['can_view_details']);
+        $this->assertFalse($otherCard['can_view_details']);
+
+        $ownVehicles = $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->staffUserA);
+        $this->assertEquals($this->storeA->id, $ownVehicles['store']['id']);
+
         $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
-        $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->staffUserA);
+        $this->warehouseService->getStoreVehicles($this->storeB->id, [], $this->staffUserA);
     }
 
     /**

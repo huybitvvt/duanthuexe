@@ -472,6 +472,50 @@ class HimotoCashRegisterAndHrTest extends TestCase
         $this->assertEquals('open', $summary['status']);
     }
 
+    public function testManualExpenseAndCashBankExchangeCreateBalancedLedgerEntries()
+    {
+        $date = '2026-09-17';
+        $cashId = DB::table('cash')->insertGetId([
+            'store_id' => $this->store->id,
+            'status' => 'Active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $bankId = DB::table('banks')->insertGetId([
+            'store_id' => $this->store->id,
+            'owner_type' => 'company',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $expense = $this->cashRegisterService->createManualEntry([
+            'store_id' => $this->store->id,
+            'date' => $date,
+            'type' => 'out',
+            'amount' => 150000,
+            'description' => 'Mua thùng rác cho cửa hàng',
+            'channel' => 'cash',
+            'cash_id' => $cashId,
+        ], $this->staffUser->id);
+        $this->assertEquals(Transaction::CHI, $expense->type);
+        $this->assertEquals(150000, (float)$expense->value);
+
+        $exchange = $this->cashRegisterService->createCashBankExchange([
+            'store_id' => $this->store->id,
+            'date' => $date,
+            'direction' => 'cash_to_bank',
+            'amount' => 1000000,
+            'cash_id' => $cashId,
+            'bank_id' => $bankId,
+            'description' => 'Nộp tiền mặt vào tài khoản công ty',
+        ], $this->staffUser->id);
+
+        $this->assertCount(2, $exchange['transactions']);
+        $this->assertEquals(1000000, Transaction::where('name', 'like', 'cash_register:exchange:%')->where('type', 'out')->sum('value'));
+        $this->assertEquals(1000000, Transaction::where('name', 'like', 'cash_register:exchange:%')->where('type', 'in')->sum('value'));
+        $this->assertEquals('company', Transaction::whereNotNull('bank_id')->first()->bank_owner_type);
+    }
+
     /**
      * Test 2: Close daily register saves counted cash, difference, and enforces difference reason when mismatch.
      */

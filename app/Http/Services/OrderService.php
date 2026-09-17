@@ -68,11 +68,14 @@ class OrderService
 
     public function store(Request $request)
     {
+        $isDraft = $request->boolean('save_as_draft');
         $customer = $this->storeOrUpdateCustomer($request);
         $order = $this->updateOrCreateOrder($request, null, $customer);
         $this->updateVehicles($request, $order);
-        $this->createFirstDeposit($request, $order);
-        if ($request->has('leads') && isset($request->leads)){
+        if (!$isDraft) {
+            $this->createFirstDeposit($request, $order);
+        }
+        if (!$isDraft && $request->has('leads') && isset($request->leads)){
             $this->updateLeads($request->get('leads'),$order->id);
         }
 		$this->saveOrderLog($request, $order, true);
@@ -88,13 +91,16 @@ class OrderService
             throw ValidationException::withMessages(['contract' => 'Hợp đồng đã chốt. Không thể ghi đè thông tin đã ký; các thao tác trả xe và gia hạn vẫn dùng luồng riêng.']);
         }
 
+        $saveAsDraft = $request->boolean('save_as_draft');
         $customer = $this->storeOrUpdateCustomer($request, $order);
 
         $this->updateOrCreateOrder($request, $order, null);
 
         $this->saveOrderLog($request, $order);
         
-        $this->updateTransactions($request, $order);
+        if (!$saveAsDraft) {
+            $this->updateTransactions($request, $order);
+        }
         $transaction_ids_to_destroy = $request->get('transaction_ids_to_destroy');
         if (is_array($transaction_ids_to_destroy)) {
             foreach ($transaction_ids_to_destroy as $id){
@@ -103,10 +109,12 @@ class OrderService
         }
         
 		$this->updateVehicles($request, $order);
-        $this->updateFee( $request, $order );
+        if (!$saveAsDraft) {
+            $this->updateFee( $request, $order );
+        }
 		$this->updateOrderVehicleDetails($request, $order);
 
-        if ($request->has('leads') && isset($request->leads)){
+        if (!$saveAsDraft && $request->has('leads') && isset($request->leads)){
             $this->updateLeads($request->get('leads'),$order->id);
         }
 
@@ -175,6 +183,8 @@ class OrderService
 			'contract_collateral_description',
 			'contract_signer_a_name',
 			'contract_signer_b_name',
+			'customer_source',
+			'customer_source_url',
 			'return_signer_a_name',
 			'return_signer_b_name',
 			'return_additional_note',
@@ -197,7 +207,9 @@ class OrderService
 
 			$dataOrder['customer_id'] = $customer->id;
 			$dataOrder['order_type'] = OrderValidator::ORDER_TYPE_RENTING;
-			$dataOrder['order_status'] = OrderValidator::ORDER_RENTING;
+			$dataOrder['order_status'] = $request->boolean('save_as_draft')
+				? OrderValidator::ORDER_DRAFT
+				: OrderValidator::ORDER_RENTING;
 			$dataOrder['data_version'] = 2;
 			$dataOrder['return_adjustment_applied'] = 0;
 			$dataOrder['created_at'] = $created_at ?: Carbon::now('Asia/Ho_Chi_Minh');
@@ -223,6 +235,9 @@ class OrderService
 				$dataOrder['total'] = 0;
 				$dataOrder['pid'] = 0;
 				$dataOrder['contract_number'] = null;
+			} elseif ($dataOrder['order_status'] === OrderValidator::ORDER_DRAFT) {
+				$dataOrder['contract_number'] = null;
+				$dataOrder['contract_issued_at'] = null;
 			} else {
 				// Sinh số HĐ dạng YYYY/MM/DD-0001
 				$dataOrder['contract_number'] = ContractNumberService::generate($dataOrder['contract_signed_on']);
@@ -233,7 +248,18 @@ class OrderService
 		} else { // update existing order
 			$additional_deposit_amount = $request->get('additional_deposit_amount');
 
-			if ($request->get('order_status') == 'bad_debt'){ 
+			if ($request->boolean('save_as_draft')) {
+				$dataOrder['order_status'] = OrderValidator::ORDER_DRAFT;
+			} elseif ($order->order_status === OrderValidator::ORDER_DRAFT) {
+				$dataOrder['order_status'] = OrderValidator::ORDER_RENTING;
+				if (empty($order->contract_number)) {
+					$signDate = $request->get('contract_signed_on') ?: ($order->contract_signed_on ?: Carbon::now('Asia/Ho_Chi_Minh'));
+					$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+					$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
+				}
+			}
+
+			if ($request->get('order_status') == 'bad_debt'){
 				$dataOrder['order_status'] = OrderValidator::ORDER_BAD_DEBT;
 				$dataOrder['out_dated_at'] = 0;
 				$dataOrder['total'] =  $this->calTotalWithNoOutdate($order);
@@ -257,7 +283,7 @@ class OrderService
 					$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
 					$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
 				}
-			} elseif (empty($order->contract_number) && $order->order_status !== OrderValidator::ORDER_DEPOSIT_CONTRACT) {
+			} elseif (!$request->boolean('save_as_draft') && empty($order->contract_number) && !in_array($order->order_status, [OrderValidator::ORDER_DEPOSIT_CONTRACT, OrderValidator::ORDER_DRAFT])) {
 				// Đơn thuê cũ chưa có số -> cấp số dựa trên ngày ký hoặc ngày tạo
 				$signDate = $order->contract_signed_on ?: ($order->created_at ?: Carbon::now('Asia/Ho_Chi_Minh'));
 				$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
@@ -496,7 +522,7 @@ class OrderService
 			if ($request->get('order_status') == 'bad_debt'){
 				Vehicle::where('id', $vehicle_id)->update(['status' => Vehicle::STATUS_BAD_DEBT]);
 			} else {
-				if ( $request->get('order_status') != 'completed' ) {
+				if ( $request->get('order_status') != 'completed' && $order->order_status !== OrderValidator::ORDER_DRAFT ) {
 					Vehicle::where('id', $vehicle_id)->update(['status' => Vehicle::STATUS_USING]);
 				}
 			}
@@ -600,7 +626,7 @@ class OrderService
 		}
 
 		// Không tạo snapshot cho đơn cọc thuần túy chưa lấy xe
-		if ($order->order_status === OrderValidator::ORDER_DEPOSIT_CONTRACT) {
+		if (in_array($order->order_status, [OrderValidator::ORDER_DEPOSIT_CONTRACT, OrderValidator::ORDER_DRAFT])) {
 			return null;
 		}
 
@@ -611,8 +637,9 @@ class OrderService
 		$companyName = config('contract.company_name', 'CÔNG TY CP THƯƠNG MẠI DỊCH VỤ HIMOTO VIỆT NAM');
 		$taxCode = config('contract.tax_code', '0110863055');
 		$headOffice = config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN');
-		$repName = config('contract.representative_name', 'Bà Nguyễn Thu Thủy');
-		$repTitle = config('contract.representative_title', 'Giám đốc');
+		$repName = $order->contract_signer_a_name
+			?: ($order->responsibleUser ? $order->responsibleUser->name : (Auth::user() ? Auth::user()->name : ''));
+		$repTitle = 'Nhân viên hợp đồng tại ca';
 
 		$store = $order->store;
 		$customer = $order->customer;
@@ -728,6 +755,10 @@ class OrderService
 				'id' => $order->contract_responsible_user_id,
 				'name' => $order->responsibleUser ? $order->responsibleUser->name : (Auth::user() ? Auth::user()->name : ''),
 			],
+			'customer_source' => [
+				'name' => $order->customer_source,
+				'url' => $order->customer_source_url,
+			],
 			'authorization' => [
 				'date' => $order->contract_authorization_date ? Carbon::parse($order->contract_authorization_date)->format('Y-m-d') : null,
 				'party_name' => $order->contract_authorization_party_name,
@@ -762,6 +793,8 @@ class OrderService
 				'additional_deposit_amount' => (float) $order->additional_deposit_amount,
 				'total_deposit' => (float) ($order->first_deposit_amount + $order->additional_deposit_amount),
 				'collateral_description' => $order->contract_collateral_description,
+				'deposit_payment_method' => $this->decodePaymentSettings($order->first_deposit_payment_method),
+				'rental_payment_method' => $this->decodePaymentSettings($order->total_rental_payment_method),
 				'transactions_summary' => $order->transactions ? $order->transactions->map(function ($t) {
 					return [
 						'id' => $t->id,
@@ -783,6 +816,18 @@ class OrderService
 		$order->contract_snapshot = $snapshot;
 		$order->save();
 		return $snapshot;
+	}
+
+	private function decodePaymentSettings($value)
+	{
+		if (is_array($value)) {
+			return $value;
+		}
+		if (!is_string($value) || $value === '') {
+			return $value;
+		}
+		$decoded = @unserialize($value);
+		return $decoded !== false ? $decoded : $value;
 	}
 
 	public function updateReturnConfirmationInSnapshot(Order $order)

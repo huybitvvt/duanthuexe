@@ -55,6 +55,11 @@
 		<div v-if="allocationError" class="payment-allocation-error">
 			{{ allocationError }}
 		</div>
+
+		<div class="form-group mt-3 mb-0">
+			<label><strong>Hình thức khác (nếu có)</strong></label>
+			<el-input v-model="settings.other_method_note" clearable placeholder="VD: Ví điện tử, bù trừ công nợ..."></el-input>
+		</div>
 	</div>
 </template>
 
@@ -79,6 +84,7 @@ export default {
 					bank_id: null,
 					bank_transfer_amount: 0,
 					cash_amount: 0,
+					other_method_note: "",
 				};
             },
 		},
@@ -258,6 +264,9 @@ export default {
 			return 'Chuyển khoản';
 		},
 		paymentMethodLabel() {
+			if ((this.settings.other_method_note || "").trim()) {
+				return `Khác: ${this.settings.other_method_note.trim()}`;
+			}
 			if (Number(this.settings.payment_method) === 3) {
 				return `Tự xác định: Tiền mặt & ${this.bankTypeLabel}`;
 			}

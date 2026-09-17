@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Prettus\Repository\Contracts\Transformable;
 use Prettus\Repository\Traits\TransformableTrait;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Class Transaction.
@@ -34,6 +35,15 @@ class Transaction extends Model implements Transformable
     protected static function boot()
         {
             parent::boot();
+
+            static::creating(function ($transaction) {
+                if ($transaction->bank_id && Schema::hasColumn('transactions', 'bank_owner_type')) {
+                    $bank = Bank::find($transaction->bank_id);
+                    if ($bank) {
+                        $transaction->bank_owner_type = $bank->owner_type ?: Bank::OWNER_UNKNOWN;
+                    }
+                }
+            });
  
             static::updated(function ($transaction) {
                
@@ -94,7 +104,7 @@ class Transaction extends Model implements Transformable
     }
     public function cash()
     {
-        return $this->belongsTo(Bank::class, 'cash_id')->withDefault();
+        return $this->belongsTo(Cash::class, 'cash_id')->withDefault();
     }
     public function store(): BelongsTo
     {

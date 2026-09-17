@@ -62,6 +62,11 @@ class Vehicle extends Model
         return $this->hasMany(VehicleLocationEvent::class, 'vehicle_id', 'id')->orderBy('id', 'desc');
     }
 
+    public function gpsDevice(): HasOne
+    {
+        return $this->hasOne(GpsDevice::class, 'vehicle_id', 'id');
+    }
+
     public function orders(): BelongsToMany
     {
         return $this->belongsToMany(Order::class, 'order_vehicle_details', 'vehicle_id', 'order_id');

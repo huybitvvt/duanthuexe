@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Models\Order;
 use App\Models\Store;
 use App\Models\Vehicle;
+use App\Models\Bank;
 use App\Entities\Customer;
 use App\Helpers\DateTimeHelper;
 use Carbon\Carbon;
@@ -119,8 +120,10 @@ class ContractDocumentBuilder
         $depositAmount = (float) ($data['deposit_amount'] ?? ($data['total_deposit'] ?? 0));
         $rentalFee = (float) ($data['total_rental_fees'] ?? ($data['total'] ?? 0));
 
-        $paymentMethod = (int) ($data['total_rental_payment_method'] ?? ($data['payment_method'] ?? 1));
+        $paymentMethod = $data['total_rental_payment_method'] ?? ($data['payment_method'] ?? 1);
         $paymentMethodText = self::getPaymentMethodLabel($paymentMethod);
+        $estimatedDays = self::estimatedRentalDays($firstRentAt, $firstReturnAt);
+        $unitPrice = isset($data['unit_price']) && is_numeric($data['unit_price']) ? (float) $data['unit_price'] : null;
 
         $authDate = !empty($data['contract_authorization_date'])
             ? self::formatDateString($data['contract_authorization_date'])
@@ -142,11 +145,15 @@ class ContractDocumentBuilder
                 'id' => $data['contract_responsible_user_id'] ?? null,
                 'name' => $respUserName,
             ],
+            'customer_source' => [
+                'name' => $data['customer_source'] ?? '',
+                'url' => $data['customer_source_url'] ?? '',
+            ],
             'lessor' => [
                 'company_name' => config('contract.company_name', 'CÔNG TY CP THƯƠNG MẠI DỊCH VỤ HIMOTO VIỆT NAM'),
                 'tax_code' => config('contract.tax_code', '0110863055'),
-                'representative_name' => config('contract.representative_name', 'Bà: Nguyễn Thu Thủy'),
-                'representative_title' => config('contract.representative_title', 'Giám đốc'),
+                'representative_name' => $data['contract_signer_a_name'] ?? ($respUserName ?: '........................'),
+                'representative_title' => 'Nhân viên hợp đồng tại ca',
                 'head_office' => config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN'),
                 'branch_name' => $store ? $store->store_name : 'Himoto Chi nhánh',
                 'branch_address' => $store ? $store->store_address : '',
@@ -184,8 +191,10 @@ class ContractDocumentBuilder
             ],
             'rent_time' => self::buildRentTimeStructure($firstRentAt, $firstReturnAt),
             'pricing' => [
-                'unit_price' => $data['unit_price'] ?? null,
-                'unit_price_text' => !empty($data['unit_price']) ? number_format($data['unit_price'], 0, ',', '.') . ' đ/ngày' : 'Theo bảng giá',
+                'unit_price' => $unitPrice,
+                'unit_price_text' => $unitPrice !== null ? number_format($unitPrice, 0, ',', '.') . ' đ/ngày' : 'Theo bảng giá',
+                'estimated_days' => $estimatedDays,
+                'calculation_text' => self::pricingCalculationText($estimatedDays, $unitPrice, $rentalFee),
                 'package_name' => $data['package_name'] ?? 'Theo ngày',
                 'total_rent_fee' => $rentalFee,
                 'total_rent_fee_formatted' => number_format($rentalFee, 0, ',', '.') . ' đ',
@@ -197,7 +206,7 @@ class ContractDocumentBuilder
                 'deposit_amount' => $depositAmount,
                 'deposit_amount_formatted' => number_format($depositAmount, 0, ',', '.') . ' đ',
                 'collateral_description' => $data['contract_collateral_description'] ?? '',
-                'payment_method_text' => self::getPaymentMethodLabel((int) ($data['deposit_payment_method'] ?? 1)),
+                'payment_method_text' => self::getPaymentMethodLabel($data['deposit_payment_method'] ?? 1),
             ],
             'equipment' => [
                 'total_hats' => $totalHats,
@@ -347,6 +356,7 @@ class ContractDocumentBuilder
         $rentalMethods = $rentalReceipts->pluck('payment_method')->map(function ($v) { return (int)$v; })->unique();
         $rentalMethod = $rentalMethods->count() > 1 || $rentalMethods->contains(3) ? 3 : ($rentalMethods->first() ?: 1);
         $unitPrice = count($vehiclesList) === 1 ? data_get($snapshot, 'vehicles.0.unit_price') : null;
+        $estimatedDays = self::estimatedRentalDays($firstRentAt, $firstReturnAt);
 
         $respUserName = $snapshot['responsible_user']['name'] ?? ($order->responsibleUser ? $order->responsibleUser->name : '');
 
@@ -363,7 +373,7 @@ class ContractDocumentBuilder
             ? self::parseCarbon($snapshot['return_confirmation']['completed_at'])
             : ($order->completed_at ? self::parseCarbon($order->completed_at) : null);
 
-        $isReturned = in_array($order->order_status, ['completed', 'unpaid']) || !empty($completedAt);
+        $isReturned = in_array($order->order_status, ['completed', 'wait_payment']) || !empty($completedAt);
         $refundPaid = $isReturned ? (float) $order->transactions()->where('type', 'out')->where('name', 'order:complete:' . $order->id)->sum('value') : 0;
 
         $dto = [
@@ -383,11 +393,15 @@ class ContractDocumentBuilder
                 'id' => $order->contract_responsible_user_id,
                 'name' => $respUserName,
             ],
+            'customer_source' => [
+                'name' => data_get($snapshot, 'customer_source.name', $order->customer_source ?? ''),
+                'url' => data_get($snapshot, 'customer_source.url', $order->customer_source_url ?? ''),
+            ],
             'lessor' => [
                 'company_name' => $snapshot['lessor']['company_name'] ?? config('contract.company_name', 'CÔNG TY CP THƯƠNG MẠI DỊCH VỤ HIMOTO VIỆT NAM'),
                 'tax_code' => $snapshot['lessor']['tax_code'] ?? config('contract.tax_code', '0110863055'),
-                'representative_name' => $snapshot['lessor']['representative_name'] ?? config('contract.representative_name', 'Bà: Nguyễn Thu Thủy'),
-                'representative_title' => $snapshot['lessor']['representative_title'] ?? config('contract.representative_title', 'Giám đốc'),
+                'representative_name' => $snapshot['lessor']['representative_name'] ?? ($order->contract_signer_a_name ?: ($respUserName ?: '........................')),
+                'representative_title' => $snapshot['lessor']['representative_title'] ?? 'Nhân viên hợp đồng tại ca',
                 'head_office' => $snapshot['lessor']['head_office_address'] ?? ($snapshot['lessor']['head_office'] ?? config('contract.head_office')),
                 'branch_name' => $snapshot['lessor']['branch_name'] ?? ($store ? $store->store_name : 'Himoto Chi nhánh'),
                 'branch_address' => $snapshot['lessor']['branch_address'] ?? ($store ? $store->store_address : ''),
@@ -427,18 +441,20 @@ class ContractDocumentBuilder
             'pricing' => [
                 'unit_price' => $unitPrice,
                 'unit_price_text' => $unitPrice !== null ? number_format($unitPrice, 0, ',', '.') . ' đ/' . (data_get($snapshot, 'vehicles.0.pricing_unit') ?: 'ngày') : 'Theo chi tiết từng xe',
+                'estimated_days' => $estimatedDays,
+                'calculation_text' => self::pricingCalculationText($estimatedDays, $unitPrice, $rentalFee),
                 'package_name' => 'Theo ngày',
                 'total_rent_fee' => $rentalFee,
                 'total_rent_fee_formatted' => number_format($rentalFee, 0, ',', '.') . ' đ',
                 'paid_amount' => $paidAmount,
                 'paid_amount_formatted' => number_format($paidAmount, 0, ',', '.') . ' đ',
-                'payment_method_text' => self::getPaymentMethodLabel((int) ($snapshot['payment']['rental_payment_method'] ?? $rentalMethod)),
+                'payment_method_text' => self::getPaymentMethodLabel($snapshot['payment']['rental_payment_method'] ?? $rentalMethod),
             ],
             'deposit' => [
                 'deposit_amount' => $depositAmount,
                 'deposit_amount_formatted' => number_format($depositAmount, 0, ',', '.') . ' đ',
                 'collateral_description' => $snapshot['payment']['collateral_description'] ?? ($isLocked ? '' : ($order->contract_collateral_description ?: '')),
-                'payment_method_text' => self::getPaymentMethodLabel((int) ($snapshot['payment']['deposit_payment_method'] ?? 1)),
+                'payment_method_text' => self::getPaymentMethodLabel($snapshot['payment']['deposit_payment_method'] ?? 1),
             ],
             'equipment' => [
                 'total_hats' => $totalHats,
@@ -567,18 +583,56 @@ class ContractDocumentBuilder
     /**
      * Payment method label text.
      */
-    public static function getPaymentMethodLabel(int $method): string
+    public static function getPaymentMethodLabel($method): string
     {
-        switch ($method) {
-            case 1:
-                return 'TM';
-            case 2:
-                return 'CK';
-            case 3:
-                return 'CK & TM';
-            default:
-                return 'TM';
+        $settings = is_array($method) ? $method : [];
+        if (isset($settings['payment_method']) && is_array($settings['payment_method'])) {
+            $settings = $settings['payment_method'];
         }
+        $otherNote = trim((string) ($settings['other_method_note'] ?? ''));
+        $methodId = (int) ($settings['payment_method'] ?? $method);
+        if ($otherNote !== '') {
+            return 'Khác: ' . $otherNote;
+        }
+
+        $bankLabel = 'CK';
+        if (!empty($settings['bank_id'])) {
+            $bank = Bank::find($settings['bank_id']);
+            if ($bank && $bank->owner_type === Bank::OWNER_COMPANY) {
+                $bankLabel = 'CK tài khoản Công ty';
+            } elseif ($bank && $bank->owner_type === Bank::OWNER_PERSONAL) {
+                $bankLabel = 'CK tài khoản Cá nhân';
+            }
+        }
+
+        switch ($methodId) {
+            case 1:
+                return 'Tiền mặt';
+            case 2:
+                return $bankLabel;
+            case 3:
+                return 'Tiền mặt & ' . $bankLabel;
+            default:
+                return 'Tiền mặt';
+        }
+    }
+
+    protected static function estimatedRentalDays(?Carbon $start, ?Carbon $end): int
+    {
+        if (!$start || !$end || $end->lessThanOrEqualTo($start)) {
+            return 0;
+        }
+        return max(1, (int) ceil($start->diffInMinutes($end) / 1440));
+    }
+
+    protected static function pricingCalculationText(int $days, $unitPrice, float $total): string
+    {
+        if ($days > 0 && is_numeric($unitPrice) && (float) $unitPrice > 0) {
+            return 'Số ngày thuê tạm tính: ' . $days . ' ngày x Đơn giá: '
+                . number_format((float) $unitPrice, 0, ',', '.') . ' = '
+                . number_format($total, 0, ',', '.') . ' đ';
+        }
+        return 'Tiền thuê tạm tính: ' . number_format($total, 0, ',', '.') . ' đ';
     }
 
     /**

@@ -7,7 +7,7 @@
                 </div>
                 <div class="card-title">
                     <button class="btn btn-success" @click="openModalCreate()">Thêm mới hợp đồng</button>
-                    <button @click="exportFile" class="ml-2 btn btn-primary">Export</button>
+                    <button @click="exportFile" class="ml-2 btn btn-primary">Xuất Excel theo bộ lọc thời gian</button>
                 </div>
 
             </div>
@@ -287,6 +287,10 @@
 											<button class="btn btn-xs btn-outline-primary font-weight-bold mr-1" title="In hợp đồng"
 												@click="printOrderContract(item)">
 												In
+											</button>
+											<button v-if="item.order_status === 'renting'" class="btn btn-xs btn-warning font-weight-bold mr-1" title="Thu thêm, gia hạn hoặc quyết toán trả xe"
+												@click="openUpdateModal(item)">
+												Thu thêm / Trả xe
 											</button>
 											<button class="btn btn-xs btn-danger font-weight-bold mr-2" title="Xóa hợp đồng"
 												@click="deleteOrder(item.id)">

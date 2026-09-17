@@ -30,7 +30,7 @@
               value-format="yyyy-MM-dd"
               placeholder="Chọn ngày"
               class="w-100"
-              @change="fetchSummary"
+              @change="onFilterChange"
             />
           </div>
           <div class="col-md-4 mb-2 mb-md-0">
@@ -41,7 +41,7 @@
               class="w-100"
               clearable
               filterable
-              @change="fetchSummary"
+              @change="onFilterChange"
             >
               <el-option
                 v-for="s in stores"
@@ -189,6 +189,60 @@
           </div>
         </div>
 
+        <div class="card border mb-6 p-5">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="font-weight-bolder mb-0">Ghi thu/chi phát sinh và đổi tiền</h4>
+            <span v-if="!selectedStoreId" class="text-danger">Chọn một cơ sở để thao tác</span>
+          </div>
+          <div class="row">
+            <div class="col-lg-6 border-right">
+              <h5>Phiếu thu/chi ngoài hợp đồng</h5>
+              <div class="row">
+                <div class="col-md-4 form-group"><label>Loại</label><el-select v-model="entryForm.type" class="w-100"><el-option label="Thu" value="in"/><el-option label="Chi" value="out"/></el-select></div>
+                <div class="col-md-4 form-group"><label>Số tiền</label><el-input v-model.number="entryForm.amount" type="number"/></div>
+                <div class="col-md-4 form-group"><label>Nguồn tiền</label><el-select v-model="entryForm.channel" class="w-100"><el-option label="Tiền mặt" value="cash"/><el-option label="Chuyển khoản" value="bank"/></el-select></div>
+                <div class="col-md-12 form-group" v-if="entryForm.channel === 'cash'"><label>Két tiền mặt</label><el-select v-model="entryForm.cash_id" class="w-100"><el-option v-for="cash in cashSources" :key="cash.id" :label="cash.name || `Két #${cash.id}`" :value="cash.id"/></el-select></div>
+                <div class="col-md-12 form-group" v-else><label>Tài khoản ngân hàng</label><el-select v-model="entryForm.bank_id" filterable class="w-100"><el-option v-for="bank in bankSources" :key="bank.id" :label="bankLabel(bank)" :value="bank.id"/></el-select></div>
+                <div class="col-md-12 form-group"><label>Nội dung</label><el-input v-model="entryForm.description" placeholder="VD: Mua thùng rác cho cửa hàng"/></div>
+              </div>
+              <button class="btn btn-primary" :disabled="!canSaveEntry || savingEntry" @click="saveEntry">{{ savingEntry ? 'Đang ghi...' : 'Ghi phiếu thu/chi' }}</button>
+            </div>
+            <div class="col-lg-6 pl-lg-5">
+              <h5>Đổi tiền mặt ↔ tài khoản</h5>
+              <div class="row">
+                <div class="col-md-7 form-group"><label>Chiều chuyển</label><el-select v-model="exchangeForm.direction" class="w-100"><el-option label="Tiền mặt → Ngân hàng" value="cash_to_bank"/><el-option label="Ngân hàng → Tiền mặt" value="bank_to_cash"/></el-select></div>
+                <div class="col-md-5 form-group"><label>Số tiền</label><el-input v-model.number="exchangeForm.amount" type="number"/></div>
+                <div class="col-md-6 form-group"><label>Két tiền mặt</label><el-select v-model="exchangeForm.cash_id" class="w-100"><el-option v-for="cash in cashSources" :key="cash.id" :label="cash.name || `Két #${cash.id}`" :value="cash.id"/></el-select></div>
+                <div class="col-md-6 form-group"><label>Tài khoản ngân hàng</label><el-select v-model="exchangeForm.bank_id" filterable class="w-100"><el-option v-for="bank in bankSources" :key="bank.id" :label="bankLabel(bank)" :value="bank.id"/></el-select></div>
+                <div class="col-md-12 form-group"><label>Ghi chú</label><el-input v-model="exchangeForm.description" placeholder="VD: Nộp tiền mặt cuối ca vào tài khoản công ty"/></div>
+              </div>
+              <button class="btn btn-info" :disabled="!canSaveExchange || savingExchange" @click="saveExchange">{{ savingExchange ? 'Đang xử lý...' : 'Tạo cặp bút toán đổi tiền' }}</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border mb-8">
+          <div class="card-header py-4"><h4 class="card-title font-weight-bolder mb-0">Sổ giao dịch trong ngày</h4></div>
+          <div class="card-body p-0" v-loading="loadingTransactions">
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover mb-0">
+                <thead><tr><th>Thời gian</th><th>Khách hàng / Hợp đồng</th><th>Nội dung</th><th>Nguồn tiền</th><th class="text-right">Số tiền</th><th>Người ghi</th></tr></thead>
+                <tbody>
+                  <tr v-for="transaction in dailyTransactions" :key="transaction.id">
+                    <td>{{ formatDate(transaction.created_at) }}</td>
+                    <td><strong>{{ transaction.customer_name || 'Giao dịch nội bộ' }}</strong><div v-if="transaction.order_id" class="text-muted">HĐ {{ transaction.contract_number || `#${transaction.order_id}` }}</div></td>
+                    <td>{{ transaction.description || transaction.name }}</td>
+                    <td>{{ transaction.channel }}<small class="d-block text-muted">{{ transaction.source_name }}</small></td>
+                    <td class="text-right font-weight-bolder" :class="transaction.type === 'in' ? 'text-success' : 'text-danger'">{{ transaction.type === 'in' ? '+' : '-' }}{{ formatCurrency(transaction.value) }}</td>
+                    <td>{{ transaction.created_by_name || 'Hệ thống' }}</td>
+                  </tr>
+                  <tr v-if="!dailyTransactions.length"><td colspan="6" class="text-center text-muted py-5">Chưa có giao dịch trong ngày.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- Khối Kiểm đếm thực tế & Chốt két ngày -->
         <div class="card border mb-8 p-5 bg-light-secondary">
           <div class="d-flex justify-content-between align-items-center mb-4">
@@ -322,6 +376,14 @@ export default {
       stores: [],
       loading: false,
       loadingClose: false,
+      loadingTransactions: false,
+      savingEntry: false,
+      savingExchange: false,
+      dailyTransactions: [],
+      cashSources: [],
+      bankSources: [],
+      entryForm: { type: 'out', amount: null, channel: 'cash', cash_id: null, bank_id: null, description: '' },
+      exchangeForm: { direction: 'cash_to_bank', amount: null, cash_id: null, bank_id: null, description: '' },
       summary: {
         status: "open",
         opening_balance: 0,
@@ -383,6 +445,13 @@ export default {
     hasUnclassifiedBank() {
       return Number(this.summary.unclassified_bank_income || 0) > 0 || Number(this.summary.unclassified_bank_expense || 0) > 0;
     },
+    canSaveEntry() {
+      const sourceReady = this.entryForm.channel === 'cash' ? this.entryForm.cash_id : this.entryForm.bank_id;
+      return this.selectedStoreId && this.summary.status !== 'closed' && Number(this.entryForm.amount) > 0 && sourceReady && this.entryForm.description.trim();
+    },
+    canSaveExchange() {
+      return this.selectedStoreId && this.summary.status !== 'closed' && Number(this.exchangeForm.amount) > 0 && this.exchangeForm.cash_id && this.exchangeForm.bank_id;
+    },
   },
   created() {
     this.fetchStores();
@@ -391,8 +460,16 @@ export default {
     }
     this.fetchSummary();
     this.fetchHistory();
+    this.fetchTransactions();
+    this.fetchSources();
   },
   methods: {
+    onFilterChange() {
+      this.fetchSummary();
+      this.fetchTransactions();
+      this.fetchSources();
+      this.fetchHistory();
+    },
     async fetchStores() {
       try {
         const res = await ApiService.query("/api/auth/stores/all", {});
@@ -425,6 +502,55 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    async fetchTransactions() {
+      if (!this.selectedStoreId) { this.dailyTransactions = []; return; }
+      this.loadingTransactions = true;
+      try {
+        const res = await ApiService.query('/api/auth/daily-cash-registers/transactions', { store_id: this.selectedStoreId, date: this.selectedDate, limit: 300 });
+        this.dailyTransactions = res.data.data || res.data || [];
+      } catch (err) {
+        this.dailyTransactions = [];
+      } finally { this.loadingTransactions = false; }
+    },
+    async fetchSources() {
+      if (!this.selectedStoreId) { this.cashSources = []; this.bankSources = []; return; }
+      try {
+        const res = await ApiService.query('/api/auth/daily-cash-registers/sources', { store_id: this.selectedStoreId });
+        const data = res.data.data || res.data || {};
+        this.cashSources = data.cash || [];
+        this.bankSources = data.banks || [];
+        if (!this.entryForm.cash_id && this.cashSources[0]) this.entryForm.cash_id = this.cashSources[0].id;
+        if (!this.entryForm.bank_id && this.bankSources[0]) this.entryForm.bank_id = this.bankSources[0].id;
+        if (!this.exchangeForm.cash_id && this.cashSources[0]) this.exchangeForm.cash_id = this.cashSources[0].id;
+        if (!this.exchangeForm.bank_id && this.bankSources[0]) this.exchangeForm.bank_id = this.bankSources[0].id;
+      } catch (_) { this.cashSources = []; this.bankSources = []; }
+    },
+    async saveEntry() {
+      if (!this.canSaveEntry) return;
+      this.savingEntry = true;
+      try {
+        await ApiService.post('/api/auth/daily-cash-registers/entries', { ...this.entryForm, store_id: this.selectedStoreId, date: this.selectedDate });
+        this.$message.success('Đã ghi phiếu thu/chi.');
+        this.entryForm.amount = null; this.entryForm.description = '';
+        this.fetchSummary(); this.fetchTransactions();
+      } catch (err) { this.$message.error(err.response?.data?.message || 'Không thể ghi giao dịch.'); }
+      finally { this.savingEntry = false; }
+    },
+    async saveExchange() {
+      if (!this.canSaveExchange) return;
+      this.savingExchange = true;
+      try {
+        await ApiService.post('/api/auth/daily-cash-registers/exchanges', { ...this.exchangeForm, store_id: this.selectedStoreId, date: this.selectedDate });
+        this.$message.success('Đã tạo hai bút toán đối ứng.');
+        this.exchangeForm.amount = null; this.exchangeForm.description = '';
+        this.fetchSummary(); this.fetchTransactions();
+      } catch (err) { this.$message.error(err.response?.data?.message || 'Không thể đổi tiền.'); }
+      finally { this.savingExchange = false; }
+    },
+    bankLabel(bank) {
+      const ownerType = bank.owner_type === 'company' ? 'Công ty' : (bank.owner_type === 'personal' ? 'Cá nhân' : 'Chưa phân loại');
+      return `${bank.bank_name} - ${bank.account_number} [${ownerType}]`;
     },
     async handleCloseRegister() {
       if (!this.selectedStoreId) {

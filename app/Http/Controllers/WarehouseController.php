@@ -43,6 +43,25 @@ class WarehouseController extends Controller
         }
     }
 
+    public function transfers(Request $request): JsonResponse
+    {
+        try {
+            return $this->successResponse($this->warehouseService->getTransfers($request->all(), Auth::user()));
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
+        }
+    }
+
+    public function lookupReturnByLicense(Request $request): JsonResponse
+    {
+        $request->validate(['license' => 'required|string|max:30']);
+        try {
+            return $this->successResponse($this->warehouseService->lookupReturnByLicense($request->input('license'), Auth::user()));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return $this->errorResponse($e->validator->errors()->first(), 422);
+        }
+    }
+
     /**
      * Dispatch vehicles from one store to another (Flow A).
      */
@@ -139,6 +158,7 @@ class WarehouseController extends Controller
         $user = Auth::user();
         $request->validate([
             'order_id' => 'required|integer',
+            'vehicle_id' => 'nullable|integer',
             'return_store_id' => 'required|integer',
             'odometer' => 'nullable|integer',
             'condition_notes' => 'nullable|string',
@@ -214,7 +234,12 @@ class WarehouseController extends Controller
     public function movementHistory(int $vehicleId): JsonResponse
     {
         try {
-            \App\Support\PilotAccess::admin(Auth::user());
+            $user = Auth::user();
+            $vehicle = \App\Models\Vehicle::findOrFail($vehicleId);
+            $isOwnStore = $user && in_array((int)$user->store_id, [(int)$vehicle->store_id, (int)$vehicle->current_store_id]);
+            if (!$isOwnStore) {
+                \App\Support\PilotAccess::admin($user);
+            }
             $history = $this->transferService->getVehicleMovementHistory($vehicleId);
             return $this->successResponse($history);
         } catch (\Exception $e) {

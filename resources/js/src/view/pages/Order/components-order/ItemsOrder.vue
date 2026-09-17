@@ -123,20 +123,6 @@
 					<money v-else id="account" :value="local_order_item.hiringFee" v-bind="money" class="form-control" disabled></money>
                 </div>
             </div>
-            <div class="col-md-4" v-if="!is_deposit_contract_mode">
-                <div class="form-group">
-                    <label for="substitute_unit_price"> <el-tooltip
-                            content="Là giá thuê tùy chỉnh của 1 ngày, thay cho đơn giá mặc định trong bảng giá. Vẫn nhân lên với số ngày như bình thường, và tính quá hạn như bình thường">
-                            <span>
-								<strong>Đơn Giá Khác</strong>(tùy chỉnh) [?]
-                            </span></el-tooltip>
-                    </label>
-
-                    <money id="substitute_unit_price" v-model="substitute_unit_price_input" v-bind="money"
-                        class="form-control">
-                    </money>
-                </div>
-            </div>
             
 
             <div v-if="local_order_item.money_out_date !== 0" class="col-md-4">

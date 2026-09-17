@@ -5,9 +5,13 @@ namespace App\Http\Services;
 use App\Models\Store;
 use App\Models\Vehicle;
 use App\Models\User;
+use App\Models\VehicleTransfer;
+use App\Models\OrderVehicleDetail;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Auth\Access\AuthorizationException;
 
 class WarehouseService
 {
@@ -61,7 +65,7 @@ class WarehouseService
             $conCount = (clone $presentQuery)->where('type', Vehicle::TYPE_XECON)->count();
             $shCount = (clone $presentQuery)->where('type', Vehicle::TYPE_XE_SH)->count();
 
-            $canViewDetails = $isAdmin;
+            $canViewDetails = $isAdmin || ($user && (int)$user->store_id === (int)$store->id);
 
             $cards[] = [
                 'id' => $store->id,
@@ -98,16 +102,16 @@ class WarehouseService
         $isAdmin = $user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien');
         
         // Strict role permission check
-        if (!$isAdmin) {
-            throw new \Illuminate\Auth\Access\AuthorizationException(
-                'Bạn không có quyền truy cập danh sách xe của cơ sở khác. Chỉ có Quản trị viên mới được xem toàn bộ chi nhánh.'
+        if (!$isAdmin && (int)$user->store_id !== $storeId) {
+            throw new AuthorizationException(
+                'Bạn chỉ được xem chi tiết xe của cơ sở được phân công.'
             );
         }
 
         $store = Store::findOrFail($storeId);
 
         // Query vehicles belonging to or present at this store
-        $query = Vehicle::with([
+        $with = [
             'store:id,store_name,store_address',
             'currentStore:id,store_name,store_address',
             'orders' => function ($q) {
@@ -115,7 +119,14 @@ class WarehouseService
                   ->orderBy('orders.id', 'desc')
                   ->with('customer:id,name,phone');
             }
-        ]);
+        ];
+        if (Schema::hasTable('gps_devices') && Schema::hasTable('gps_positions') && Schema::hasTable('gps_alerts')) {
+            $with[] = 'gpsDevice.latestPosition';
+            $with['gpsDevice.alerts'] = function ($q) {
+                $q->whereIn('status', ['opened', 'acknowledged'])->orderBy('opened_at', 'desc');
+            };
+        }
+        $query = Vehicle::with($with);
 
         $locationMode = data_get($params, 'location_mode', 'all'); // 'present', 'managed', 'all'
 
@@ -168,6 +179,9 @@ class WarehouseService
             $effectiveStoreName = $vehicle->currentStore ? $vehicle->currentStore->store_name : ($vehicle->store ? $vehicle->store->store_name : 'Chưa gán');
             
             $activeOrder = $vehicle->orders->first();
+            $gpsDevice = $vehicle->relationLoaded('gpsDevice') ? $vehicle->gpsDevice : null;
+            $gpsPosition = $gpsDevice && $gpsDevice->relationLoaded('latestPosition') ? $gpsDevice->latestPosition : null;
+            $gpsAlerts = $gpsDevice && $gpsDevice->relationLoaded('alerts') ? $gpsDevice->alerts : collect();
 
             return [
                 'id' => $vehicle->id,
@@ -191,6 +205,18 @@ class WarehouseService
                     'customer_phone' => $activeOrder->customer ? $activeOrder->customer->phone : null,
                     'order_status' => $activeOrder->order_status,
                 ] : null,
+                'gps' => $gpsDevice ? [
+                    'mapping_status' => $gpsDevice->mapping_status,
+                    'last_sync_at' => $gpsDevice->last_sync_at ? $gpsDevice->last_sync_at->toDateTimeString() : null,
+                    'latitude' => $gpsPosition ? (float)$gpsPosition->latitude : null,
+                    'longitude' => $gpsPosition ? (float)$gpsPosition->longitude : null,
+                    'position_status' => $gpsPosition ? $gpsPosition->normalized_status : 'unknown',
+                    'recorded_at' => $gpsPosition && $gpsPosition->provider_recorded_at ? $gpsPosition->provider_recorded_at->toDateTimeString() : null,
+                    'open_alerts' => $gpsAlerts->count(),
+                    'has_lost_signal' => $gpsAlerts->contains(function ($alert) {
+                        return in_array($alert->alert_type, ['offline', 'stale', 'tamper']);
+                    }),
+                ] : null,
             ];
         });
 
@@ -202,6 +228,88 @@ class WarehouseService
                 'kind' => $store->kind,
             ],
             'vehicles' => $vehicles,
+        ];
+    }
+
+    public function getTransfers(array $params, User $user)
+    {
+        $isAdmin = $user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien');
+        $storeId = data_get($params, 'store_id');
+        if (!$isAdmin) {
+            if (!$user->store_id) {
+                throw new AuthorizationException('Tài khoản chưa được gán cơ sở.');
+            }
+            if ($storeId && (int)$storeId !== (int)$user->store_id) {
+                throw new AuthorizationException('Bạn chỉ được xem biến động kho của cơ sở được phân công.');
+            }
+            $storeId = (int)$user->store_id;
+        }
+
+        $query = VehicleTransfer::with([
+            'fromStore:id,store_name',
+            'toStore:id,store_name',
+            'items.vehicle:id,name,license',
+            'dispatchedByUser:id,name',
+            'receivedByUser:id,name',
+        ]);
+        if ($storeId) {
+            $query->where(function ($q) use ($storeId) {
+                $q->where('from_store_id', $storeId)->orWhere('to_store_id', $storeId);
+            });
+        }
+        if (!empty($params['status'])) {
+            $query->where('status', $params['status']);
+        }
+        $date = data_get($params, 'date', date('Y-m-d'));
+        if ($date) {
+            $query->where(function ($q) use ($date) {
+                $q->whereDate('dispatched_at', $date)->orWhereDate('received_at', $date);
+            });
+        }
+        return $query->orderBy('id', 'desc')->paginate((int)data_get($params, 'limit', 25));
+    }
+
+    public function lookupReturnByLicense(string $license, User $user): array
+    {
+        $normalized = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $license));
+        if ($normalized === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['license' => 'Biển số không hợp lệ.']);
+        }
+
+        $vehicle = Vehicle::whereRaw(
+            "REPLACE(REPLACE(REPLACE(REPLACE(UPPER(license), ' ', ''), '-', ''), '.', ''), '/', '') = ?",
+            [$normalized]
+        )->first();
+        if (!$vehicle) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['license' => 'Không tìm thấy xe theo biển số đã nhập.']);
+        }
+
+        $detail = OrderVehicleDetail::where('vehicle_id', $vehicle->id)
+            ->whereHas('order', function ($q) {
+                $q->whereIn('order_status', ['completed', 'wait_payment']);
+            })
+            ->with(['order.customer', 'order.store'])
+            ->orderBy('order_id', 'desc')
+            ->first();
+        if (!$detail || !$detail->order) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['license' => 'Xe chưa có đơn đã hoàn tất/chờ đối soát để nhập kho khác cơ sở.']);
+        }
+
+        $order = $detail->order;
+        return [
+            'order_id' => $order->id,
+            'contract_number' => $order->contract_number,
+            'order_status' => $order->order_status,
+            'customer_name' => $order->customer ? $order->customer->name : null,
+            'vehicle' => [
+                'id' => $vehicle->id,
+                'name' => $vehicle->name,
+                'license' => $vehicle->license,
+            ],
+            'source_store' => $order->store ? [
+                'id' => $order->store->id,
+                'name' => $order->store->store_name,
+            ] : null,
         ];
     }
 }

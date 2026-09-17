@@ -252,6 +252,8 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
 
             Route::group(['prefix' => 'warehouses'], function () {
                 Route::get('/summary', [WarehouseController::class, 'summary']);
+                Route::get('/transfers', [WarehouseController::class, 'transfers']);
+                Route::get('/return-lookup', [WarehouseController::class, 'lookupReturnByLicense']);
                 Route::get('/{storeId}/vehicles', [WarehouseController::class, 'vehicles']);
                 Route::post('/transfers', [WarehouseController::class, 'dispatchTransfer']);
                 Route::post('/transfers/{id}/receive', [WarehouseController::class, 'receiveTransfer']);
@@ -287,6 +289,10 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
 
             Route::group(['prefix' => 'daily-cash-registers', 'middleware' => 'schema.ready:cash_register'], function () {
                 Route::get('/summary', [DailyCashRegisterController::class, 'summary']);
+                Route::get('/transactions', [DailyCashRegisterController::class, 'transactions']);
+                Route::get('/sources', [DailyCashRegisterController::class, 'sources']);
+                Route::post('/entries', [DailyCashRegisterController::class, 'storeEntry']);
+                Route::post('/exchanges', [DailyCashRegisterController::class, 'storeExchange']);
                 Route::post('/close', [DailyCashRegisterController::class, 'close']);
                 Route::post('/reopen', [DailyCashRegisterController::class, 'reopen']);
                 Route::get('/history', [DailyCashRegisterController::class, 'history']);

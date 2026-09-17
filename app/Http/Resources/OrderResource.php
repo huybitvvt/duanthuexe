@@ -31,6 +31,8 @@ class OrderResource extends JsonResource
             'contract_collateral_description' => $this->contract_collateral_description,
             'contract_signer_a_name' => $this->contract_signer_a_name,
             'contract_signer_b_name' => $this->contract_signer_b_name,
+            'customer_source' => $this->customer_source,
+            'customer_source_url' => $this->customer_source_url,
             'contract_snapshot' => $this->contract_snapshot,
             'return_signer_a_name' => $this->return_signer_a_name,
             'return_signer_b_name' => $this->return_signer_b_name,

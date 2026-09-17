@@ -15,6 +15,8 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;   
 use ZipArchive; 
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use App\Support\PilotAccess;
  
 
 class ExportsController extends Controller
@@ -50,8 +52,14 @@ class ExportsController extends Controller
      }
      public function orders(Request $request){
         $params = $request->all();
+        $user = Auth::user();
+        if ($user && !PilotAccess::isAdmin($user)) {
+            $params['store_id'] = $user->store_id;
+        }
         $export = app()->make(OrderExport::class, ['params' => $params]);
-        $file = Excel::download( $export , 'file.xlsx');
+        $from = $request->input('start_date', 'all');
+        $to = $request->input('end_date', 'all');
+        $file = Excel::download($export, "hop-dong_{$from}_{$to}.xlsx");
         return  $file ;
   
      }
@@ -110,6 +118,5 @@ class ExportsController extends Controller
         return  $file ;
     }
 }
-
 
 

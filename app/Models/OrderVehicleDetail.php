@@ -52,4 +52,9 @@ class OrderVehicleDetail extends Model implements Transformable
     {
         return $this->belongsTo(Vehicle::class, 'vehicle_id', 'id');
     }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class, 'order_id', 'id');
+    }
 }

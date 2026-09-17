@@ -29,7 +29,10 @@
 						<div class="contract-main-title">HỢP ĐỒNG THUÊ XE</div>
 						<div class="contract-meta d-flex justify-content-between px-2">
 							<span class="contract-num">Số: <strong>{{ doc.contract_number || '............' }}</strong>/HĐTX</span>
-							<span class="contract-officer">NV: <strong>{{ doc.responsible_user && doc.responsible_user.name ? doc.responsible_user.name : '........................' }}</strong></span>
+							<span class="contract-officer">Nguồn khách:
+								<a v-if="doc.customer_source && doc.customer_source.url" :href="doc.customer_source.url" target="_blank" rel="noopener noreferrer"><strong>{{ doc.customer_source.name || doc.customer_source.url }}</strong></a>
+								<strong v-else>{{ doc.customer_source && doc.customer_source.name ? doc.customer_source.name : '........................' }}</strong>
+							</span>
 						</div>
 					</div>
 
@@ -49,7 +52,7 @@
 						<div class="party-name"><strong>Bên A (Bên cho thuê): {{ doc.lessor.company_name }}</strong></div>
 						<div class="party-row d-flex justify-content-between">
 							<span>- MST: {{ doc.lessor.tax_code }}</span>
-							<span>- Đại diện là Bà: <strong>{{ doc.lessor.representative_name }}</strong></span>
+							<span>- Đại diện Ông/Bà: <strong>{{ doc.lessor.representative_name }}</strong></span>
 							<span>- Chức vụ: {{ doc.lessor.representative_title }}</span>
 						</div>
 						<div class="party-row">- ĐC trụ sở chính: {{ doc.lessor.head_office }}</div>
@@ -119,6 +122,7 @@
 								<span>- Đã thanh toán: <strong>{{ doc.pricing.paid_amount_formatted }}</strong> ({{ doc.pricing.payment_method_text }})</span>
 								<span>- Gói: <strong>{{ doc.pricing.package_name }}</strong></span>
 							</div>
+							<div class="clause-row"><strong>{{ doc.pricing.calculation_text }}</strong></div>
 							<div class="clause-row">
 								<strong>2.3.</strong> Đặt cọc (Tài sản thế chấp): <strong>{{ doc.deposit.deposit_amount_formatted }}</strong> ({{ doc.deposit.collateral_description }}) ({{ doc.deposit.payment_method_text }})
 							</div>
