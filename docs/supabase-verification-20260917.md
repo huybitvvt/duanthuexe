@@ -42,10 +42,22 @@ Các migration sau được ghi nhận ở batch 40:
 
 ## Phần chưa được chứng minh
 
-- Chưa chạy CRUD/concurrency/browser UAT có `test_run_id` trên API Render release candidate.
+- Chưa chạy CRUD/concurrency browser UAT ghi dữ liệu nghiệp vụ có `test_run_id` trên API Render.
 - Chưa kiểm thử restore backup vào database khác.
 - GPS và nhắc nợ vẫn dùng sandbox, chưa có provider/delivery proof thật.
 - Chưa ký duyệt chart of accounts, posting rules, RBAC và quy trình chuyển quyền.
 - PDF thuê sở hữu vẫn cần mẫu pháp lý, font tiếng Việt và logo được duyệt.
 
 Không dùng kết quả schema PASS để kết luận toàn bộ yêu cầu Excel hoặc production UAT đã PASS.
+
+## Smoke test Render sau deploy
+
+- Commit `1717eb63bb8f3a3501baf862d2737fffde613166` đã được fast-forward lên `main`.
+- `himoto-web/version.json` trả `short_commit: 1717eb6`.
+- `himoto-api/api/health` trả HTTP 200, database `ok`.
+- Deep-link `/`, `/customer-reminders` và `/lease-to-own` trả HTTP 200.
+- Route ownership mới trả HTTP 401 khi không có token.
+- Webhook sandbox với chữ ký thiếu/sai trả HTTP 422, chứng minh route và schema middleware hoạt động.
+- Tạo một tài khoản quản trị UAT tạm, đăng nhập API thành công và xác nhận capability `*`.
+- Các API đọc ownership, accounting accounts/periods, reminders, GPS, HR attendance, KPI và lease contracts đều trả HTTP 200.
+- Tài khoản UAT tạm đã được hard-delete theo đúng ID; kiểm tra lại `remaining_users: 0`.

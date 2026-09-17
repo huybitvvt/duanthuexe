@@ -5,6 +5,9 @@ FROM php:7.4-apache
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
 RUN set -eux; \
+    sed -i '/security/d' /etc/apt/sources.list || true; \
+    rm -f /etc/apt/sources.list.d/*security* 2>/dev/null || true; \
+    echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until; \
     for attempt in 1 2 3; do \
         rm -rf /var/lib/apt/lists/*; \
         if apt-get -o Acquire::ForceIPv4=true \
@@ -13,6 +16,13 @@ RUN set -eux; \
             -o Acquire::https::Timeout=60 \
             update --allow-releaseinfo-change; then \
             break; \
+        fi; \
+        if [ "${attempt}" = "1" ]; then \
+            echo "deb http://archive.debian.org/debian bullseye main" > /etc/apt/sources.list; \
+            echo "deb http://archive.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list; \
+        fi; \
+        if [ "${attempt}" = "2" ]; then \
+            echo "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20260830T000000Z/ bullseye main" > /etc/apt/sources.list; \
         fi; \
         if [ "${attempt}" = "3" ]; then exit 100; fi; \
     done; \
