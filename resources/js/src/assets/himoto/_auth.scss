@@ -319,3 +319,54 @@
     }
   }
 }
+/* Journey login layout */
+.himoto-auth {
+  background: #d60715;
+  .himoto-auth-brand { position: relative; flex: 0 0 50%; min-height: 100vh; background: linear-gradient(165deg, #f6fafb 10%, #def2fc 45%, #7bc5d8 72%, #436f66); overflow: hidden; }
+  .himoto-hero-image { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; object-position: center; }
+  .himoto-hero-copy { padding: 7.4%; color: #061423; }
+  .himoto-hero-copy img { width: 220px; max-width: 55%; padding: 8px 22px; border-radius: 5px; background: #ed071b; }
+  .himoto-hero-copy h1 { margin: 64px 0 18px; font-size: clamp(30px, 4vw, 68px); font-weight: 800; letter-spacing: -2px; line-height: 1.16; }
+  .himoto-hero-copy p { font-size: clamp(18px, 2vw, 32px); color: #4e5c6c; }
+  .himoto-auth-main { position: relative; width: 50%; padding: 120px 7% 110px; background: linear-gradient(135deg, #e00819, #d00412 55%, #bc0710); color: #fff; }
+  .himoto-language { position: absolute; top: 42px; right: 7.5%; display: flex; align-items: center; gap: 12px; font-size: 16px; }
+  .himoto-language svg { width: 24px; height: 24px; }
+  .himoto-auth-main .himoto-mobile-header { display: none; }
+  .himoto-auth-main .himoto-auth-card { max-width: 490px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .himoto-auth-main .himoto-auth-card .himoto-form-header { margin-bottom: 38px; }
+  .himoto-auth-main .himoto-auth-card .himoto-form-header .himoto-form-badge { color: #ffe62d; letter-spacing: 2px; font-size: 16px; font-weight: 800; margin-bottom: 18px; }
+  .himoto-auth-main .himoto-auth-card .himoto-form-header .himoto-form-title { color: #fff; font-size: clamp(34px, 3.3vw, 52px); letter-spacing: -1px; font-weight: 900; }
+  .himoto-auth-main .himoto-auth-card .himoto-form-header .himoto-form-desc { color: #fff; font-size: 22px; font-weight: 500; margin-top: 10px; }
+  .himoto-auth-main .himoto-auth-card .himoto-field-group { margin-bottom: 28px; }
+  .himoto-auth-main .himoto-auth-card .himoto-field-group .himoto-field-label { color: #fff; font-size: 19px; font-weight: 700; margin-bottom: 10px; }
+  .himoto-auth-main .himoto-auth-card .himoto-field-group .himoto-input-wrapper .himoto-input { height: 62px; padding: 0 22px; background: #fff; border: 1px solid #eadde0; border-radius: 10px; font-size: 18px; color: #152238; }
+  .himoto-auth-main .himoto-auth-card .himoto-field-group .himoto-input-wrapper .himoto-input:focus { border-color: #ffe62d; box-shadow: 0 0 0 3px rgba(255,230,45,.3); }
+  .himoto-auth-main .himoto-auth-card .himoto-field-group .himoto-input-wrapper .himoto-toggle-pwd { color: #18243a; }
+  .himoto-toggle-pwd svg { width: 25px; height: 25px; }
+  .himoto-auth-main .himoto-auth-card .himoto-btn-submit { height: 62px; background: #ffe52c; border: 0; color: #bd0710; font-weight: 800; font-size: 22px; border-radius: 10px; margin-top: 6px; gap: 20px; }
+  .himoto-auth-main .himoto-auth-card .himoto-btn-submit:hover { background: #ffef69; }
+  .himoto-submit-arrow { font-size: 30px; line-height: 1; }
+  .himoto-auth-main .himoto-auth-card .himoto-form-footer { color: #fff; font-size: 15px; margin-top: 38px; }
+  .himoto-support-divider { display: flex; gap: 20px; align-items: center; }
+  .himoto-support-divider::before, .himoto-support-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.55); }
+  .himoto-support-contact { color: #ffe62d; margin-top: 10px; text-decoration: underline dotted; text-underline-offset: 5px; font-weight: 600; }
+  .himoto-auth-copyright { position: absolute; bottom: 40px; left: 0; width: 100%; text-align: center; font-size: 14px; }
+  .himoto-auth-main .himoto-auth-card .himoto-field-error { color: #fff5bb; }
+  .himoto-auth-main .himoto-auth-card .himoto-alert { background: #fff; }
+}
+@media (max-width: 1023px) {
+  .himoto-auth { flex-direction: row; }
+  .himoto-auth .himoto-auth-brand { display: block; }
+  .himoto-auth .himoto-auth-main { padding: 110px 5% 100px; }
+  .himoto-auth .himoto-auth-main .himoto-auth-card .himoto-form-header .himoto-form-desc { font-size: 20px; }
+}
+@media (max-width: 767px) {
+  .himoto-auth { flex-direction: column; }
+  .himoto-auth .himoto-auth-brand { min-height: 420px; flex: none; }
+  .himoto-auth .himoto-hero-image { object-position: center 48%; }
+  .himoto-auth .himoto-hero-copy h1 { margin-top: 36px; letter-spacing: -1px; }
+  .himoto-auth .himoto-auth-main { width: 100%; min-height: 720px; padding: 100px 24px 100px; }
+  .himoto-auth .himoto-language { top: 30px; right: 24px; }
+  .himoto-auth .himoto-auth-main .himoto-auth-card .himoto-form-header .himoto-form-title { font-size: 36px; }
+  .himoto-auth .himoto-auth-copyright { bottom: 28px; font-size: 12px; }
+}

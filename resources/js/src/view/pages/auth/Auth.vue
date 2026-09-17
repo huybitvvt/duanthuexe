@@ -1,8 +1,19 @@
 <template>
     <div class="himoto-auth">
+        <aside class="himoto-auth-brand" aria-label="Thuê xe máy du lịch cùng HiMOTO">
+            <img v-if="heroAvailable" class="himoto-hero-image" src="/images/branding/himoto-journey.png" alt="Hai xe máy trên cung đường ven biển Việt Nam" @error="heroAvailable = false" />
+            <div v-else class="himoto-hero-copy">
+                <img src="/images/branding/logo-himoto-pdf.png" alt="HiMOTO" />
+                <h1>Khởi đầu hành trình.<br />Khám phá tự do.</h1>
+                <p>Thuê xe máy du lịch cùng HiMOTO.</p>
+            </div>
+        </aside>
         <!--begin::Main Form Panel-->
         <div class="himoto-auth-main">
-            <!-- Original HIMOTO logo from the supplied PDF -->
+            <div class="himoto-language" aria-label="Ngôn ngữ hiện tại: Tiếng Việt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 7h14M5 17h14"/></svg>
+                <span>Tiếng Việt</span>
+            </div>
             <div class="himoto-mobile-header">
                 <img
                     src="/images/branding/logo-himoto-pdf.png"
@@ -14,9 +25,9 @@
             <!--begin::Signin Form Card-->
             <div v-if="state === 'signin'" class="himoto-auth-card">
                 <div class="himoto-form-header">
-                    <span class="himoto-form-badge">HỆ THỐNG QUẢN LÝ HIMOTO</span>
-                    <h2 class="himoto-form-title">Đăng nhập</h2>
-                    <p class="himoto-form-desc">Sử dụng tài khoản được cấp để tiếp tục.</p>
+                    <span class="himoto-form-badge">QUẢN LÝ THUÊ XE HIMOTO</span>
+                    <h2 class="himoto-form-title">Chào mừng trở lại</h2>
+                    <p class="himoto-form-desc">Đăng nhập để quản lý xe và đơn thuê.</p>
                 </div>
 
                 <!-- Global Alert -->
@@ -91,7 +102,7 @@
                                 :title="showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
                                 @click="togglePassword"
                             >
-                                {{ showPassword ? 'Ẩn' : 'Hiện' }}
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path v-if="showPassword" d="m3 3 18 18"/></svg>
                             </button>
                         </div>
                         <div
@@ -113,12 +124,13 @@
                         id="himoto_btn_submit"
                     >
                         <span v-if="isSubmitting" class="himoto-spinner" aria-hidden="true"></span>
-                        <span>{{ isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span>
+                        <span>{{ isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập' }}</span><span v-if="!isSubmitting" class="himoto-submit-arrow" aria-hidden="true">→</span>
                     </button>
                 </form>
 
                 <div class="himoto-form-footer">
-                    Cần hỗ trợ truy cập? Liên hệ quản trị viên.
+                    <div class="himoto-support-divider"><span>Cần hỗ trợ truy cập?</span></div>
+                    <p class="himoto-support-contact">Liên hệ quản trị viên</p>
                 </div>
             </div>
             <!--end::Signin Form Card-->
@@ -217,6 +229,7 @@
                 </div>
             </div>
             <!--end::Secondary Legacy Flows-->
+            <footer class="himoto-auth-copyright">© {{ currentYear }} HiMOTO. All rights reserved.</footer>
         </div>
         <!--end::Main Form Panel-->
     </div>
@@ -237,6 +250,7 @@ export default {
     data() {
         return {
             state: "signin",
+            heroAvailable: true,
             form: {
                 email: "",
                 password: "",
