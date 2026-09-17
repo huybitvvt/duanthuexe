@@ -41,24 +41,23 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
         $params = $request->all();
   
 
-        $query = $this->getModel()->newQuery()->select('orders.*', 'leads.user_id as lead_user_id')->leftJoin('leads', 'leads.order_id', '=', 'orders.id')->with([
-			'addOnOrders',
-			'transactions'=>function($query){
-				$query->with(['bank','user:id,name'])->orderBy('id','desc');
-			},
-			'activityLogs' => function ($query) {
-				$query->with('user:id,name')->orderBy('created_at', 'desc'); 
-			},
+        // The index only needs data rendered by the table. Transaction,
+        // activity and add-on histories are loaded by the detail endpoint.
+        $query = $this->getModel()->newQuery()->select('orders.*')->with([
 			'vehicles' => function ($q) {
-				$q->select(['vehicles.id as vehicle_id', 'name', 'license']);
+				$q->select(['vehicles.id', 'name', 'license']);
 			},
-			'store:id,store_name', 'orderItems.vehicle', 'customer:id,name,phone,id_card,address','leads.user'])
+			'store:id,store_name',
+            'orderItems',
+            'customer:id,name,phone',
+            'leads.user:id,name',
+        ])
         ;
 
         $orders=$this->getOrderByParams($query,$params);
     
         $user = auth()->user();
-        if ($user->role_rel->slug !== 'quan-tri-vien') {
+        if ((int) $user->role_id !== 1) {
             $orders->where('orders.store_id', $user->store_id);
         }
 
@@ -89,20 +88,21 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
         }
 
         if (isset($params['source']) && is_array($params['source'])){
-            $query->has('leads');
-            if (count($params['source']) > 0){
-                $sourceIds = $params['source'];
-                if (in_array('NULL', $sourceIds)) {
-                    $query->where(function($query) use ($sourceIds) {
-                        $query->whereIn('leads.user_id', array_diff($sourceIds, ['NULL']))
-                              ->orWhereNull('leads.user_id');
-                    });
-                } else {   
-                    $query->whereIn('leads.user_id', $sourceIds);
+            $sourceIds = $params['source'];
+            $query->whereHas('leads', function ($leadQuery) use ($sourceIds) {
+                if (count($sourceIds) > 0) {
+                    if (in_array('NULL', $sourceIds)) {
+                        $leadQuery->where(function ($sourceQuery) use ($sourceIds) {
+                            $sourceQuery->whereIn('user_id', array_diff($sourceIds, ['NULL']))
+                                ->orWhereNull('user_id');
+                        });
+                    } else {
+                        $leadQuery->whereIn('user_id', $sourceIds);
+                    }
+                } else {
+                    $leadQuery->whereNull('user_id');
                 }
-            } else {
-                $query->whereNull('leads.user_id');
-            }
+            });
         }
 
         if (  isset($params['is_out_of_date'])  ) {

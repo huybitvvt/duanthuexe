@@ -309,17 +309,24 @@
 <script>
 import { mapGetters } from "vuex";
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
-import { DASHBOARD_REPORT, DASHBOARD_REPORT_CHART } from "@/core/services/store/dashboard.module";
+import { DASHBOARD_OVERVIEW } from "@/core/services/store/dashboard.module";
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import { zingChartTheme } from "@/core/config/zingChartTheme";
 import LeadIndex from "@/view/pages/lead/LeadIndex";
 import HimotoPageSkeleton from "@/view/components/himoto/HimotoPageSkeleton.vue";
 
+const ZingChart = () => import(
+  /* webpackChunkName: "dashboard-chart" */ "zingchart/es6"
+).then(() => import(
+  /* webpackChunkName: "dashboard-chart" */ "zingchart-vue"
+)).then(module => module.default || module);
+
 export default {
   name: "Dashboard",
   components: {
     LeadIndex,
-    HimotoPageSkeleton
+    HimotoPageSkeleton,
+    zingchart: ZingChart
   },
   data() {
     return {
@@ -436,15 +443,15 @@ export default {
         params.store_id = this.selectedStoreId;
       }
       this.loading = true;
-      Promise.all([this.report(params), this.reportChart(params)]).finally(() => {
-        this.loading = false;
-      });
-    },
-    report(params) {
       return this.$store
-        .dispatch(DASHBOARD_REPORT, params)
+        .dispatch(DASHBOARD_OVERVIEW, params)
         .then((res) => {
-          this.reports = res.data || {};
+          const overview = res?.data || {};
+          this.reports = overview.report || {};
+          const chart = overview.chart || {};
+          this.labels = Array.isArray(chart.labels) ? chart.labels : [];
+          this.values = Array.isArray(chart.values) ? chart.values : [];
+          this.applyChartData();
         })
         .catch((err) => {
           if (
@@ -457,58 +464,42 @@ export default {
           ) {
             this.hasPermission = false;
           }
+        })
+        .finally(() => {
+          this.loading = false;
         });
     },
-    reportChart(params) {
-      return this.$store
-        .dispatch(DASHBOARD_REPORT_CHART, params)
-        .then((res) => {
-          this.labels = Array.isArray(res.data?.labels) ? res.data.labels : [];
-          this.values = Array.isArray(res.data?.values) ? res.data.values : [];
-
-          this.chartData = {
-            type: "line",
-            "scale-x": {
-              labels: this.labels,
-              guide: {
-                lineStyle: "dashed"
-              }
-            },
-            "scale-y": {
-              short: false,
-              "short-unit": "M",
-              "thousands-separator": ","
-            },
-            plot: {
-              lineColor: "#ed1c24",
-              lineWidth: 3,
-              marker: {
-                backgroundColor: "#ed1c24",
-                borderColor: "#ffffff",
-                borderWidth: 2,
-                size: 5
-              }
-            },
-            series: [
-              {
-                values: this.values,
-                text: "Doanh thu"
-              }
-            ]
-          };
-        })
-        .catch((err) => {
-          if (
-            err &&
-            (err.status === 403 ||
-              err.statusCode === 403 ||
-              err.response?.status === 403 ||
-              String(err).includes("403") ||
-              err.message?.includes("403"))
-          ) {
-            this.hasPermission = false;
+    applyChartData() {
+      this.chartData = {
+        type: "line",
+        "scale-x": {
+          labels: this.labels,
+          guide: {
+            lineStyle: "dashed"
           }
-        });
+        },
+        "scale-y": {
+          short: false,
+          "short-unit": "M",
+          "thousands-separator": ","
+        },
+        plot: {
+          lineColor: "#ed1c24",
+          lineWidth: 3,
+          marker: {
+            backgroundColor: "#ed1c24",
+            borderColor: "#ffffff",
+            borderWidth: 2,
+            size: 5
+          }
+        },
+        series: [
+          {
+            values: this.values,
+            text: "Doanh thu"
+          }
+        ]
+      };
     },
     getVehiclePercent(count) {
       const total = this.reports.total_vehicle || 0;

@@ -20,7 +20,6 @@ import mixin from '../src/common/common.js'
 import locale from 'element-ui/lib/locale/lang/vi'
 import VueSweetalert2 from 'vue-sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
-import "@/core/plugins/zingcharts";
 
 /*Veevalidate*/
 Vue.component('ValidationObserver', ValidationObserver);

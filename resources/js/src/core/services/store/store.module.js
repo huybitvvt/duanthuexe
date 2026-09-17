@@ -25,6 +25,8 @@ const getters = {
     isStoresFresh: (state) => state.storesLoaded && (Date.now() - state.storesLastFetchedAt < 60000)
 };
 
+let pendingDefaultStoreRequest = null;
+
 const actions = {
     [STORE_GET_ALL](context, credentials) {
         // Cache-first: If requesting all stores with no specific filters and data is fresh (< 60s)
@@ -32,19 +34,29 @@ const actions = {
         if (isDefaultQuery && context.state.storesLoaded && (Date.now() - context.state.storesLastFetchedAt < 60000)) {
             return Promise.resolve({ data: context.state.storeList });
         }
+        if (isDefaultQuery && pendingDefaultStoreRequest) {
+            return pendingDefaultStoreRequest;
+        }
 
-        return new Promise((resolve, reject) => {
-            ApiService.query("/api/auth/stores/all", credentials)
-                .then(({data}) => {
-                    if (isDefaultQuery) {
-                        context.commit("SET_CACHED_STORES", data.data || data);
-                    }
-                    resolve(data);
-                })
-                .catch((err) => {
-                    reject(err?.response || err);
-                });
+        const request = ApiService.query("/api/auth/stores/all", credentials)
+            .then(({data}) => {
+                if (isDefaultQuery) {
+                    context.commit("SET_CACHED_STORES", data.data || data);
+                }
+                return data;
+            })
+            .catch((err) => {
+                throw err?.response || err;
+            });
+
+        if (!isDefaultQuery) {
+            return request;
+        }
+
+        pendingDefaultStoreRequest = request.finally(() => {
+            pendingDefaultStoreRequest = null;
         });
+        return pendingDefaultStoreRequest;
     },
     [STORE_INDEX](context, credentials) {
         return new Promise((resolve, reject) => {

@@ -77,6 +77,9 @@ return [
             'prefix_indexes' => true,
             'schema' => env('DB_SCHEMA', 'public'),
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'options' => extension_loaded('pdo_pgsql') && filter_var(env('DB_PERSISTENT', false), FILTER_VALIDATE_BOOLEAN)
+                ? [PDO::ATTR_PERSISTENT => true]
+                : [],
         ],
 
         'sqlsrv' => [

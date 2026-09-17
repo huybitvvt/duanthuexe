@@ -27,6 +27,14 @@ class DashboardController extends Controller
     }
 
     /**
+     * Load KPI cards and chart data with one authenticated HTTP request.
+     */
+    public function overview(Request $request)
+    {
+        return $this->successResponse($this->dashboardService->overview($request->input('store_id')));
+    }
+
+    /**
      * @param Request $request
      * @return JsonResponse
      */

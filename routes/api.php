@@ -121,6 +121,7 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             });
         
             Route::group(['prefix' => 'dashboard'], function ($router) {
+                Route::get('/overview', [DashboardController::class, 'overview']);
                 Route::get('/report', [DashboardController::class, 'report']);
                 Route::get('/report-chart', [DashboardController::class, 'reportChart']);
             });

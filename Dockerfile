@@ -29,12 +29,16 @@ RUN set -eux; \
         libzip-dev \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j"$(nproc)" bcmath gd mbstring pdo_pgsql zip \
-    && a2enmod rewrite headers \
+    && docker-php-ext-install -j"$(nproc)" bcmath gd mbstring opcache pdo_pgsql zip \
+    && a2enmod deflate expires headers rewrite \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 COPY docker/apache-vhost.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/apache-performance.conf /etc/apache2/conf-available/himoto-performance.conf
+COPY docker/php-performance.ini /usr/local/etc/php/conf.d/99-himoto-performance.ini
+
+RUN a2enconf himoto-performance
 
 WORKDIR /var/www/html
 COPY . .

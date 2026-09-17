@@ -22,12 +22,16 @@ services:
         value: pgsql
       - key: DB_SSLMODE
         value: require
+      - key: DB_PERSISTENT
+        value: "true"
       - key: DB_SCHEMA
         value: himoto
       - key: DATABASE_URL
         sync: false
       - key: CACHE_DRIVER
-        value: array
+        value: file
+      - key: DASHBOARD_CACHE_SECONDS
+        value: "30"
       - key: QUEUE_CONNECTION
         value: sync
       - key: SESSION_DRIVER
