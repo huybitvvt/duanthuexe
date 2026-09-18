@@ -64,9 +64,9 @@ class ReportController extends Controller
     }
     public function quickReport(Request $request): JsonResponse
     {
-        $request->merge(['is_all' => true]);
-        $result = $this->orderService->index($request);
-        return $this->successResponse($this->orderStats($result));
+        return $this->successResponse(
+            $this->reportService->quickOrderStats($request->all())
+        );
     }
     public function orderStats($orders ): array
     {

@@ -1,7 +1,6 @@
 {
-    "/js/app.js": "/js/app.js?id=c77a6196d179171cc0b0",
-    "/js/manifest.js": "/js/manifest.js?id=96516e460b634eee1ef1",
-    "/js/vendor.js": "/js/vendor.js?id=f8ad08d89afe756ce773",
-    "/vendors~dashboard-chart.js": "/vendors~dashboard-chart.js?id=2001dbec719e9b614315",
+    "/js/app.js": "/js/app.js?id=a33d2605d37f3f46ba26",
+    "/css/himoto-app.css": "/css/himoto-app.css?id=b4ca6e6abc122b5cf4d0",
+    "/vendors~dashboard-chart.js": "/vendors~dashboard-chart.js?id=bd08b259d5c1ea62a69f",
     "/vendor/html2pdf.bundle.min.js": "/vendor/html2pdf.bundle.min.js?id=24c05229abbd1d7dccb5"
 }

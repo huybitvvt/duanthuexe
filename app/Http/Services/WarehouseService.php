@@ -23,75 +23,87 @@ class WarehouseService
         $stores = Store::where('status', '!=', 'inactive')
             ->orWhereNull('status')
             ->orderBy('id', 'asc')
-            ->get();
+            ->get(['id', 'store_name', 'store_address', 'store_phone', 'kind', 'code']);
 
-        $cards = [];
         $isAdmin = $user && ($user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien'));
 
-        foreach ($stores as $store) {
-            // Managed vehicles (store_id = store.id)
-            $managedQuery = Vehicle::where('store_id', $store->id);
-            $totalManaged = (clone $managedQuery)->where('status', '!=', Vehicle::STATUS_SOLD)->count();
+        // Aggregate once for every store. The previous implementation ran 11
+        // count queries per store, making the summary progressively slower as
+        // branches were added.
+        $managedByStore = Vehicle::query()
+            ->select('store_id')
+            ->selectRaw('COALESCE(SUM(CASE WHEN status != ? THEN 1 ELSE 0 END), 0) as total_managed', [Vehicle::STATUS_SOLD])
+            ->selectRaw('COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as total_using', [Vehicle::STATUS_USING])
+            ->whereNotNull('store_id')
+            ->groupBy('store_id')
+            ->get()
+            ->keyBy('store_id');
 
-            // Physically present vehicles:
-            // Either current_store_id == store.id OR (current_store_id is null AND store_id == store.id)
-            // AND vehicle is not in_transit or sold
-            $presentQuery = Vehicle::where(function (Builder $q) use ($store) {
-                $q->where('current_store_id', $store->id)
-                  ->orWhere(function (Builder $sub) use ($store) {
-                      $sub->whereNull('current_store_id')
-                          ->where('store_id', $store->id);
-                  });
-            })->where('status', '!=', Vehicle::STATUS_IN_TRANSIT)
-              ->where('status', '!=', Vehicle::STATUS_SOLD);
+        $effectiveStore = DB::raw('COALESCE(current_store_id, store_id)');
+        $presentByStore = Vehicle::query()
+            ->selectRaw('COALESCE(current_store_id, store_id) as effective_store_id')
+            ->selectRaw('COUNT(*) as total_present')
+            ->selectRaw('COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as total_ready', [Vehicle::STATUS_READY])
+            ->selectRaw('COALESCE(SUM(CASE WHEN status IN (?, ?) THEN 1 ELSE 0 END), 0) as total_repairing', [Vehicle::STATUS_REPAIRING, Vehicle::STATUS_BROKEN])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as type_xega', [Vehicle::TYPE_XEGA])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as type_xeso', [Vehicle::TYPE_XESO])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as type_xecon', [Vehicle::TYPE_XECON])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as type_xesh', [Vehicle::TYPE_XE_SH])
+            ->selectRaw('COALESCE(SUM(CASE WHEN type = ? THEN 1 ELSE 0 END), 0) as type_xedien', ['xe_dien'])
+            ->whereNotIn('status', [Vehicle::STATUS_IN_TRANSIT, Vehicle::STATUS_SOLD])
+            ->where(function (Builder $query) {
+                $query->whereNotNull('current_store_id')->orWhereNotNull('store_id');
+            })
+            ->groupBy($effectiveStore)
+            ->get()
+            ->keyBy('effective_store_id');
 
-            $totalPresent = (clone $presentQuery)->count();
-            $readyCount = (clone $presentQuery)->where('status', Vehicle::STATUS_READY)->count();
-            $usingCount = (clone $managedQuery)->where('status', Vehicle::STATUS_USING)->count();
-            $repairingCount = (clone $presentQuery)->whereIn('status', [Vehicle::STATUS_REPAIRING, Vehicle::STATUS_BROKEN])->count();
-            
-            // In transit vehicles related to this store (either from or to this store)
-            $inTransitCount = Vehicle::where('status', Vehicle::STATUS_IN_TRANSIT)
-                ->whereIn('id', function ($q) use ($store) {
-                    $q->select('vehicle_transfer_items.vehicle_id')->from('vehicle_transfer_items')
-                      ->join('vehicle_transfers', 'vehicle_transfers.id', '=', 'vehicle_transfer_items.transfer_id')
-                      ->where('vehicle_transfers.status', 'dispatched')
-                      ->where(function ($sub) use ($store) { $sub->where('from_store_id', $store->id)->orWhere('to_store_id', $store->id); });
-                })->count();
+        $buildTransitQuery = function (string $storeColumn) {
+            return DB::table('vehicle_transfer_items as transit_items')
+                ->join('vehicle_transfers as transit_transfers', 'transit_transfers.id', '=', 'transit_items.transfer_id')
+                ->join('vehicles as transit_vehicles', 'transit_vehicles.id', '=', 'transit_items.vehicle_id')
+                ->where('transit_transfers.status', VehicleTransfer::STATUS_DISPATCHED)
+                ->where('transit_vehicles.status', Vehicle::STATUS_IN_TRANSIT)
+                ->whereNotNull($storeColumn)
+                ->selectRaw("{$storeColumn} as store_id, COUNT(DISTINCT transit_items.vehicle_id) as total")
+                ->groupBy($storeColumn);
+        };
+        $transitRows = $buildTransitQuery('transit_transfers.from_store_id')
+            ->unionAll($buildTransitQuery('transit_transfers.to_store_id'))
+            ->get();
+        $transitByStore = [];
+        foreach ($transitRows as $row) {
+            $storeId = (int) $row->store_id;
+            $transitByStore[$storeId] = ($transitByStore[$storeId] ?? 0) + (int) $row->total;
+        }
 
-            // Vehicle types present
-            $gaCount = (clone $presentQuery)->where('type', Vehicle::TYPE_XEGA)->count();
-            $soCount = (clone $presentQuery)->where('type', Vehicle::TYPE_XESO)->count();
-            $conCount = (clone $presentQuery)->where('type', Vehicle::TYPE_XECON)->count();
-            $shCount = (clone $presentQuery)->where('type', Vehicle::TYPE_XE_SH)->count();
+        return $stores->map(function (Store $store) use ($isAdmin, $user, $managedByStore, $presentByStore, $transitByStore) {
+            $managed = $managedByStore->get($store->id);
+            $present = $presentByStore->get($store->id);
 
-            $canViewDetails = $isAdmin || ($user && (int)$user->store_id === (int)$store->id);
-
-            $cards[] = [
+            return [
                 'id' => $store->id,
                 'store_name' => $store->store_name,
                 'store_address' => $store->store_address,
                 'store_phone' => $store->store_phone,
                 'kind' => $store->kind ?: Store::KIND_PHYSICAL,
                 'code' => $store->code,
-                'total_managed' => $totalManaged,
-                'total_present' => $totalPresent,
-                'ready' => $readyCount,
-                'using' => $usingCount,
-                'repairing' => $repairingCount,
-                'in_transit' => $inTransitCount,
+                'total_managed' => (int) ($managed->total_managed ?? 0),
+                'total_present' => (int) ($present->total_present ?? 0),
+                'ready' => (int) ($present->total_ready ?? 0),
+                'using' => (int) ($managed->total_using ?? 0),
+                'repairing' => (int) ($present->total_repairing ?? 0),
+                'in_transit' => (int) ($transitByStore[$store->id] ?? 0),
                 'types' => [
-                    'xega' => $gaCount,
-                    'xeso' => $soCount,
-                    'xecon' => $conCount,
-                    'xesh' => $shCount,
-                    'xe_dien' => (clone $presentQuery)->where('type', 'xe_dien')->count(),
+                    'xega' => (int) ($present->type_xega ?? 0),
+                    'xeso' => (int) ($present->type_xeso ?? 0),
+                    'xecon' => (int) ($present->type_xecon ?? 0),
+                    'xesh' => (int) ($present->type_xesh ?? 0),
+                    'xe_dien' => (int) ($present->type_xedien ?? 0),
                 ],
-                'can_view_details' => $canViewDetails,
+                'can_view_details' => $isAdmin || ($user && (int) $user->store_id === (int) $store->id),
             ];
-        }
-
-        return $cards;
+        })->values()->all();
     }
 
     /**
@@ -115,7 +127,8 @@ class WarehouseService
             'store:id,store_name,store_address',
             'currentStore:id,store_name,store_address',
             'orders' => function ($q) {
-                $q->whereIn('order_status', ['renting'])
+                $q->select(['orders.id', 'orders.contract_number', 'orders.customer_id', 'orders.order_status'])
+                  ->whereIn('order_status', ['renting'])
                   ->orderBy('orders.id', 'desc')
                   ->with('customer:id,name,phone');
             }
@@ -126,7 +139,12 @@ class WarehouseService
                 $q->whereIn('status', ['opened', 'acknowledged'])->orderBy('opened_at', 'desc');
             };
         }
-        $query = Vehicle::with($with);
+        $query = Vehicle::query()
+            ->select([
+                'id', 'name', 'license', 'type', 'brand', 'year', 'color',
+                'status', 'odometer', 'store_id', 'current_store_id',
+            ])
+            ->with($with);
 
         $locationMode = data_get($params, 'location_mode', 'all'); // 'present', 'managed', 'all'
 

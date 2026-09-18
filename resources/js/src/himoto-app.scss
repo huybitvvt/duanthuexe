@@ -1,0 +1,65 @@
+// Runtime-independent global styles. Keeping these out of app.js lets the
+// browser download, parse and cache CSS separately from JavaScript.
+@import "~bootstrap-vue/dist/bootstrap-vue.css";
+@import "~perfect-scrollbar/css/perfect-scrollbar.css";
+@import "~@fortawesome/fontawesome-free/css/all.css";
+@import "assets/plugins/flaticon/flaticon.css";
+@import "assets/plugins/flaticon2/flaticon.css";
+@import "assets/plugins/keenthemes-icons/font/ki.css";
+@import "assets/sass/style.vue";
+@import "assets/himoto/himoto.scss";
+
+/* Product requirement: controls use text labels instead of decorative icons. */
+.el-input__prefix,
+.el-input__suffix,
+.el-select__caret,
+.el-message__icon,
+.el-notification__icon,
+.swal2-icon,
+.himoto-app-shell .dropdown-toggle::after {
+  display: none !important;
+}
+
+.el-input--prefix .el-input__inner,
+.el-input--suffix .el-input__inner,
+.el-date-editor.el-input .el-input__inner {
+  padding-left: 15px !important;
+  padding-right: 15px !important;
+}
+
+.el-message,
+.el-notification {
+  padding-left: 16px !important;
+}
+
+.el-upload--picture-card {
+  line-height: normal !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+
+.el-select-dropdown__list,
+.el-select-dropdown__item {
+  list-style: none !important;
+}
+
+.el-select-dropdown__item::marker {
+  content: "";
+}
+
+.modal-header .close {
+  width: auto;
+  min-width: 44px;
+  padding: 8px !important;
+  font-size: 0 !important;
+  line-height: 1;
+}
+
+.modal-header .close::after {
+  content: "Đóng";
+  font-size: 12px;
+  font-weight: 600;
+  color: #687386;
+}

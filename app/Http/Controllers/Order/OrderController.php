@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Order;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\OrderListResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Services\OrderService;
 use App\Http\Services\VehicleTransferService;
@@ -48,7 +49,7 @@ class OrderController extends Controller
     public function index(Request $request): JsonResponse
     {
         $orders = $this->orderService->index($request);
-        return $this->successResponse(OrderResource::collection($orders));
+        return $this->successResponse(OrderListResource::collection($orders));
     }
 
     /**

@@ -17,6 +17,7 @@ Use below html tag for RTL version
     <link rel="apple-touch-icon" href="/images/branding/favicon-apple-touch.png">
     <link href="/css/app.css" type="text/css" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-theme-chalk@2.15.14/lib/index.min.css">
+    <link href="{{ mix('/css/himoto-app.css') }}" type="text/css" rel="stylesheet"/>
     
     <link rel="manifest" href="/manifest.json">
     <title>HIMOTO - Hệ Thống Quản Lý Cho Thuê Xe</title>
@@ -27,8 +28,6 @@ Use below html tag for RTL version
 </noscript>
 <div id="app"></div>
 <!-- built files will be auto injected -->
-<script src="{{ mix('/js/manifest.js') }}"></script>
-<script src="{{ mix('/js/vendor.js') }}"></script>
 <script src="{{ mix('/js/app.js') }}"></script>
 </body>
 </html>

@@ -43,7 +43,23 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
 
         // The index only needs data rendered by the table. Transaction,
         // activity and add-on histories are loaded by the detail endpoint.
-        $query = $this->getModel()->newQuery()->select('orders.*')
+        $query = $this->getModel()->newQuery()->select([
+            'orders.id',
+            'orders.store_id',
+            'orders.customer_id',
+            'orders.contract_number',
+            'orders.contract_snapshot',
+            'orders.created_at',
+            'orders.note',
+            'orders.order_status',
+            'orders.pid',
+            'orders.total',
+            'orders.out_dated_at',
+            'orders.first_deposit_amount',
+            'orders.additional_deposit_amount',
+            'orders.created_without_collect_deposit',
+            'orders.deposit_closed',
+        ])
         ->withCount([
             'contractAmendments as vehicle_exchange_count' => function ($q) {
                 $q->where('amendment_type', \App\Models\ContractAmendment::TYPE_VEHICLE_EXCHANGE);
@@ -53,9 +69,11 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
 				$q->select(['vehicles.id', 'name', 'license']);
 			},
 			'store:id,store_name',
-            'orderItems',
+			'orderItems:id,order_id,rent_at,return_at',
             'customer:id,name,phone',
-            'leads.user:id,name',
+            'leads' => function ($q) {
+                $q->select(['id', 'order_id', 'user_id'])->with('user:id,name');
+            },
         ])
         ;
 

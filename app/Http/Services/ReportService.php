@@ -25,6 +25,38 @@ class ReportService
         $this->transactionRepository = $transactionRepository;
 		$this->orderEloquent = $orderEloquent;
     }
+
+    /**
+     * Build the order-list counters in one database query.
+     *
+     * The legacy endpoint loaded every matching order and then lazily loaded
+     * transactions for each row even though transaction totals were not part
+     * of the response. On a growing database that produced an N+1 query burst
+     * every time the rental list refreshed.
+     */
+    public function quickOrderStats(array $params): array
+    {
+        $query = $this->orderEloquent->getOrderByParams(Order::query(), $params);
+        $user = Auth::user();
+        if ($user && (int) $user->role_id !== 1) {
+            $query->where('orders.store_id', $user->store_id);
+        }
+
+        $stats = $query
+            ->selectRaw('COUNT(*) as total_order')
+            ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END), 0) as total_contracts_completed', [\App\Validators\OrderValidator::ORDER_COMPLETED])
+            ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END), 0) as total_contracts_renting', [\App\Validators\OrderValidator::ORDER_RENTING])
+            ->selectRaw('COALESCE(SUM(CASE WHEN out_dated_at > 0 AND order_status != ? THEN 1 ELSE 0 END), 0) as total_out_of_date', [\App\Validators\OrderValidator::ORDER_COMPLETED])
+            ->first();
+
+        return [
+            'total_order' => (int) ($stats->total_order ?? 0),
+            'total_contracts_completed' => (int) ($stats->total_contracts_completed ?? 0),
+            'total_contracts_renting' => (int) ($stats->total_contracts_renting ?? 0),
+            'total_out_of_date' => (int) ($stats->total_out_of_date ?? 0),
+        ];
+    }
+
     public function getOrderItems(array $params){
         $user  = Auth::user();
         if ($user->role_id === 1 ){

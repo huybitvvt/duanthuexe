@@ -11,9 +11,9 @@ const webpack = require("webpack");
  | file for the application as well as bundling up all the JS files.
  |
  */
-mix.js("resources/js/app.js", "public/js")
-    .extract(["vue"])
-    .version();
+mix.js("resources/js/app.js", "public/js");
+mix.sass("resources/js/src/himoto-app.scss", "public/css");
+mix.version();
 
 mix.copy(
     "node_modules/html2pdf.js/dist/html2pdf.bundle.min.js",
@@ -26,6 +26,7 @@ if (!mix.inProduction()) {
 
 mix.webpackConfig({
     plugins: [
+        new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
         new webpack.DefinePlugin({
             "process.env.BASE_URL": JSON.stringify("/")
         })

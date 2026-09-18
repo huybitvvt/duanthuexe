@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Http\Services\WarehouseService;
+use App\Http\Services\ReportService;
 use App\Http\Services\VehicleTransferService;
 use App\Models\ContractAmendment;
 use App\Models\Order;
@@ -14,6 +15,7 @@ use App\Models\VehicleLocationEvent;
 use App\Models\VehicleTransfer;
 use App\Models\VehicleTransferItem;
 use App\Models\Transaction;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -166,6 +168,7 @@ class HimotoWarehouseTransferTest extends TestCase
             $table->integer('store_id')->nullable();
             $table->string('order_status')->default('using');
             $table->string('contract_number')->nullable();
+            $table->integer('out_dated_at')->default(0);
             $table->decimal('total_amount', 15, 2)->default(0);
             $table->decimal('deposit_amount', 15, 2)->default(0);
             $table->softDeletes();
@@ -344,6 +347,52 @@ class HimotoWarehouseTransferTest extends TestCase
     {
         $storeBVehicles = $this->warehouseService->getStoreVehicles($this->storeB->id, [], $this->adminUser);
         $this->assertEquals($this->storeB->id, $storeBVehicles['store']['id']);
+    }
+
+    public function test_warehouse_summary_uses_constant_query_count()
+    {
+        // The summary must stay constant as branches are added. It previously
+        // issued roughly eleven count queries for every store card.
+        Store::create([
+            'store_name' => 'Cơ sở thứ ba',
+            'kind' => Store::KIND_PHYSICAL,
+            'status' => 'active',
+        ]);
+
+        $this->adminUser->load('role_rel');
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+
+        $summary = $this->warehouseService->getSummary($this->adminUser);
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertCount(3, $summary);
+        $this->assertLessThanOrEqual(4, $queryCount);
+    }
+
+    public function test_quick_order_stats_uses_one_aggregate_query()
+    {
+        Order::insert([
+            ['store_id' => $this->storeA->id, 'order_status' => 'completed', 'out_dated_at' => 60],
+            ['store_id' => $this->storeA->id, 'order_status' => 'completed', 'out_dated_at' => 0],
+            ['store_id' => $this->storeA->id, 'order_status' => 'renting', 'out_dated_at' => 60],
+            ['store_id' => $this->storeA->id, 'order_status' => 'renting', 'out_dated_at' => 0],
+            ['store_id' => $this->storeB->id, 'order_status' => 'deposit_contract', 'out_dated_at' => 0],
+        ]);
+        $this->actingAs($this->adminUser);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $stats = app(ReportService::class)->quickOrderStats([]);
+        $queryCount = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(5, $stats['total_order']);
+        $this->assertSame(2, $stats['total_contracts_completed']);
+        $this->assertSame(2, $stats['total_contracts_renting']);
+        $this->assertSame(1, $stats['total_out_of_date']);
+        $this->assertSame(1, $queryCount);
     }
 
     /**

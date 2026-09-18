@@ -9,7 +9,7 @@ import Element from 'element-ui';
 import Paginate from 'vuejs-paginate';
 import * as filters from '../src/filters'; // global filters
 import {ValidationObserver, ValidationProvider, extend, localize, configure} from 'vee-validate';
-import * as rules from 'vee-validate/dist/rules'
+import { confirmed, email, min, min_value, numeric, required } from 'vee-validate/dist/rules'
 import vi from 'vee-validate/dist/locale/vi.json';
 import 'vue2-datepicker/index.css';
 import DatePicker from 'vue2-datepicker';
@@ -25,9 +25,8 @@ import 'sweetalert2/dist/sweetalert2.min.css';
 Vue.component('ValidationObserver', ValidationObserver);
 Vue.component('ValidationProvider', ValidationProvider);
 // install rules and localization
-Object.keys(rules).forEach(rule => {
-    extend(rule, rules[rule]);
-});
+const validationRules = { confirmed, email, min, min_value, numeric, required };
+Object.keys(validationRules).forEach(rule => extend(rule, validationRules[rule]));
 localize('vi', vi);
 configure({
     classes: {
@@ -58,17 +57,11 @@ window.ClipboardJS = ClipboardJS;
 
 // Vue 3rd party plugins
 import i18n from "@/core/plugins/vue-i18n";
-import vuetify from "@/core/plugins/vuetify";
 import "@/core/plugins/portal-vue";
 import "@/core/plugins/bootstrap-vue";
 import "@/core/plugins/perfect-scrollbar";
-import "@/core/plugins/highlight-js";
 import "@/core/plugins/inline-svg";
-import "@/core/plugins/apexcharts";
-import "@/core/plugins/treeselect";
 import "@/core/plugins/metronic";
-import "@mdi/font/css/materialdesignicons.css";
-import "@/core/plugins/formvalidation";
 import dragScroll from "@/directives/dragScroll";
 
 Vue.directive("drag-scroll", dragScroll);
@@ -101,7 +94,6 @@ new Vue({
     router,
     store,
     i18n,
-    vuetify,
     render: (h) => h(App),
 }).$mount("#app");
 
