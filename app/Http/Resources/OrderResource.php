@@ -63,6 +63,7 @@ class OrderResource extends JsonResource
             'created_without_collect_deposit' => $this->created_without_collect_deposit,
             'deposit_closed' => $this->deposit_closed,
             'contract_is_locked' => (bool) data_get($this->contract_snapshot, 'is_locked'),
+            'vehicle_exchange_count' => (int) ($this->vehicle_exchange_count ?: 0),
         ];
     }
 }

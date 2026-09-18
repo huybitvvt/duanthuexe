@@ -56,6 +56,21 @@
               {{ ev.notes }}
             </div>
 
+            <div v-if="ev.contract" class="exchange-contract-link mt-2 p-2 rounded">
+              <div class="small text-muted">
+                Khách: <strong class="text-dark">{{ ev.contract.customer_name || 'Chưa cập nhật' }}</strong>
+                <span v-if="ev.contract.store_name"> · Hợp đồng tại {{ ev.contract.store_name }}</span>
+              </div>
+              <button
+                type="button"
+                class="btn btn-xs btn-light-primary font-weight-bold mt-1"
+                @click="openOrder(ev.contract.id)"
+              >
+                Mở HĐ {{ ev.contract.contract_number || `#${ev.contract.id}` }}
+                <span v-if="ev.contract.amendment_code"> · {{ ev.contract.amendment_code }}</span>
+              </button>
+            </div>
+
             <div class="d-flex justify-content-between align-items-center mt-2 text-muted small border-top pt-1">
               <span>Người ghi nhận: <strong>{{ ev.created_by_name }}</strong></span>
               <span v-if="ev.odometer !== null">ODO: <strong>{{ ev.odometer }} km</strong></span>
@@ -132,6 +147,13 @@ export default {
       };
       return map[type] || type;
     },
+    openOrder(orderId) {
+      this.visible = false;
+      this.$router.push({
+        name: "car-rental",
+        query: { open_order: orderId },
+      });
+    },
   },
 };
 </script>
@@ -139,5 +161,10 @@ export default {
 <style scoped>
 .timeline-item {
   border-left: 4px solid #3699ff !important;
+}
+
+.exchange-contract-link {
+  background: #f2f7ff;
+  border: 1px solid #d9e8ff;
 }
 </style>

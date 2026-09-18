@@ -214,6 +214,9 @@
                                                 :key="key" :class="key ? 'mt-2' : ''">
                                                 {{ vehicle.name }} - {{ vehicle.license }} <br />
                                             </div>
+                                            <span v-if="item.vehicle_exchange_count" class="badge badge-light-warning text-warning mt-2">
+                                                Đã đổi xe {{ item.vehicle_exchange_count }} lần
+                                            </span>
                                         </div>
                                     </td>
                                     <td>
@@ -368,7 +371,7 @@ export default {
     name: "OrderCarRental",
     mixins: [queryMixin],
     data() {
-        const { page, store_id, ...restQuery } = this.$route?.query || {};
+        const { page, store_id, open_order, ...restQuery } = this.$route?.query || {};
         return {
             selectAll: false,
             checkedItems: {},
@@ -410,6 +413,7 @@ export default {
             lastFetchedAt: 0,
             showPrintModal: false,
             printDocumentDto: null,
+            pendingOpenOrderId: open_order ? Number(open_order) : null,
         }
     },
     components: {
@@ -460,6 +464,17 @@ export default {
     },
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Đơn hàng" }]);
+        if (this.pendingOpenOrderId) {
+            this.$nextTick(() => this.openShowOrder({ id: this.pendingOpenOrderId }));
+        }
+    },
+    watch: {
+        "$route.query.open_order"(value) {
+            const orderId = Number(value || 0);
+            if (orderId && orderId !== Number(this.order_show?.id || 0)) {
+                this.openShowOrder({ id: orderId });
+            }
+        },
     },
     activated() {
         const queryPage = +this.$route?.query?.page || 1;
@@ -589,19 +604,19 @@ export default {
             this.$refs['modal-contract-update'].show();
         },
         openShowOrder(item) {
-            this.$store
+            this.order_show = null;
+            return this.$store
                 .dispatch(SHOW_ORDER_CAR_RENTAL, item.id)
                 .then((res) => {
                     this.order_show = {
                         ...res.data,
                     };
                     this.orderId = this.order_show.id;
+                    this.$refs['modal-contract-show'].show();
                 })
                 .catch((err) => {
                     this.noticeMessage('error', 'Thất bại', getApiMessage(err));
                 });
-
-            this.$refs['modal-contract-show'].show();
         },
         openPaymentModal(order) {
             this.orderId = order.id;

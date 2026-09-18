@@ -13,9 +13,27 @@
                     </span>
                 </h4>
             </div>
-            <button type="button" class="btn btn-sm btn-info font-weight-bold" @click="printContract">
-                In hợp đồng
-            </button>
+            <div class="d-flex flex-wrap justify-content-end order-show-actions">
+                <button
+                    v-if="currentVehicle"
+                    type="button"
+                    class="btn btn-sm btn-outline-primary font-weight-bold"
+                    @click="openWarehouseForCurrentVehicle"
+                >
+                    Mở Kho xe
+                </button>
+                <button
+                    v-if="currentVehicle && order.order_status === 'renting'"
+                    type="button"
+                    class="btn btn-sm btn-warning font-weight-bold"
+                    @click="openVehicleExchange"
+                >
+                    Đổi xe
+                </button>
+                <button type="button" class="btn btn-sm btn-info font-weight-bold" @click="printContract">
+                    In / Tải PDF
+                </button>
+            </div>
         </div>
         <div class="row">
             <div class="col-md-6">
@@ -195,6 +213,49 @@
                 </div>
             </div>
         </div>
+        <div v-if="exchangeTimeline.length" class="vehicle-exchange-card mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <div>
+                    <h4 class="mb-1">Lịch sử đổi xe</h4>
+                    <span class="text-muted small">
+                        Theo dõi xe và cơ sở bàn giao xuyên suốt hợp đồng
+                    </span>
+                </div>
+                <span class="badge badge-light-warning font-weight-bold">
+                    {{ vehicleExchangeHistory.length }} lần đổi
+                </span>
+            </div>
+            <div class="vehicle-exchange-timeline">
+                <div
+                    v-for="(step, index) in exchangeTimeline"
+                    :key="`${step.vehicle.id}-${index}-${step.at || ''}`"
+                    class="vehicle-exchange-step"
+                >
+                    <div class="vehicle-exchange-marker">{{ index + 1 }}</div>
+                    <div class="vehicle-exchange-content">
+                        <div class="font-weight-bolder text-dark">
+                            {{ step.customerName || displayCustomer.name || 'Khách thuê' }}
+                            <span v-if="index > 0" class="text-warning mx-1">→</span>
+                            <span class="text-primary">
+                                Xe {{ step.store ? step.store.store_name : 'chưa xác định cơ sở' }}:
+                                {{ step.vehicle.license }}
+                            </span>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            {{ step.vehicle.name || 'Chưa cập nhật tên xe' }}
+                            <span v-if="step.at"> · Ngày {{ step.at | formatDateTime }}</span>
+                            <span v-if="step.reason"> · {{ step.reason }}</span>
+                        </div>
+                        <router-link
+                            :to="warehouseLink(step)"
+                            class="btn btn-xs btn-light-primary font-weight-bold mt-2"
+                        >
+                            Xem xe tại Kho
+                        </router-link>
+                    </div>
+                </div>
+            </div>
+        </div>
         <el-collapse accordion>
             <el-collapse-item name="1">
                 <template slot="title">
@@ -224,6 +285,7 @@ import {
 import ActivityHistory from "./ActivityHistory";
 import TransactionHistory from "./TransactionHistory";
 import ModalContractPreview from "./ModalContractPreview";
+import { mapGetters } from "vuex";
 import { SHOW_ORDER_CAR_RENTAL, GET_ORDER_DOCUMENT } from "../../../../core/services/store/order.module";
 
 export default {
@@ -237,6 +299,45 @@ export default {
         },
     },
     computed: {
+        ...mapGetters(["currentUser"]),
+        vehicleExchangeHistory() {
+            return Array.isArray(this.order?.vehicle_exchange_history)
+                ? this.order.vehicle_exchange_history
+                : [];
+        },
+        currentVehicle() {
+            const item = Array.isArray(this.order?.order_items)
+                ? this.order.order_items.find(orderItem => orderItem && orderItem.vehicle)
+                : null;
+            return item ? item.vehicle : null;
+        },
+        exchangeTimeline() {
+            const timeline = [];
+            this.vehicleExchangeHistory.forEach((entry, index) => {
+                if (entry.old_vehicle) {
+                    const previous = timeline[timeline.length - 1];
+                    if (!previous || Number(previous.vehicle.id) !== Number(entry.old_vehicle.id)) {
+                        timeline.push({
+                            vehicle: entry.old_vehicle,
+                            store: entry.old_store,
+                            at: index === 0 ? entry.initial_at : entry.effective_at,
+                            customerName: entry.customer_name,
+                            reason: index === 0 ? "Xe bàn giao ban đầu" : "Xe trước khi đổi",
+                        });
+                    }
+                }
+                if (entry.new_vehicle) {
+                    timeline.push({
+                        vehicle: entry.new_vehicle,
+                        store: entry.new_store || entry.exchange_store,
+                        at: entry.effective_at,
+                        customerName: entry.customer_name,
+                        reason: entry.reason,
+                    });
+                }
+            });
+            return timeline;
+        },
         displayRelatives() {
             const relatives = this.displayCustomer && Array.isArray(this.displayCustomer.relatives)
                 ? this.displayCustomer.relatives
@@ -324,6 +425,50 @@ export default {
         },
     },
     methods: {
+        warehouseLink(step) {
+            const storeId = step?.store?.id || this.currentUser?.store_id || this.order?.store_id;
+            return {
+                name: "warehouse",
+                query: {
+                    ...(storeId ? { store_id: storeId } : {}),
+                    vehicle_id: step.vehicle.id,
+                    keyword: step.vehicle.license,
+                },
+            };
+        },
+        openWarehouseForCurrentVehicle() {
+            if (!this.currentVehicle) return;
+            const storeId = this.currentVehicle.current_store_id
+                || this.currentVehicle.store_id
+                || this.currentUser?.store_id
+                || this.order?.store_id;
+            this.$router.push({
+                name: "warehouse",
+                query: {
+                    ...(storeId ? { store_id: storeId } : {}),
+                    vehicle_id: this.currentVehicle.id,
+                    keyword: this.currentVehicle.license,
+                },
+            });
+        },
+        openVehicleExchange() {
+            if (!this.currentVehicle || !this.order) return;
+            const storeId = this.currentUser?.store_id
+                || this.currentVehicle.current_store_id
+                || this.currentVehicle.store_id
+                || this.order.store_id;
+            this.$router.push({
+                name: "warehouse",
+                query: {
+                    action: "exchange",
+                    order_id: this.order.id,
+                    old_vehicle_id: this.currentVehicle.id,
+                    old_vehicle_license: this.currentVehicle.license || "",
+                    old_vehicle_name: this.currentVehicle.name || "",
+                    ...(storeId ? { store_id: storeId } : {}),
+                },
+            });
+        },
         displayCompletedAt(item) {
             if (item.completed_at) {
                 return this.$options.filters.formatDateTime((item.completed_at));
@@ -407,6 +552,43 @@ export default {
     font-weight: 700;
 }
 
+.order-show-actions { gap: 8px; }
+
+.vehicle-exchange-card {
+    border: 1px solid #e6eaf0;
+    border-radius: 10px;
+    padding: 16px;
+    background: #fbfcfe;
+}
+
+.vehicle-exchange-card h4 { font-size: 16px; font-weight: 700; }
+.vehicle-exchange-timeline { position: relative; }
+.vehicle-exchange-step { display: flex; gap: 12px; position: relative; padding-bottom: 16px; }
+.vehicle-exchange-step:last-child { padding-bottom: 0; }
+.vehicle-exchange-step:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 14px;
+    top: 30px;
+    bottom: 0;
+    width: 2px;
+    background: #d8e6f7;
+}
+.vehicle-exchange-marker {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #3699ff;
+    color: #fff;
+    font-weight: 700;
+    z-index: 1;
+}
+.vehicle-exchange-content { min-width: 0; padding-top: 3px; }
+
 .table { margin-bottom: 14px; font-size: 13.5px; }
 .table td, .table th { padding: 8px 10px; vertical-align: top; }
 h4.my-5 { margin-top: 16px !important; margin-bottom: 10px !important; font-size: 16px; }
@@ -414,5 +596,6 @@ h4.my-5 { margin-top: 16px !important; margin-bottom: 10px !important; font-size
 @media (max-width: 768px) {
     .order-show-toolbar { align-items: flex-start; }
     .order-show-title { font-size: 16px; }
+    .order-show-actions { justify-content: flex-start !important; }
 }
 </style>

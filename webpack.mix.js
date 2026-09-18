@@ -15,6 +15,11 @@ mix.js("resources/js/app.js", "public/js")
     .extract(["vue"])
     .version();
 
+mix.copy(
+    "node_modules/html2pdf.js/dist/html2pdf.bundle.min.js",
+    "public/vendor/html2pdf.bundle.min.js"
+);
+
 if (!mix.inProduction()) {
     mix.sourceMaps();
 }

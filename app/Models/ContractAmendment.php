@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ContractAmendment extends Model
 {
@@ -49,5 +50,19 @@ class ContractAmendment extends Model
     public function createdByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by', 'id');
+    }
+
+    public function oldVehicleEvent(): HasOne
+    {
+        return $this->hasOne(VehicleLocationEvent::class, 'ref_id', 'id')
+            ->where('ref_type', 'contract_amendments')
+            ->where('event_type', VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_OUT);
+    }
+
+    public function newVehicleEvent(): HasOne
+    {
+        return $this->hasOne(VehicleLocationEvent::class, 'ref_id', 'id')
+            ->where('ref_type', 'contract_amendments')
+            ->where('event_type', VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_IN);
     }
 }

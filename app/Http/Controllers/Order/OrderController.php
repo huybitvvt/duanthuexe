@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Order;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Http\Services\OrderService;
+use App\Http\Services\VehicleTransferService;
 use App\Models\Order;
 use App\Models\Vehicle;
 use App\Models\OrderVehicleDetail;
@@ -20,10 +21,12 @@ use Illuminate\Support\Facades\Log;
 class OrderController extends Controller
 {
     protected $orderService;
+    protected $vehicleTransferService;
 
-    public function __construct(OrderService $orderService)
+    public function __construct(OrderService $orderService, VehicleTransferService $vehicleTransferService = null)
     {
         $this->orderService = $orderService;
+        $this->vehicleTransferService = $vehicleTransferService;
     }
 
     public function getOrderCarRental(Request $request): JsonResponse
@@ -94,6 +97,12 @@ class OrderController extends Controller
 		if ( ! $order_detail->total_rental_fees ) {
 			$order_detail->total_rental_fees = 0;
 		}
+        $vehicleTransferService = $this->vehicleTransferService ?: app(VehicleTransferService::class);
+        $order_detail->setAttribute(
+            'vehicle_exchange_history',
+            $vehicleTransferService->getOrderVehicleExchangeHistory($order_detail)
+        );
+
         return $this->successResponse($order_detail);
     }
 

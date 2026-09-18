@@ -43,7 +43,12 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
 
         // The index only needs data rendered by the table. Transaction,
         // activity and add-on histories are loaded by the detail endpoint.
-        $query = $this->getModel()->newQuery()->select('orders.*')->with([
+        $query = $this->getModel()->newQuery()->select('orders.*')
+        ->withCount([
+            'contractAmendments as vehicle_exchange_count' => function ($q) {
+                $q->where('amendment_type', \App\Models\ContractAmendment::TYPE_VEHICLE_EXCHANGE);
+            },
+        ])->with([
 			'vehicles' => function ($q) {
 				$q->select(['vehicles.id', 'name', 'license']);
 			},

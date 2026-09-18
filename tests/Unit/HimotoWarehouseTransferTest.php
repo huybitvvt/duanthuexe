@@ -128,6 +128,15 @@ class HimotoWarehouseTransferTest extends TestCase
             $table->timestamps();
         });
 
+        Schema::dropIfExists('customers');
+        Schema::create('customers', function ($table) {
+            $table->increments('id');
+            $table->string('name')->nullable();
+            $table->string('phone')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
+
         Schema::dropIfExists('vehicles');
         Schema::create('vehicles', function ($table) {
             $table->increments('id');
@@ -560,12 +569,31 @@ class HimotoWarehouseTransferTest extends TestCase
         $this->assertEquals($oldVehicle->id, $amendment->old_vehicle_id);
         $this->assertEquals($newVehicle->id, $amendment->new_vehicle_id);
         $this->assertEquals(ContractAmendment::TYPE_VEHICLE_EXCHANGE, $amendment->amendment_type);
+        $this->assertCount(1, $order->contractAmendments);
 
         // 5. Check location ledger events
         $oldEvents = VehicleLocationEvent::where('vehicle_id', $oldVehicle->id)->get();
         $newEvents = VehicleLocationEvent::where('vehicle_id', $newVehicle->id)->get();
         $this->assertEquals(VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_OUT, $oldEvents->last()->event_type);
         $this->assertEquals(VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_IN, $newEvents->last()->event_type);
+
+        // Warehouse movement history links the exchange back to the exact contract/amendment.
+        $history = $this->transferService->getVehicleMovementHistory($newVehicle->id);
+        $exchangeEvent = $history['events']->firstWhere('event_type', VehicleLocationEvent::EVENT_VEHICLE_EXCHANGE_IN);
+        $this->assertNotNull($exchangeEvent);
+        $this->assertEquals($order->id, $exchangeEvent['contract']['id']);
+        $this->assertEquals($order->contract_number, $exchangeEvent['contract']['contract_number']);
+        $this->assertEquals($amendment->amendment_code, $exchangeEvent['contract']['amendment_code']);
+        $this->assertEquals($this->storeA->store_name, $exchangeEvent['contract']['store_name']);
+
+        $orderHistory = $this->transferService->getOrderVehicleExchangeHistory($order->fresh());
+        $this->assertCount(1, $orderHistory);
+        $this->assertEquals($oldVehicle->license, $orderHistory[0]['old_vehicle']['license']);
+        $this->assertEquals($newVehicle->license, $orderHistory[0]['new_vehicle']['license']);
+        $this->assertEquals($this->storeA->store_name, $orderHistory[0]['old_store']['store_name']);
+        $this->assertEquals($this->storeA->store_name, $orderHistory[0]['new_store']['store_name']);
+        $this->assertNotEmpty($orderHistory[0]['initial_at']);
+        $this->assertNotEmpty($orderHistory[0]['effective_at']);
     }
 
     /**

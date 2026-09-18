@@ -17,6 +17,7 @@ use App\Models\VehicleTransferItem;
 use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class VehicleTransferService
@@ -621,6 +622,90 @@ class VehicleTransferService
     }
 
     /**
+     * Build the immutable vehicle exchange timeline shown on an order.
+     */
+    public function getOrderVehicleExchangeHistory(Order $order): array
+    {
+        if (!Schema::hasTable('contract_amendments') || !Schema::hasTable('vehicle_location_events')) {
+            return [];
+        }
+
+        $order->loadMissing(['customer', 'orderItems']);
+        $amendments = ContractAmendment::where('order_id', $order->id)
+            ->where('amendment_type', ContractAmendment::TYPE_VEHICLE_EXCHANGE)
+            ->with([
+                'oldVehicle.store:id,store_name',
+                'newVehicle.store:id,store_name',
+                'oldVehicleEvent.fromStore:id,store_name',
+                'oldVehicleEvent.toStore:id,store_name',
+                'newVehicleEvent.fromStore:id,store_name',
+                'newVehicleEvent.toStore:id,store_name',
+                'createdByUser:id,name',
+            ])
+            ->orderBy('effective_at', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $snapshotVehicles = collect((array) data_get($order->contract_snapshot, 'vehicles', []));
+        $defaultInitialAt = optional($order->orderItems->first())->rent_at ?: $order->created_at;
+        $serializeVehicle = function ($vehicle) {
+            return $vehicle ? [
+                'id' => $vehicle->id,
+                'name' => $vehicle->name,
+                'license' => $vehicle->license,
+            ] : null;
+        };
+        $serializeStore = function ($store) {
+            return $store ? [
+                'id' => $store->id,
+                'store_name' => $store->store_name,
+            ] : null;
+        };
+
+        return $amendments->map(function ($amendment) use ($order, $snapshotVehicles, $defaultInitialAt, $serializeVehicle, $serializeStore) {
+            $oldVehicle = $amendment->oldVehicle;
+            $newVehicle = $amendment->newVehicle;
+            $oldEvent = $amendment->oldVehicleEvent;
+            $newEvent = $amendment->newVehicleEvent;
+
+            $snapshotVehicle = $snapshotVehicles->first(function ($vehicle) use ($oldVehicle) {
+                if (!$oldVehicle) {
+                    return false;
+                }
+
+                return (int) data_get($vehicle, 'vehicle_id') === (int) $oldVehicle->id
+                    || (string) data_get($vehicle, 'license') === (string) $oldVehicle->license;
+            });
+            $initialAt = data_get($snapshotVehicle, 'rent_at', $defaultInitialAt);
+            $oldStore = $oldEvent && $oldEvent->fromStore ? $oldEvent->fromStore : optional($oldVehicle)->store;
+            $newStore = $newEvent && $newEvent->fromStore ? $newEvent->fromStore : optional($newVehicle)->store;
+            $exchangeStore = $newEvent && $newEvent->toStore
+                ? $newEvent->toStore
+                : ($oldEvent ? $oldEvent->toStore : null);
+
+            return [
+                'id' => $amendment->id,
+                'amendment_code' => $amendment->amendment_code,
+                'customer_name' => optional($order->customer)->name,
+                'initial_at' => $initialAt ? (string) $initialAt : null,
+                'effective_at' => $amendment->effective_at ? $amendment->effective_at->format('Y-m-d H:i:s') : null,
+                'reason' => $amendment->reason,
+                'notes' => $amendment->notes,
+                'price_difference' => (float) $amendment->price_difference,
+                'old_vehicle' => $serializeVehicle($oldVehicle),
+                'new_vehicle' => $serializeVehicle($newVehicle),
+                'old_store' => $serializeStore($oldStore),
+                'new_store' => $serializeStore($newStore),
+                'exchange_store' => $serializeStore($exchangeStore),
+                'created_by' => $amendment->createdByUser ? [
+                    'id' => $amendment->createdByUser->id,
+                    'name' => $amendment->createdByUser->name,
+                ] : null,
+            ];
+        })->values()->all();
+    }
+
+    /**
      * Get complete movement history ledger for a vehicle.
      */
     public function getVehicleMovementHistory(int $vehicleId): array
@@ -632,6 +717,19 @@ class VehicleTransferService
             ->orderBy('id', 'desc')
             ->get();
 
+        $amendmentIds = $events
+            ->where('ref_type', 'contract_amendments')
+            ->pluck('ref_id')
+            ->filter()
+            ->unique()
+            ->values();
+        $amendments = $amendmentIds->isEmpty()
+            ? collect()
+            : ContractAmendment::whereIn('id', $amendmentIds)
+                ->with(['order.customer:id,name,phone', 'order.store:id,store_name'])
+                ->get()
+                ->keyBy('id');
+
         return [
             'vehicle' => [
                 'id' => $vehicle->id,
@@ -641,16 +739,32 @@ class VehicleTransferService
                 'odometer' => $vehicle->odometer,
                 'current_store_name' => $vehicle->currentStore ? $vehicle->currentStore->store_name : ($vehicle->store ? $vehicle->store->store_name : 'Chưa gán'),
             ],
-            'events' => $events->map(function ($ev) {
+            'events' => $events->map(function ($ev) use ($amendments) {
+                $amendment = $ev->ref_type === 'contract_amendments'
+                    ? $amendments->get($ev->ref_id)
+                    : null;
+                $order = $amendment ? $amendment->order : null;
+
                 return [
                     'id' => $ev->id,
                     'event_type' => $ev->event_type,
+                    'ref_type' => $ev->ref_type,
+                    'ref_id' => $ev->ref_id,
                     'from_store_name' => $ev->fromStore ? $ev->fromStore->store_name : 'N/A',
                     'to_store_name' => $ev->toStore ? $ev->toStore->store_name : 'N/A',
                     'odometer' => $ev->odometer,
                     'notes' => $ev->notes,
                     'created_by_name' => $ev->createdByUser ? $ev->createdByUser->name : 'Hệ thống',
                     'created_at' => $ev->created_at ? $ev->created_at->format('d/m/Y H:i') : null,
+                    'contract' => $order ? [
+                        'id' => $order->id,
+                        'contract_number' => $order->contract_number,
+                        'customer_name' => $order->customer ? $order->customer->name : null,
+                        'customer_phone' => $order->customer ? $order->customer->phone : null,
+                        'store_id' => $order->store_id,
+                        'store_name' => $order->store ? $order->store->store_name : null,
+                        'amendment_code' => $amendment->amendment_code,
+                    ] : null,
                 ];
             }),
         ];

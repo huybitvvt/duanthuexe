@@ -70,6 +70,11 @@ class Order extends Model implements Transformable
         return $this->hasMany(ActivityLog::class, 'order_id', 'id');
     }
 
+    public function contractAmendments(): HasMany
+    {
+        return $this->hasMany(ContractAmendment::class, 'order_id', 'id');
+    }
+
     /**
      * @return HasMany
      */

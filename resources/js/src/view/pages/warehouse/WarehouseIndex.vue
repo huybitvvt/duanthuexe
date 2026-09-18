@@ -310,9 +310,14 @@
                   </td>
                   <td>
                     <div v-if="vehicle.active_order">
-                      <span class="font-weight-bold text-primary d-block">
+                      <button
+                        type="button"
+                        class="btn btn-link p-0 font-weight-bold text-primary d-block text-left"
+                        title="Mở chi tiết hợp đồng"
+                        @click="openOrder(vehicle.active_order.id)"
+                      >
                         HĐ: {{ vehicle.active_order.contract_number || `#${vehicle.active_order.id}` }}
-                      </span>
+                      </button>
                       <span class="text-muted small">
                         {{ vehicle.active_order.customer_name }} ({{ vehicle.active_order.customer_phone }})
                       </span>
@@ -425,6 +430,7 @@ export default {
       summaryList: [],
       selectedStoreId: null,
       permissionDenied: false,
+      deepLinkHandled: false,
       vehicleList: [],
       pagination: {
         page: 1,
@@ -452,6 +458,9 @@ export default {
   methods: {
     initData() {
       const qStoreId = this.$route.query.store_id;
+      if (this.$route.query.keyword) {
+        this.filters.keyword = this.$route.query.keyword;
+      }
       this.fetchSummary().then(() => {
         if (qStoreId && this.summaryList.some((s) => s.id === Number(qStoreId))) {
           this.selectStore(Number(qStoreId));
@@ -460,8 +469,26 @@ export default {
           const userStore = this.summaryList.find((s) => s.id === this.currentUser?.store_id);
           this.selectStore(userStore ? userStore.id : this.summaryList[0].id);
         }
+        this.$nextTick(() => this.handleDeepLink());
       });
       this.fetchTransfers();
+    },
+    handleDeepLink() {
+      if (this.deepLinkHandled || this.$route.query.action !== "exchange" || !this.$route.query.order_id) {
+        return;
+      }
+      const oldVehicleId = Number(this.$route.query.old_vehicle_id || 0);
+      const oldVehicle = oldVehicleId ? {
+        id: oldVehicleId,
+        license: this.$route.query.old_vehicle_license || "",
+        name: this.$route.query.old_vehicle_name || "",
+      } : null;
+      this.deepLinkHandled = true;
+      this.$refs.modalVehicleExchange.open(
+        Number(this.$route.query.order_id),
+        oldVehicle,
+        this.selectedStoreId
+      );
     },
     fetchSummary() {
       this.loadingSummary = true;
@@ -602,6 +629,12 @@ export default {
     },
     viewMovementHistory(vehicleId) {
       this.$refs.modalMovementHistory.open(vehicleId);
+    },
+    openOrder(orderId) {
+      this.$router.push({
+        name: "car-rental",
+        query: { open_order: orderId },
+      });
     },
     formatType(type) {
       const map = {

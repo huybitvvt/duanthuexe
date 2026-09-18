@@ -50,6 +50,15 @@
 						In hợp đồng
 					</button>
 
+					<button
+						type="button"
+						class="btn btn-sm btn-success font-weight-bold mr-2"
+						:disabled="pdfDownloading"
+						@click="downloadPdf"
+					>
+						{{ pdfDownloading ? "Đang tạo PDF..." : "Tải PDF" }}
+					</button>
+
 					<button type="button" class="btn btn-sm btn-outline-secondary ml-2 font-weight-bold" @click="close">
 						Đóng
 					</button>
@@ -95,6 +104,7 @@ export default {
 		return {
 			visible: this.value,
 			zoomLevel: 100,
+			pdfDownloading: false,
 		};
 	},
 	watch: {
@@ -173,6 +183,96 @@ export default {
 			frame.contentWindow.addEventListener('afterprint', () => frame.remove(), { once: true });
 			frame.contentWindow.focus();
 			frame.contentWindow.print();
+		},
+		async downloadPdf() {
+			const source = this.$refs.viewport
+				? this.$refs.viewport.querySelector(".contract-print-wrapper")
+				: null;
+			if (!source || this.pdfDownloading) return;
+
+			this.pdfDownloading = true;
+			const exportHost = document.createElement("div");
+			exportHost.setAttribute("aria-hidden", "true");
+			exportHost.style.cssText = "position:fixed;left:-100000px;top:0;width:297mm;background:#fff;z-index:-1";
+			const clone = source.cloneNode(true);
+			clone.style.transform = "none";
+			clone.style.margin = "0 auto";
+			exportHost.appendChild(clone);
+			document.body.appendChild(exportHost);
+
+			try {
+				const html2pdf = await this.loadPdfLibrary();
+				if (document.fonts) await document.fonts.ready;
+				await Promise.all(
+					Array.from(clone.images).map((img) =>
+						img.complete
+							? Promise.resolve()
+							: new Promise((resolve) => {
+								img.onload = resolve;
+								img.onerror = resolve;
+							})
+					)
+				);
+
+				const reference = String(
+					this.doc?.contract_number || (this.doc?.is_preview ? "xem-truoc" : "hop-dong")
+				)
+					.normalize("NFD")
+					.replace(/[\u0300-\u036f]/g, "")
+					.replace(/[^a-zA-Z0-9_-]+/g, "-")
+					.replace(/^-+|-+$/g, "");
+
+				await html2pdf()
+					.set({
+						margin: [5, 5, 5, 5],
+						filename: `hop-dong-${reference || "himoto"}.pdf`,
+						image: { type: "jpeg", quality: 0.98 },
+						html2canvas: {
+							scale: 2,
+							useCORS: true,
+							logging: false,
+							backgroundColor: "#ffffff",
+							windowWidth: 1120,
+						},
+						jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+						pagebreak: { mode: ["css", "legacy"], before: ".page-break" },
+					})
+					.from(clone)
+					.save();
+			} catch (error) {
+				this.$message.error("Không thể tạo file PDF. Vui lòng thử lại.");
+			} finally {
+				exportHost.remove();
+				this.pdfDownloading = false;
+			}
+		},
+		loadPdfLibrary() {
+			if (window.html2pdf) {
+				return Promise.resolve(window.html2pdf);
+			}
+			if (window.__himotoHtml2PdfPromise) {
+				return window.__himotoHtml2PdfPromise;
+			}
+
+			window.__himotoHtml2PdfPromise = new Promise((resolve, reject) => {
+				const script = document.createElement("script");
+				script.src = "/vendor/html2pdf.bundle.min.js?v=0.14.0";
+				script.async = true;
+				script.onload = () => {
+					if (window.html2pdf) {
+						resolve(window.html2pdf);
+					} else {
+						reject(new Error("Thư viện PDF không khởi tạo được"));
+					}
+				};
+				script.onerror = () => reject(new Error("Không tải được thư viện PDF"));
+				document.head.appendChild(script);
+			}).catch((error) => {
+				window.__himotoHtml2PdfPromise = null;
+				throw error;
+			});
+
+			return window.__himotoHtml2PdfPromise;
 		},
 		onHidden() {
 			this.$emit("hidden");
