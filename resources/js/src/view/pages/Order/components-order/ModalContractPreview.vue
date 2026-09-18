@@ -193,7 +193,7 @@ export default {
 			this.pdfDownloading = true;
 			const exportHost = document.createElement("div");
 			exportHost.setAttribute("aria-hidden", "true");
-			exportHost.style.cssText = "position:fixed;left:-100000px;top:0;width:297mm;background:#fff;z-index:-1";
+			exportHost.style.cssText = "position:fixed;left:0;top:0;width:297mm;opacity:0;pointer-events:none;z-index:-9999;";
 			const clone = source.cloneNode(true);
 			clone.style.transform = "none";
 			clone.style.margin = "0 auto";
@@ -203,8 +203,9 @@ export default {
 			try {
 				const html2pdf = await this.loadPdfLibrary();
 				if (document.fonts) await document.fonts.ready;
+				const images = Array.from(clone.querySelectorAll("img"));
 				await Promise.all(
-					Array.from(clone.images).map((img) =>
+					images.map((img) =>
 						img.complete
 							? Promise.resolve()
 							: new Promise((resolve) => {
@@ -240,7 +241,8 @@ export default {
 					.from(clone)
 					.save();
 			} catch (error) {
-				this.$message.error("Không thể tạo file PDF. Vui lòng thử lại.");
+				console.error("Lỗi tạo file PDF:", error);
+				this.$message.error("Không thể tạo file PDF tự động. Vui lòng bấm 'In hợp đồng' và chọn 'Lưu dưới dạng PDF'.");
 			} finally {
 				exportHost.remove();
 				this.pdfDownloading = false;
