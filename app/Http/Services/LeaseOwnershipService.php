@@ -210,7 +210,7 @@ class LeaseOwnershipService
         $existingReq = LeaseOwnershipRequest::findOrFail($requestId);
         PermissionAccess::can($actor, 'lease.ownership_execute', $existingReq->store_id);
 
-        $enabled = filter_var(env('HIMOTO_ENABLE_OWNERSHIP_EXECUTE', false), FILTER_VALIDATE_BOOLEAN);
+        $enabled = filter_var(config('contract.ownership_execute_enabled', false), FILTER_VALIDATE_BOOLEAN);
         if (!$enabled) {
             throw ValidationException::withMessages([
                 'feature_flag' => 'Chức năng thực thi chuyển quyền sở hữu đang tạm khóa chờ Ban Giám Đốc và Cố vấn Pháp lý phê duyệt quy chế chính thức (HIMOTO_ENABLE_OWNERSHIP_EXECUTE=false).'

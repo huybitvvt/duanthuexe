@@ -308,6 +308,7 @@ import OrderItems from "./OrderItems";
 import { ORDER_SELL_CREATE } from "../../../core/services/store/orderSell.module";
 import { mapGetters } from "vuex";
 import { USER_GET_STAFF_BY_STORE } from "../../../core/services/store/user.module";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 
 export default {
     name: "ModalOrderSellCreate",
@@ -486,13 +487,12 @@ export default {
                 })
                 .catch((e) => {
                     this.$notify({
-                        title: e.data.message,
+                        title: getApiMessage(e),
                         type: "error",
                     });
-                    if (e.response.data.data.message_validate_form) {
-                        this.$refs.form.setErrors(
-                            e.response.data.data.message_validate_form,
-                        );
+                    const errors = getApiValidationErrors(e);
+                    if (errors) {
+                        this.$refs.form.setErrors(errors);
                     }
                 });
         },

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Aws\S3\S3Client;
-use Aws\Exception\AwsException;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use App\Models\File;
@@ -32,13 +31,18 @@ class FileController extends Controller
 
 	static function init_client() {
 		if ( !self::$s3_client || self::$s3_client == null ) {
+			$disk = config('filesystems.disks.digitalocean', []);
+			if (empty($disk['region']) || empty($disk['endpoint']) || empty($disk['key']) || empty($disk['secret'])) {
+				return null;
+			}
+
 			self::$s3_client = new S3Client([
 				'version' => 'latest',
-				'region'  => env('DO_SPACES_REGION'),
-				'endpoint' => env('DO_SPACES_ENDPOINT'),
+				'region'  => $disk['region'],
+				'endpoint' => $disk['endpoint'],
 				'credentials' => [
-					'key'    => env('DO_SPACES_KEY'),
-					'secret' => env('DO_SPACES_SECRET'),
+					'key'    => $disk['key'],
+					'secret' => $disk['secret'],
 				],
 				'use_path_style_endpoint' => true,
 				'http'    => [
@@ -50,17 +54,23 @@ class FileController extends Controller
 	}
 
 	static function get_temp_url( $file_key = '', $expires = '+60 minutes' ) {
-		$s3 = self::init_client();
 		try {
+			$s3 = self::init_client();
+			if (!$s3 || !$file_key) {
+				return false;
+			}
+
 			$cmd = $s3->getCommand('GetObject', [
-				'Bucket' => env('DO_SPACES_BUCKET'),
+				'Bucket' => config('filesystems.disks.digitalocean.bucket'),
 				'Key'    => $file_key,
 			]);
 			$request = $s3->createPresignedRequest($cmd, $expires);
 			$presigned_url = (string) $request->getUri();
 			return $presigned_url;
-		} catch (AwsException $e) {
-
+		} catch (Throwable $e) {
+			Log::warning('Could not create legacy image URL', [
+				'message' => $e->getMessage(),
+			]);
 		}
 		return false;
 	}

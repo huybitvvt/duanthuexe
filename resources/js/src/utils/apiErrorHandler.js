@@ -16,12 +16,24 @@ export function getApiStatus(error) {
 export function getApiMessage(error, fallback = "Có lỗi xảy ra, vui lòng thử lại") {
   if (!error) return fallback;
 
+  const validationErrors = getApiValidationErrors(error);
+
   // 1. Direct message from server response data
   if (error.response?.data?.message) {
     return error.response.data.message;
   }
   if (error.data?.message) {
     return error.data.message;
+  }
+  if (validationErrors) {
+    const firstKey = Object.keys(validationErrors)[0];
+    const firstError = validationErrors[firstKey];
+    if (Array.isArray(firstError) && firstError[0]) {
+      return firstError[0];
+    }
+    if (typeof firstError === "string") {
+      return firstError;
+    }
   }
   if (typeof error.response?.data === "string" && error.response.data.length < 200) {
     return error.response.data;
@@ -66,7 +78,20 @@ export function getApiMessage(error, fallback = "Có lỗi xảy ra, vui lòng t
   return fallback;
 }
 
+export function getApiValidationErrors(error) {
+  if (!error) return null;
+
+  const payload = error.response?.data || error.data || {};
+  return (
+    payload.errors ||
+    payload.message_validate_form ||
+    payload.data?.message_validate_form ||
+    null
+  );
+}
+
 export default {
   getApiStatus,
-  getApiMessage
+  getApiMessage,
+  getApiValidationErrors
 };

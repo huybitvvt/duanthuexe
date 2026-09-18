@@ -144,12 +144,13 @@ class VehicleService implements ICrud
 
     public function update($id, array $params)
     {
-		$data_to_update = $params['maintenance_settings'];
+		$data_to_update = data_get($params, 'maintenance_settings', []);
 		foreach ($data_to_update as &$item){
 			$item['vehicle_id'] = $params['id'];
 		}
+		unset($item);
 
-		$data_to_destroy = $params['maintenance_settings_to_destroy'];
+		$data_to_destroy = data_get($params, 'maintenance_settings_to_destroy', []);
 		
 		$this->updateMaintenanceSettings($data_to_update,$data_to_destroy);
 	

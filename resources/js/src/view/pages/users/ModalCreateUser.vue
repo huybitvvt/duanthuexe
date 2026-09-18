@@ -165,6 +165,7 @@ import { ROLE_GET_ALL } from "../../../core/services/store/role.module";
 import { USER_CREATE } from "../../../core/services/store/user.module";
 import { isRole } from '../../../utils';
 import ErrorMessage from "../common/ErrorMessage";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 
 export default {
     name: "ModalUserCreate",
@@ -225,11 +226,10 @@ export default {
                     this.$bvModal.hide("modal-user-create");
                 })
                 .catch((e) => {
-                    this.$message.error(e.data.message);
-                    if (e.response.data.data.message_validate_form) {
-                        this.$refs.form.setErrors(
-                            e.response.data.data.message_validate_form,
-                        );
+                    this.$message.error(getApiMessage(e));
+                    const errors = getApiValidationErrors(e);
+                    if (errors) {
+                        this.$refs.form.setErrors(errors);
                     }
                 });
         },

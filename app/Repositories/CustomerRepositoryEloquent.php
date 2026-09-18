@@ -43,9 +43,11 @@ class CustomerRepositoryEloquent extends BaseRepository implements CustomerRepos
          $keyword = $request->get('keyword', '');
 
          if ($keyword) {
-             $customers->where('name', 'LIKE', '%' . $keyword . '%')
-                        ->orWhere('phone', $keyword)
-                        ->orWhere('id_card', $keyword);
+             $customers->where(function ($query) use ($keyword) {
+                 $query->where('name', 'LIKE', '%' . $keyword . '%')
+                     ->orWhere('phone', $keyword)
+                     ->orWhere('id_card', $keyword);
+             });
          }
 
          $phone = $request->get('phone', '');
@@ -65,7 +67,7 @@ class CustomerRepositoryEloquent extends BaseRepository implements CustomerRepos
          
          // end search
 
-        return $customers->with(['orders'])->orderBy('id', 'DESC')->paginate(config('app.paginate', 20));
+        return $customers->orderBy('id', 'DESC')->paginate(config('app.paginate', 20));
     }
 
     public function store(Request $request)

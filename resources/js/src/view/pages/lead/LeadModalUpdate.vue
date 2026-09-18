@@ -171,6 +171,7 @@ import { VEHICLE_GET_ALL } from "@/core/services/store/vehicle.module";
 import { brands } from "@/option/vehicle";
 import ErrorMessage from "@/view/pages/common/ErrorMessage";
 import { mapGetters } from "vuex";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 
 
 export default {
@@ -278,14 +279,13 @@ export default {
                 })
                 .catch((e) => {
                     this.$notify({
-                        title: e.data.message,
+                        title: getApiMessage(e),
                         type: "error",
                     });
 
-                    if (e?.response?.data?.data?.message_validate_form) {
-                        this.$refs.form.setErrors(
-                            e.response.data.data.message_validate_form,
-                        );
+                    const errors = getApiValidationErrors(e);
+                    if (errors) {
+                        this.$refs.form.setErrors(errors);
                     }
                 });
 

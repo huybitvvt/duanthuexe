@@ -235,6 +235,8 @@ import { getTextShort } from "../../../utils";
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import moment from "moment-timezone";
 import queryMixin from '@/utils/queryMixin.js';
+import { normalizePaginator } from "@/utils/paginatorAdapter";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 
 export default {
     mixins: [queryMixin],
@@ -245,7 +247,7 @@ export default {
             moment: moment,
             types: types,
             payment_methods: payment_methods,
-            page: +restQuery?.page || 1,
+            page: +page || 1,
             last_page: 1,
             transactions: [],
             stats: null,
@@ -280,7 +282,8 @@ export default {
             });
         },
         search() {
-            // this.pushParamsUrl();
+            this.page = 1;
+            this.pushParamsUrl();
             this.getList();
             this.getStats();
         },
@@ -291,7 +294,7 @@ export default {
                     page: this.page,
                     ...this.query,
                 },
-            });
+            }).catch(() => {});
         },
         formatValue(...values) {
             let res = values.reduce((acc, item) => {
@@ -306,6 +309,9 @@ export default {
                 .dispatch(TRANSACTION_STATS, { ...this.query })
                 .then((data) => {
                     this.stats = data?.data;
+                })
+                .catch((error) => {
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(error));
                 });
         },
         getNote(str) {
@@ -319,8 +325,12 @@ export default {
                     ...this.query,
                 })
                 .then((data) => {
-                    this.transactions = data.data.data;
-                    this.last_page = data.data.last_page;
+                    const paginated = normalizePaginator(data);
+                    this.transactions = paginated.items;
+                    this.last_page = paginated.lastPage;
+                })
+                .catch((error) => {
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(error));
                 })
                 .finally(() => {
                     this.loading = false;
@@ -328,10 +338,7 @@ export default {
         },
         clickCallback(obj) {
             this.page = obj;
-            this.$router.push({
-                path: "",
-                query: { page: this.page },
-            });
+            this.pushParamsUrl();
             this.getList();
         },
         getBankInfo(item) {

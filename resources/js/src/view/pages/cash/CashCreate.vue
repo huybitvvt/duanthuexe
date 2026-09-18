@@ -70,6 +70,7 @@ import {Money} from 'v-money';
 import {SET_BREADCRUMB} from "@/core/services/store/breadcrumbs.module";
 import {CASH_CREATE} from "@/core/services/store/cash.module";
 import {STORE_GET_ALL} from "../../../core/services/store/store.module";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 export default {
     name: "cashCreate",
     data() {
@@ -114,14 +115,11 @@ export default {
                     this.noticeMessage('success', 'Thành công', res.message);
                 })
             }).catch((e) => {
-                if (e.data.data.message_validate_form) {
-                    if (e.data.data?.message_validate_form['avatar'] || e.data.data?.message_validate_form['background_avatar']) {
-                        let message = e.data.data?.message_validate_form['avatar'] ? 'Ảnh đại diện' : 'Ảnh bìa';
-                        this.$message.error(`${message} quá dung lượng vui lòng thử lại.`);
-                    }
-                    this.$refs.form.setErrors(e.data.data.message_validate_form);
+                const errors = getApiValidationErrors(e);
+                if (errors) {
+                    this.$refs.form.setErrors(errors);
                 } else {
-                    this.noticeMessage('error', 'Thất bại', e.data?.message);
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(e));
                 }
             }).finally(() => this.loading = false);
         },

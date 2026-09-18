@@ -76,7 +76,7 @@
                         </tbody>
                     </table>
                 </div>
-                <HimotoEmptyState v-else title="Chưa có tài khoản ngân hàng" description="Thử thay đổi bộ lọc hoặc thêm mới tài khoản ngân hàng." actionText="Thêm mới tài khoản" @action="$router.push({ name: 'banks-create' })" />
+                <HimotoEmptyState v-else title="Chưa có tài khoản ngân hàng" description="Thử thay đổi bộ lọc hoặc thêm mới tài khoản ngân hàng." :actionText="currentUser.role_id === 1 ? 'Thêm mới tài khoản' : ''" @action="$router.push({ name: 'banks-create' })" />
             </div>
             <ModalShowBank :transactions="transactions" :bank="bank_show"></ModalShowBank>
             <div class="edu-paginate mx-auto text-center" v-if="!loading && banks.length">
@@ -107,7 +107,7 @@ import {mapGetters} from "vuex";
 import {EXPORT_BANK} from "@/core/services/store/exports.module";
 import {SET_BREADCRUMB} from "@/core/services/store/breadcrumbs.module";
 import Swal from "sweetalert2";
-import {BANK_DELETE,BANK_INDEX} from "@/core/services/store/banks.module";
+import {BANK_DELETE,BANK_INDEX,BANK_SHOW} from "@/core/services/store/banks.module";
 import ModalShowBank from "./ModalShowBank";
 import queryMixin from '@/utils/queryMixin.js';
 import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";
@@ -166,7 +166,13 @@ export default {
     methods: {
         showBankPopup(item){
             this.bank_show = item;
-            this.transactions = item.transactions;
+            this.transactions = [];
+            this.$store.dispatch(BANK_SHOW, item.id).then((response) => {
+                this.bank_show = response.data;
+                this.transactions = response.data.transactions || [];
+            }).catch((error) => {
+                this.noticeMessage('error', 'Thất bại', getApiMessage(error));
+            });
         },
         getList() {
             this.loading = true;

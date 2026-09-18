@@ -2,7 +2,7 @@
   <div class="himoto-empty-state py-5 text-center">
     <h3 class="empty-title font-weight-bolder text-dark">{{ title }}</h3>
     <p class="empty-description">{{ description }}</p>
-    <div v-if="showAction || $slots.action" class="empty-actions">
+    <div v-if="hasAction || $slots.action" class="empty-actions">
       <slot name="action">
         <button type="button" class="btn btn-primary" @click="$emit('action')">
           {{ actionText }}
@@ -30,7 +30,12 @@ export default {
     },
     actionText: {
       type: String,
-      default: "Thêm mới"
+      default: ""
+    }
+  },
+  computed: {
+    hasAction() {
+      return this.showAction || Boolean(this.actionText && this.$listeners.action);
     }
   }
 };

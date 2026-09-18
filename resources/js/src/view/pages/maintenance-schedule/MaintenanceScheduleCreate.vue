@@ -73,6 +73,7 @@ import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import { VEHICLE_GET_ALL, MAINTENANCE_TYPE_GET_ALL, MAINTENANCE_SCHEDULE_CREATE, MAINTENANCE_SCHEDULE_GET_ALL } from "@/core/services/store/vehicle.module";
 import moment from "moment";
 import ErrorMessage from "../../pages/common/ErrorMessage";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 
 
 
@@ -163,14 +164,11 @@ export default {
                 this.$emit('createSuccess');
 
             }).catch((e) => {
-                if (e.data.data.message_validate_form) {
-                    if (e.data.data?.message_validate_form['avatar'] || e.data.data?.message_validate_form['background_avatar']) {
-                        let message = e.data.data?.message_validate_form['avatar'] ? 'Ảnh đại diện' : 'Ảnh bìa';
-                        this.$message.error(`${message} quá dung lượng vui lòng thử lại.`);
-                    }
-                    this.$refs.form.setErrors(e.data.data.message_validate_form);
+                const errors = getApiValidationErrors(e);
+                if (errors) {
+                    this.$refs.form.setErrors(errors);
                 } else {
-                    this.noticeMessage('error', 'Thất bại', e.data?.message);
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(e));
                 }
             }).finally(() => this.loading = false);
         },

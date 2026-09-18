@@ -127,7 +127,7 @@ export default {
             showModalCreate: false,
             moment: moment,
 
-            page: +restQuery?.page || 1,
+            page: +page || 1,
             last_page: 1,
             maintenanceLogs: [],
             stats: null,
@@ -165,7 +165,8 @@ export default {
         },
 
         search() {
-            // this.pushParamsUrl();
+            this.page = 1;
+            this.pushParamsUrl();
             this.getList();
 
         },
@@ -176,7 +177,7 @@ export default {
                     page: this.page,
                     ...this.query,
                 },
-            });
+            }).catch(() => {});
         },
         formatValue(...values) {
             let res = values.reduce((acc, item) => {
@@ -207,10 +208,7 @@ export default {
         },
         clickCallback(obj) {
             this.page = obj;
-            this.$router.push({
-                path: "",
-                query: { page: this.page },
-            });
+            this.pushParamsUrl();
             this.getList();
         },
 

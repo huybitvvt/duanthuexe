@@ -117,11 +117,16 @@ class TransactionService
             $query = $query->whereDate('created_at', '<=', $end_date);
         }
 
-        $nodes = $query->get();
-        $bank_ids = array();
-        $all_in = 0;
-        $all_out = 0;
-        $all_addon = 0;
+        $nodes = $query
+            ->select(['bank_id', 'payment_method'])
+            ->selectRaw("SUM(CASE WHEN type = 'in' THEN value ELSE 0 END) AS type_in")
+            ->selectRaw("SUM(CASE WHEN type = 'out' THEN value ELSE 0 END) AS type_out")
+            ->selectRaw("SUM(CASE WHEN type = 'addon' THEN value ELSE 0 END) AS type_addon")
+            ->groupBy('bank_id', 'payment_method')
+            ->get();
+        $all_in = 0.0;
+        $all_out = 0.0;
+        $all_addon = 0.0;
 
         $cash = [
             'type_in' => 0,
@@ -129,15 +134,16 @@ class TransactionService
             'type_out' => 0,
         ];
 
-        $banks = array();
-        for ($i = 0; $i < count($nodes); $i++) {
-            $node = $nodes[$i];
-            $res = $this->calcuVal($node);
-            
+        $banks = [];
+        foreach ($nodes as $node) {
+            $typeIn = (float) $node->type_in;
+            $typeOut = (float) $node->type_out;
+            $typeAddon = (float) $node->type_addon;
+
             if (is_null($node->payment_method) || $node->payment_method == 1 ) {
-                $cash['type_in'] += $res['val_in'];
-                $cash['type_addon'] += $res['val_addon'];
-                $cash['type_out'] += $res['val_out'];
+                $cash['type_in'] += $typeIn;
+                $cash['type_addon'] += $typeAddon;
+                $cash['type_out'] += $typeOut;
             } else if (!is_null($node->bank_id)) {
                 $key = $node->bank_id;
                 if (empty($banks[$key])) {
@@ -147,26 +153,24 @@ class TransactionService
                         'type_out' => 0
                     ];
                 }
-                $banks[$node->bank_id]['type_in'] += $res['val_in'];
-                $banks[$node->bank_id]['type_addon'] += $res['val_addon'];
-                $banks[$node->bank_id]['type_out'] += $res['val_out'];
-                array_push($bank_ids, $node->bank_id);
+                $banks[$key]['type_in'] += $typeIn;
+                $banks[$key]['type_addon'] += $typeAddon;
+                $banks[$key]['type_out'] += $typeOut;
             }
 
-            $all_in += $res['val_in'];
-            $all_addon += $res['val_addon'];
-            $all_out += $res['val_out'];
+            $all_in += $typeIn;
+            $all_addon += $typeAddon;
+            $all_out += $typeOut;
 
         }
-        $bank_ids = array_unique($bank_ids);
-        $list_bank = array();
-        if (count($bank_ids) > 0) {
-            $list_bank = Bank::query()->whereIn('id', $bank_ids)->get();
+        $list_bank = collect();
+        $bankIds = array_keys($banks);
+        if (count($bankIds) > 0) {
+            $list_bank = Bank::query()->whereIn('id', $bankIds)->get();
         }
 
-        for ($i = 0; $i < count($list_bank); $i++) {
-            $bank = $list_bank[$i];
-            $map = $banks[$bank->id];
+        foreach ($list_bank as $bank) {
+            $map = $banks[$bank->id] ?? null;
             if (!empty($map)) {
                 $bank['type_in'] = $map['type_in'];
                 $bank['type_out'] = $map['type_out'];

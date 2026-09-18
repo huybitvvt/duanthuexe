@@ -157,6 +157,7 @@
 
 import {SET_BREADCRUMB} from "@/core/services/store/breadcrumbs.module";
 import {CUSTOMER_SHOW, CUSTOMER_UPDATE} from "@/core/services/store/customers.module";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 
 export default {
     name: "CustomerUpdate",
@@ -193,14 +194,11 @@ export default {
                     this.noticeMessage('success', 'Thành công', res.message);
                 })
             }).catch((e) => {
-                if (e.data.data.message_validate_form) {
-                    if (e.data.data?.message_validate_form['avatar'] || e.data.data?.message_validate_form['background_avatar']) {
-                        let message = e.data.data?.message_validate_form['avatar'] ? 'Ảnh đại diện' : 'Ảnh bìa';
-                        this.$message.error(`${message} quá dung lượng vui lòng thử lại.`);
-                    }
-                    this.$refs.form.setErrors(e.data.data.message_validate_form);
+                const errors = getApiValidationErrors(e);
+                if (errors) {
+                    this.$refs.form.setErrors(errors);
                 } else {
-                    this.noticeMessage('error', 'Thất bại', e.data?.message);
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(e));
                 }
             }).finally(() => this.loading = false);
         },

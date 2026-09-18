@@ -72,6 +72,12 @@ class VehicleController extends Controller
             'price_max' => 'nullable|integer',
             'type_of_service_id' => 'required|integer',
         ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Dữ liệu xe không hợp lệ.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
         $request->merge(['created_by' => auth()->id()]);
         $vehicle = $this->vehicleService->store($request->all());
 
@@ -114,6 +120,12 @@ class VehicleController extends Controller
             'price_max' => 'nullable|integer',
             'type_of_service_id' => 'required|integer',
         ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Dữ liệu xe không hợp lệ.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
         $vehicle = $this->vehicleService->update($request->id, $request->all());
 
 		$image_ids = $request->get('image_ids');

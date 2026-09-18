@@ -52,11 +52,17 @@ class BankRepositoryEloquent extends BaseRepository implements BankRepository
         $banks = $this->getBanks($params);
 
         $paginator = $banks->orderBy('banks.id', 'DESC')->paginate(config('app.paginate', 20));
-        $paginator->getCollection()->transform(function($bank){
-            $bank = $this->addTransactionToBank($bank);
+        $bankIds = $paginator->getCollection()->pluck('id');
+        $balances = Transaction::whereIn('bank_id', $bankIds)
+            ->select('bank_id')
+            ->selectRaw("SUM(CASE WHEN type = 'out' THEN -value ELSE value END) AS balance")
+            ->groupBy('bank_id')
+            ->pluck('balance', 'bank_id');
+
+        $paginator->getCollection()->transform(function($bank) use ($balances) {
+            $bank->current_balance = (float) $bank->opening_balance + (float) $balances->get($bank->id, 0);
             return $bank;
-        }
-        );
+        });
 
         return $paginator;
         
@@ -64,13 +70,11 @@ class BankRepositoryEloquent extends BaseRepository implements BankRepository
     }
   
     public function   addTransactionToBank($bank) {
-        $transactions =  Transaction::where('bank_id', $bank->id)->get(); 
-        $transactionsArray = $transactions->toArray();
-
-        usort($transactionsArray, function($a, $b) {
-            return $b['id'] - $a['id']; 
-        }); 
-        $bank->transactions = $transactionsArray;
+        $transactions = $bank->relationLoaded('transactions')
+            ? $bank->transactions
+            : Transaction::where('bank_id', $bank->id)->get();
+        $transactions = $transactions->sortByDesc('id')->values();
+        $bank->setRelation('transactions', $transactions);
         $sum = $transactions->sum(function ($transaction) {
         
                 return $transaction->type === 'out' ? -1 * $transaction->value : $transaction->value;
@@ -95,10 +99,12 @@ class BankRepositoryEloquent extends BaseRepository implements BankRepository
 
 
         // search
-        if (isset($params['keyword']) ) {
+        if (!empty($params['keyword'])) {
             $keyword = $params['keyword'];
-            $banks->where('owner_name', 'LIKE', '%' . $keyword . '%')
-                    ->orWhere('account_number', $keyword);
+            $banks->where(function ($query) use ($keyword) {
+                $query->where('banks.owner_name', 'LIKE', '%' . $keyword . '%')
+                    ->orWhere('banks.account_number', $keyword);
+            });
         }
 		
 		if ( isset( $params['account_type'] ) ) {
@@ -114,7 +120,7 @@ class BankRepositoryEloquent extends BaseRepository implements BankRepository
      
         if ( isset($params['store_id'])  ) {
             $store_id = $params['store_id'];
-            $banks->where('store_id', $store_id);
+            $banks->where('banks.store_id', $store_id);
         }
         // end search
         return $banks;
@@ -176,7 +182,7 @@ class BankRepositoryEloquent extends BaseRepository implements BankRepository
             'user_id' => Auth::id(),
             
             'payment_method'=>2,
-            'bank_id' => $request->get('id'),
+            'bank_id' => $bank->id,
             
         ];
         Transaction::create($dataTransaction);

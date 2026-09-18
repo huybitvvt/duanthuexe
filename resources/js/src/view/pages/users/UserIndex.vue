@@ -5,7 +5,7 @@
                 <div class="card-title">
                     <h3 class="card-label">Danh sách nhân sự</h3>
                 </div>
-                <div class="card-title">
+                <div v-if="currentUser.role_id === 1" class="card-title">
                     <ModalUserCreate @storeSuccess="getList"></ModalUserCreate>
                 </div>
             </div>
@@ -164,7 +164,7 @@
                                     <th scope="col" class="min-w-120px">
                                         Trạng thái
                                     </th>
-                                    <th scope="col">Hành động</th>
+                                    <th v-if="currentUser.role_id === 1" scope="col">Hành động</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -174,7 +174,7 @@
                                         <span>{{ item.name }}<br /></span>
                                     </td>
                                     <td>{{ item.email }}</td>
-                                    <td>
+                                    <td v-if="currentUser.role_id === 1">
                                         {{
                                             item.role_rel
                                                 ? item.role_rel.name

@@ -179,7 +179,7 @@ class LeaseOwnershipWorkflowTest extends TestCase
 
     public function test_complete_transfer_lifecycle_when_fully_paid(): void
     {
-        putenv('HIMOTO_ENABLE_OWNERSHIP_EXECUTE=true');
+        config(['contract.ownership_execute_enabled' => true]);
 
         try {
         // Simulate fully paid obligations, including period 0 deposit.
@@ -250,7 +250,7 @@ class LeaseOwnershipWorkflowTest extends TestCase
         $retry = $this->service->executeTransfer($approved->id, $this->admin, 'Thử lại', 'IDEMP-TRANSFER-001');
         $this->assertEquals($executed->id, $retry->id);
         } finally {
-            putenv('HIMOTO_ENABLE_OWNERSHIP_EXECUTE');
+            config(['contract.ownership_execute_enabled' => false]);
         }
     }
 
@@ -276,7 +276,7 @@ class LeaseOwnershipWorkflowTest extends TestCase
         $approved = $this->service->approve($submitted->id, $this->director, 'Đã duyệt');
 
         // 2. Lock via feature flag
-        putenv('HIMOTO_ENABLE_OWNERSHIP_EXECUTE=false');
+        config(['contract.ownership_execute_enabled' => false]);
 
         try {
             $this->service->executeTransfer($approved->id, $this->admin, 'Thực thi');
@@ -284,8 +284,6 @@ class LeaseOwnershipWorkflowTest extends TestCase
         } catch (ValidationException $e) {
             $this->assertTrue(true);
             $this->assertArrayHasKey('feature_flag', $e->errors());
-        } finally {
-            putenv('HIMOTO_ENABLE_OWNERSHIP_EXECUTE');
         }
     }
 

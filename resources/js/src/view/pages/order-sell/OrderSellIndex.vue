@@ -185,6 +185,8 @@ import {
 import ModalOrderSellEdit from "./ModalOrderSellEdit";
 import Swal from "sweetalert2";
 import queryMixin from '@/utils/queryMixin.js';
+import { normalizePaginator } from "@/utils/paginatorAdapter";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 
 export default {
     mixins: [queryMixin],
@@ -226,7 +228,8 @@ export default {
     },
     methods: {
         search() {
-            // this.pushParamsUrl();
+            this.page = 1;
+            this.pushParamsUrl();
             this.getList();
             this.getReport();
         },
@@ -236,13 +239,14 @@ export default {
                     page: this.page,
                     ...this.query
                 }
-            })
+            }).catch(() => {})
         },
         getList() {
             this.is_loading_search = true;
-            this.$store.dispatch(ORDER_SELL_GET_ALL, this.query).then(data => {
-                this.orders = data.data;
-                this.last_page = data.data.last_page;
+            this.$store.dispatch(ORDER_SELL_GET_ALL, { page: this.page, ...this.query }).then(data => {
+                const paginated = normalizePaginator(data);
+                this.orders = paginated.items;
+                this.last_page = paginated.lastPage;
             }).finally(() => {
                 this.is_loading_search = false;
             });
@@ -254,7 +258,7 @@ export default {
         },
         clickCallback(obj) {
             this.page = obj;
-            this.$router.push({ path: "", query: { page: this.page } });
+            this.pushParamsUrl();
             this.getList();
         },
         getStore() {
@@ -277,7 +281,7 @@ export default {
                             this.getList();
                             this.$message.success(data.message);
                         }).catch((e) => {
-                            this.$message.error(e.data.message);
+                            this.$message.error(getApiMessage(e));
                         });
                 }
             });

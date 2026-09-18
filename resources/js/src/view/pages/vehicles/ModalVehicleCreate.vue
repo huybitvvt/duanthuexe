@@ -535,6 +535,7 @@ import {
 } from "../../../option/vehicle";
 import { VEHICLE_CREATE } from "../../../core/services/store/vehicle.module";
 import ErrorMessage from "../common/ErrorMessage";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 
 export default {
     name: "ModalVehicleCreate",
@@ -661,13 +662,12 @@ export default {
 			})
 			.catch((e) => {
 				this.$notify({
-					title: e.data.message,
+					title: getApiMessage(e),
 					type: "error",
 				});
-				if (e.response.data.data.message_validate_form) {
-					this.$refs.form.setErrors(
-						e.response.data.data.message_validate_form,
-					);
+				const errors = getApiValidationErrors(e);
+				if (errors) {
+					this.$refs.form.setErrors(errors);
 				}
 			});
         },

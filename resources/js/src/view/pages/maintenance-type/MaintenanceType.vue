@@ -58,7 +58,7 @@
 
 
                                     <td class="text-center">
-                                        <button class="btn btn-xs btn-outline-danger font-weight-bold" title="Xóa hình thức bảo dưỡng"
+                                        <button v-if="currentUser.role_id === 1" class="btn btn-xs btn-outline-danger font-weight-bold" title="Xóa hình thức bảo dưỡng"
                                             @click="deleteType(item.id, index)">Xóa</button>
                                     </td>
                                 </tr>
@@ -95,6 +95,7 @@ import { MAINTENANCE_RULE_CREATE, MAINTENANCE_RULE_DELETE, MAINTENANCE_RULE_UPDA
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import { TYPE_VEHICLE } from "@/option/vehicle";
 import { MAINTENANCE_TYPE_GET_ALL, MAINTENANCE_TYPE_CREATE, MAINTENANCE_TYPE_DELETE, MAINTENANCE_TYPE_UPDATE, MAINTENANCE_TYPE_INDEX } from "@/core/services/store/vehicle.module";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 
 export default {
     name: "MaintenanceRule",
@@ -161,7 +162,7 @@ export default {
                 this.getMaintenanceRules();
                 this.noticeMessage('success', 'Thành công', 'Cập nhật cài đặt thành công');
             }).catch((err) => {
-                this.noticeMessage('error', 'Thất bại', err.data?.message);
+                this.noticeMessage('error', 'Thất bại', getApiMessage(err));
             }).finally(() => this.loadingComplete1 = false);
         },
         deleteRule(ruleId, index) {
@@ -175,8 +176,10 @@ export default {
                     if (!ruleId) return this.maintenanceRules.splice(index, 1);
                     this.$store.dispatch(MAINTENANCE_RULE_DELETE, ruleId).then(() => {
                         this.getMaintenanceRules();
+                        this.noticeMessage('success', 'Thành công', 'Xóa cài đặt thành công');
+                    }).catch((err) => {
+                        this.noticeMessage('error', 'Thất bại', getApiMessage(err));
                     });
-                    this.noticeMessage('success', 'Thành công', 'Xóa cài đặt thành công');
                 }
             })
         },
@@ -192,10 +195,10 @@ export default {
             this.loadingComplete2 = true;
             let params = this.maintenance_types;
             this.$store.dispatch(MAINTENANCE_TYPE_UPDATE, params).then(() => {
-                this.getMaintenanceRules();
+                this.getMaintenanceTypes();
                 this.noticeMessage('success', 'Thành công', 'Cập nhật hình thức bảo dưỡng thành công');
             }).catch((err) => {
-                this.noticeMessage('error', 'Thất bại', err.data?.message);
+                this.noticeMessage('error', 'Thất bại', getApiMessage(err));
             }).finally(() => this.loadingComplete2 = false);
         },
         deleteType(ruleId, index) {
@@ -209,8 +212,10 @@ export default {
                     if (!ruleId) return this.maintenance_types.splice(index, 1);
                     this.$store.dispatch(MAINTENANCE_TYPE_DELETE, ruleId).then(() => {
                         this.getMaintenanceTypes();
+                        this.noticeMessage('success', 'Thành công', 'Xóa hình thức bảo dưỡng thành công');
+                    }).catch((err) => {
+                        this.noticeMessage('error', 'Thất bại', getApiMessage(err));
                     });
-                    this.noticeMessage('success', 'Thành công', 'Xóa hình thức bảo dưỡng thành công');
                 }
             })
         },

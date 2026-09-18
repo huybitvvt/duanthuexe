@@ -13,10 +13,8 @@ class Cash extends Model
     protected $table = 'cash';
     protected $fillable = [
         'store_id',
-        'name',
         'status',
         'opening_balance',
-        'current_balance',
     ];
     public function transactions(): HasMany
     {

@@ -103,7 +103,7 @@
 import { mapGetters } from "vuex";
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import Swal from "sweetalert2";
-import { CUSTOMER_DELETE, CUSTOMER_INDEX } from "@/core/services/store/customers.module";
+import { CUSTOMER_DELETE, CUSTOMER_INDEX, CUSTOMER_SHOW } from "@/core/services/store/customers.module";
 import { getTextShort } from '../../../utils';
 import ModalShowCustomer from "./ModalShowCustomer";
 import { ORDER_STATUS_DEFINE } from '../../../option/orderOption';
@@ -162,7 +162,14 @@ export default {
     },
     methods: {
         showPopup(item) {
-            this.customer_show = item;
+            this.customer_show = { ...item, orders: [] };
+            this.$store.dispatch(CUSTOMER_SHOW, item.id)
+                .then((response) => {
+                    this.customer_show = response.data;
+                })
+                .catch((error) => {
+                    this.noticeMessage('error', 'Thất bại', getApiMessage(error));
+                });
         },
         getWarning(str) {
             return getTextShort(str);

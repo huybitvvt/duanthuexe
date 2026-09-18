@@ -339,6 +339,7 @@ import { VEHICLE_UPDATE } from "../../../core/services/store/vehicle.module";
 import MaintenanceLog from "./single/MaintenanceLog";
 import MaintenanceSetting from "./single/MaintenanceSetting";
 import ErrorMessage from "../common/ErrorMessage";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 export default {
     name: "ModalVehicleEdit",
     components: {
@@ -436,9 +437,10 @@ export default {
                 cancelButtonText: "Không",
             }).then((result) => {
                 if (result.isConfirmed) {
-
-                    this.maintenance_settings.splice(index, 1);
-                    this.maintenance_settings_to_destroy.push(index);
+                    const removed = this.maintenance_settings.splice(index, 1)[0];
+                    if (removed && removed.id) {
+                        this.maintenance_settings_to_destroy.push(removed.id);
+                    }
                 }
             });
         },
@@ -488,13 +490,12 @@ export default {
                 })
                 .catch((e) => {
                     this.$notify({
-                        title: e.data.message,
+                        title: getApiMessage(e),
                         type: "error",
                     });
-                    if (e.response.data.data.message_validate_form) {
-                        this.$refs.form.setErrors(
-                            e.response.data.data.message_validate_form,
-                        );
+                    const errors = getApiValidationErrors(e);
+                    if (errors) {
+                        this.$refs.form.setErrors(errors);
                     }
                 });
         },

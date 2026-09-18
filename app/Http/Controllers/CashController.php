@@ -31,8 +31,8 @@ class CashController extends Controller
     public function all(Request $request):  JsonResponse
      {
         $query = $this->getAllCash();
-        $query->orderBy('id', 'DESC')->get();
-        return $this->successResponse($query);
+        $items = $query->orderBy('cash.id', 'DESC')->get();
+        return $this->successResponse($items);
      }
      public function getFilteredCash($params){
         $query = $this->getAllCash();
@@ -44,18 +44,16 @@ class CashController extends Controller
 
        
         if (isset ( $params['store_id'])) {
-            $query->where('store_id', $params['store_id']);
+            $query->where('cash.store_id', $params['store_id']);
         }
         return $query;
      }
      public function addTransactionsToCash($item){
-        $transactions =  Transaction::where('cash_id', $item->id)->get(); 
-        $transactionsArray = $transactions->toArray();
-
-        usort($transactionsArray, function($a, $b) {
-            return $b['id'] - $a['id']; 
-        }); 
-        $item->transactions = $transactionsArray;
+        $transactions = $item->relationLoaded('transactions')
+            ? $item->transactions
+            : Transaction::where('cash_id', $item->id)->get();
+        $transactions = $transactions->sortByDesc('id')->values();
+        $item->setRelation('transactions', $transactions);
         $sum = $transactions->sum(function ($transaction) {
         
                 return $transaction->type === 'out' ? -1 * $transaction->value : $transaction->value;
@@ -75,8 +73,16 @@ class CashController extends Controller
 
         $paginator = $query->orderBy('cash.id', 'DESC')->paginate(config('app.paginate', 20));
 
-        $paginator->getCollection()->transform(function ($item) {
-            return $this->addTransactionsToCash($item);
+        $cashIds = $paginator->getCollection()->pluck('id');
+        $balances = Transaction::whereIn('cash_id', $cashIds)
+            ->select('cash_id')
+            ->selectRaw("SUM(CASE WHEN type = 'out' THEN -value ELSE value END) AS balance")
+            ->groupBy('cash_id')
+            ->pluck('balance', 'cash_id');
+
+        $paginator->getCollection()->transform(function ($item) use ($balances) {
+            $item->current_balance = (float) $item->opening_balance + (float) $balances->get($item->id, 0);
+            return $item;
         });
         return $this->successResponse($paginator);
       
@@ -109,8 +115,7 @@ class CashController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-      
-        $data = $request->all();
+        $data = $request->only(['store_id', 'opening_balance', 'status']);
         $instance =  Cash::create($data);
         return $this->successResponse($instance);
     }
@@ -122,11 +127,8 @@ class CashController extends Controller
      */
     public function update(Request $request, Cash $cash): JsonResponse
     {
-      
-        $data = $request->all();
-        // dd($data);
         $this->changeCurrentBalance($request,$cash);
-        $cash->update($data);
+        $cash->update($request->only(['store_id', 'opening_balance', 'status']));
    
         return $this->successResponse();
        
@@ -165,7 +167,7 @@ class CashController extends Controller
             'user_id' => Auth::id(),
             
             'payment_method'=>1,
-            'cash_id' => $request->get('id'),
+            'cash_id' => $cash->id,
             
         ];
    
@@ -187,6 +189,3 @@ class CashController extends Controller
 
 
  
-
-
-

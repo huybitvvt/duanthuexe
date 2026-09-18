@@ -38,6 +38,10 @@ class CustomerController extends Controller
      */
     public function show(Customer $customer): JsonResponse
     {
+        $customer->load(['orders' => function ($query) {
+            $query->orderBy('id', 'DESC');
+        }]);
+
         return $this->successResponse($customer);
     }
 

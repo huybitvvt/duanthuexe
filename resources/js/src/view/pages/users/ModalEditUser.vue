@@ -186,6 +186,7 @@ import { ROLE_GET_ALL } from "../../../core/services/store/role.module";
 import { USER_UPDATE } from "../../../core/services/store/user.module";
 import UserChangePassword from "./components/UserChangePassword";
 import { isRole } from "../../../utils";
+import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
 
 export default {
     name: "ModalUserEdit",
@@ -296,11 +297,10 @@ export default {
                     this.$bvModal.hide("modal-user-edit");
                 })
                 .catch((e) => {
-                    this.$message.error(e.data.message);
-                    if (e.response.data.data.message_validate_form) {
-                        this.$refs.form.setErrors(
-                            e.response.data.data.message_validate_form,
-                        );
+                    this.$message.error(getApiMessage(e));
+                    const errors = getApiValidationErrors(e);
+                    if (errors) {
+                        this.$refs.form.setErrors(errors);
                     }
                 });
         },
