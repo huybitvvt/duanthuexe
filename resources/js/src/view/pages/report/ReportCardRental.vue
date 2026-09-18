@@ -160,7 +160,10 @@ export default {
     },
 	computed: {
 		totalInForAllStores() {
-			return parseInt(this.reports_all_stores.total_deposit) + parseInt(this.reports_all_stores.total_renew) + parseInt(this.reports_all_stores.total_rental_fees);
+			const dep = parseInt(this.reports_all_stores && this.reports_all_stores.total_deposit) || 0;
+			const ren = parseInt(this.reports_all_stores && this.reports_all_stores.total_renew) || 0;
+			const fee = parseInt(this.reports_all_stores && this.reports_all_stores.total_rental_fees) || 0;
+			return dep + ren + fee;
 		},
 	},
     mounted() {
@@ -250,18 +253,20 @@ export default {
 		},
 		getLongestData(store_report) {
 			if ( store_report ) {
+				const dateMap = {};
 				const keys = Object.keys(store_report);
-				let longest_data_length = 0;
-				let longest_data;
-
 				for (const key of keys) {
 					let values = store_report[key];
-					if (values.length > longest_data_length) {
-						longest_data = values;
-						longest_data_length = values.length;
+					if (Array.isArray(values)) {
+						values.forEach(v => {
+							if (v && v.date) {
+								dateMap[v.date] = true;
+							}
+						});
 					}
 				}
-				return longest_data;
+				const dates = Object.keys(dateMap).sort().reverse();
+				return dates.map(d => ({ date: d }));
 			}
 			return [];
 		},
@@ -271,7 +276,9 @@ export default {
 				params['store_id'] = store_id;
 				this.$store.dispatch(REPORT_CAR_RENTAL_DAY_BY_DAY, params).then((data) => {
 					store_id = parseInt(store_id);
-					this.reports['store_' + store_id]['data'] = data.data;
+					if (this.reports['store_' + store_id]) {
+						this.$set(this.reports['store_' + store_id], 'data', data.data);
+					}
 				});
 
 				const index = this.collapse_opened_ids.indexOf(store_id);
@@ -309,9 +316,9 @@ export default {
 					store_id = parseInt(store_id);
 
 					if (!this.reports['store_' + store_id]) {
-						this.reports['store_' + store_id] = {};
+						this.$set(this.reports, 'store_' + store_id, { data: [] });
 					}
-					this.reports['store_' + store_id]['data'] = data.data;
+					this.$set(this.reports['store_' + store_id], 'data', data.data);
 					resolve();
 				});
 			});
