@@ -82,7 +82,11 @@ docker run --rm php:7.4-cli php -r "echo 'base64:'.base64_encode(random_bytes(32
 - `MIX_API_URL`: URL HTTPS của `himoto-api`, không thêm `/api` ở cuối.
 
 Sau khi có URL của cả hai dịch vụ, cập nhật hai biến URL trên và deploy lại cả hai.
-Backend sẽ tự chạy các migration còn thiếu vì `RUN_MIGRATIONS=true`. Kiểm tra:
+Blueprint hiện đặt `RUN_MIGRATIONS=false`, nên backend không tự chạy migration khi deploy.
+Sau khi thử trên bản sao staging, chạy thủ công migration cần thiết với `DATABASE_URL`
+của môi trường đích. Với index doanh thu theo xe, kiểm tra trạng thái bằng
+`php scripts/check_vehicle_revenue_index.php` sau khi nạp biến môi trường.
+Kiểm tra sức khỏe backend tại:
 
 ```text
 https://<backend-render>/api/health
