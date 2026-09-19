@@ -15,19 +15,19 @@ export const EXPORT_CASH = "export_cash";
 const state = {};
 
 const getters = {};
-const downloadExcel = async (url, filename,params)=>{
+const downloadExcel = (url, filename, params) => {
     return new Promise((resolve, reject) => {
-        ApiService.download(url,params)
-            .then(({ data }) => {
-                // Create a blob object from the response data
-                const blob = new Blob([data], {
+        ApiService.download(url, params)
+            .then((response) => {
+                const data = response?.data !== undefined ? response.data : response;
+                const blob = data instanceof Blob ? data : new Blob([data], {
                     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 });
-                const url = window.URL.createObjectURL(blob);
+                const objectUrl = window.URL.createObjectURL(blob);
 
                 // Create a temporary link element
                 const link = document.createElement("a");
-                link.href = url;
+                link.href = objectUrl;
                 link.setAttribute("download", filename);
 
                 // Simulate a click on the link to trigger the download
@@ -35,83 +35,46 @@ const downloadExcel = async (url, filename,params)=>{
                 link.click();
 
                 // Cleanup
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(link);
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(objectUrl);
+                    if (link.parentNode) {
+                        link.parentNode.removeChild(link);
+                    }
+                }, 1000);
 
-                resolve(); // Resolve the promise
+                resolve(response);
             })
-            .catch(({ response }) => {
-                reject(response); // Reject the promise with error response
+            .catch((error) => {
+                reject(error?.response?.data || error?.response || error);
             });
     });
 };
-const actions = {
-    async   [EXPORT_CUSTOMERS](context, params) {
-        try {
-            const res = await downloadExcel(`/api/auth/export/customers`, 'customers.xlsx',params);
-            return res;  
-        } catch (error) {
-            return error;  
-        }
-    },
-    async  [EXPORT_VEHICLES](context, params) {
-        try {
-            const res = await downloadExcel(`/api/auth/export/vehicles`, 'vehicles.xlsx',params);
-            return res;  
-        } catch (error) {
-            return error;  
-        }
-    },
-    async  [EXPORT_TRANSACTIONS](context, params) {
-        try {
-            const res = await downloadExcel(`/api/auth/export/transactions`, 'transactions.xlsx',params);
-            return res;  
-        } catch (error) {
-            return error;  
-        }
-    },
-    async  [EXPORT_ORDERS](context, params) {
-        try {
-            const res = await downloadExcel(`/api/auth/export/orders`, 'orders.xlsx',params);
-            return res;  
-        } catch (error) {
-            return error;  
-        }
-    },
-    async  [EXPORT_GENERAL_REPORT](context, params) {
-        try {
-            const res = await downloadExcel(`/api/auth/export/general_reports`, 'general_reports.zip',params);
-            return res;  
-        } catch (error) {
-            return error;  
-        }
-    },
-    async  [EXPORT_VEHICLE_REVENUE](context, params) {
-        try {
-            const res = await downloadExcel(`/api/auth/export/vehicle_revenue`, 'vehicle_revenue.xlsx',params);
-            return res;  
-        } catch (error) {
-            return error;  
-        }
-    },   
-     async  [EXPORT_BANK](context, params) {
-        try {
-            const res = await downloadExcel(`/api/auth/export/banks`, 'banks.xlsx',params);
-            return res;  
-        } catch (error) {
-            return error;  
-        }
-    },
-    async  [EXPORT_CASH](context, params) {
-        try {
-            const res = await downloadExcel(`/api/auth/export/cash`, 'cash.xlsx',params);
-            return res;  
-        } catch (error) {
-            return error;  
-        }
-    },
 
-    
+const actions = {
+    [EXPORT_CUSTOMERS](context, params) {
+        return downloadExcel(`/api/auth/export/customers`, 'customers.xlsx', params);
+    },
+    [EXPORT_VEHICLES](context, params) {
+        return downloadExcel(`/api/auth/export/vehicles`, 'vehicles.xlsx', params);
+    },
+    [EXPORT_TRANSACTIONS](context, params) {
+        return downloadExcel(`/api/auth/export/transactions`, `lich-su-thu-chi-${Date.now()}.xlsx`, params);
+    },
+    [EXPORT_ORDERS](context, params) {
+        return downloadExcel(`/api/auth/export/orders`, 'orders.xlsx', params);
+    },
+    [EXPORT_GENERAL_REPORT](context, params) {
+        return downloadExcel(`/api/auth/export/general_reports`, 'general_reports.zip', params);
+    },
+    [EXPORT_VEHICLE_REVENUE](context, params) {
+        return downloadExcel(`/api/auth/export/vehicle_revenue`, 'vehicle_revenue.xlsx', params);
+    },   
+    [EXPORT_BANK](context, params) {
+        return downloadExcel(`/api/auth/export/banks`, 'banks.xlsx', params);
+    },
+    [EXPORT_CASH](context, params) {
+        return downloadExcel(`/api/auth/export/cash`, 'cash.xlsx', params);
+    },
 };
 
 const mutations = {};

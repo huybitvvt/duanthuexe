@@ -4,10 +4,18 @@
             <div class="card-title">
                 <h3 class="card-label">Lịch sử thu chi</h3>
             </div>
-            <div class="card-title">
-                <button class="btn btn-success" @click="exportFile">Export</button>
+            <div class="card-toolbar">
+                <button 
+                    type="button"
+                    class="btn btn-success font-weight-bolder d-inline-flex align-items-center" 
+                    :disabled="exporting"
+                    @click="exportFile"
+                >
+                    <i v-if="exporting" class="fa fa-spinner fa-spin mr-2"></i>
+                    <i v-else class="fa fa-file-excel mr-2"></i>
+                    <span>{{ exporting ? 'Đang xuất...' : 'Export' }}</span>
+                </button>
             </div>
-
         </div>
         <div>
             <div class="card card-custom gutter-b">
@@ -18,38 +26,24 @@
                             <!-- 2 Khung hiển thị Tổng Thu và Tổng Chi -->
                             <div class="row">
                                 <div class="col-md-6 mb-3 mb-md-0">
-                                    <div class="stats-box stats-box-in p-4 rounded border h-100 d-flex align-items-center justify-content-between shadow-xs">
-                                        <div>
-                                            <span class="text-dark font-weight-bolder font-size-sm text-uppercase d-block mb-1">
-                                                <i class="fa fa-arrow-circle-down text-success mr-1 font-size-base"></i> Tổng Thu
-                                            </span>
-                                            <span class="font-size-h3 font-weight-bolder text-success">
-                                                {{ (stats.all_in + stats.all_addon) | formatPrice }}
-                                            </span>
-                                        </div>
-                                        <div class="symbol symbol-50 symbol-light-success">
-                                            <span class="symbol-label">
-                                                <i class="fa fa-money-bill-wave text-success font-size-h4"></i>
-                                            </span>
-                                        </div>
+                                    <div class="stats-box stats-box-in p-4 rounded border h-100 shadow-xs">
+                                        <span class="text-dark font-weight-bolder font-size-sm text-uppercase d-block mb-1">
+                                            Tổng Thu
+                                        </span>
+                                        <span class="font-size-h3 font-weight-bolder text-success">
+                                            {{ (stats.all_in + stats.all_addon) | formatPrice }}
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div class="col-md-6">
-                                    <div class="stats-box stats-box-out p-4 rounded border h-100 d-flex align-items-center justify-content-between shadow-xs">
-                                        <div>
-                                            <span class="text-dark font-weight-bolder font-size-sm text-uppercase d-block mb-1">
-                                                <i class="fa fa-arrow-circle-up text-danger mr-1 font-size-base"></i> Tổng Chi
-                                            </span>
-                                            <span class="font-size-h3 font-weight-bolder text-danger">
-                                                {{ stats.all_out | formatPrice }}
-                                            </span>
-                                        </div>
-                                        <div class="symbol symbol-50 symbol-light-danger">
-                                            <span class="symbol-label">
-                                                <i class="fa fa-hand-holding-usd text-danger font-size-h4"></i>
-                                            </span>
-                                        </div>
+                                    <div class="stats-box stats-box-out p-4 rounded border h-100 shadow-xs">
+                                        <span class="text-dark font-weight-bolder font-size-sm text-uppercase d-block mb-1">
+                                            Tổng Chi
+                                        </span>
+                                        <span class="font-size-h3 font-weight-bolder text-danger">
+                                            {{ stats.all_out | formatPrice }}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -270,10 +264,10 @@ export default {
             transactions: [],
             stats: null,
             loading: false,
+            exporting: false,
             showDetail: "",
             isDetailOpen: false,
             stores: [],
-            loading: false,
             query: {
                 payment_method: "",
                 start_date: "",
@@ -371,12 +365,19 @@ export default {
             }
         },
         exportFile() {
-            this.loading = true;
-            this.$store.dispatch(EXPORT_TRANSACTIONS, this.query).then().catch((error) => {
-                this.noticeMessage('error', 'Thất bại', error.message);
-            }).finally(() => {
-                this.loading = false;
-            })
+            this.exporting = true;
+            this.$store
+                .dispatch(EXPORT_TRANSACTIONS, this.query)
+                .then(() => {
+                    this.noticeMessage('success', 'Thành công', 'Đã xuất file Excel lịch sử thu chi thành công.');
+                })
+                .catch((error) => {
+                    const msg = error?.message || (typeof error === 'string' ? error : 'Xuất file thất bại, vui lòng thử lại.');
+                    this.noticeMessage('error', 'Thất bại', msg);
+                })
+                .finally(() => {
+                    this.exporting = false;
+                });
         },
         toggleDetail() {
             this.isDetailOpen = !this.isDetailOpen;

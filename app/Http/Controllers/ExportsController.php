@@ -46,10 +46,9 @@ class ExportsController extends Controller
     public function transactions(Request $request){
         $params = $request->all();
         $export = app()->make(TransactionExport::class, ['params' => $params]);
-        $file = Excel::download( $export , 'file.xlsx');
-        return  $file ;
-  
-     }
+        $fileName = 'lich-su-thu-chi-' . date('Ymd_His') . '.xlsx';
+        return Excel::download($export, $fileName);
+    }
      public function orders(Request $request){
         $params = $request->all();
         $user = Auth::user();
