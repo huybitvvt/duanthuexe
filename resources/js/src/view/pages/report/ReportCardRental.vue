@@ -13,65 +13,349 @@
 
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label class="d-block">Thời gian tạo</label>
-                            <date-picker v-model="query.dates" type="date" range placeholder="Chọn thời gian tạo"
-                                format="DD-MM-YYYY" valueType="YYYY-MM-DD"></date-picker>
+                <!-- BỘ CHỌN NGÀY VÀ BỘ LỌC ĐA NĂNG -->
+                <div class="filter-wrapper bg-light p-4 rounded mb-6 border">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap mb-3">
+                        <div class="d-flex align-items-center flex-wrap">
+                            <span class="font-weight-bolder text-dark mr-3 mb-2">
+                                <i class="fa fa-filter text-primary mr-1"></i> Lựa chọn ngày:
+                            </span>
+                            <div class="btn-group mr-3 mb-2" role="group">
+                                <button 
+                                    type="button" 
+                                    class="btn btn-sm" 
+                                    :class="dateMode === 'single' ? 'btn-primary font-weight-bolder' : 'btn-white border text-dark'" 
+                                    @click="switchDateMode('single')"
+                                >
+                                    <i class="fa fa-calendar-day mr-1"></i> 1. Lựa chọn từng ngày (lẻ 1 ngày)
+                                </button>
+                                <button 
+                                    type="button" 
+                                    class="btn btn-sm" 
+                                    :class="dateMode === 'range' ? 'btn-primary font-weight-bolder' : 'btn-white border text-dark'" 
+                                    @click="switchDateMode('range')"
+                                >
+                                    <i class="fa fa-calendar-alt mr-1"></i> 2. Lựa chọn khoảng ngày
+                                </button>
+                            </div>
+                            <button 
+                                type="button" 
+                                class="btn btn-sm btn-warning font-weight-bolder mb-2 shadow-sm" 
+                                @click="selectToday" 
+                                title="Xem nhanh báo cáo hôm nay"
+                            >
+                                ⚡ Hôm nay
+                            </button>
+                        </div>
+                        <div v-if="activeDateDisplay" class="mb-2">
+                            <span class="badge badge-light-primary font-size-sm p-2">
+                                <i class="fa fa-clock mr-1"></i> Đang xem: <strong>{{ activeDateDisplay }}</strong>
+                            </span>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Cửa hàng</label>
 
-                            <el-select filterable class="w-100" placeholder="Cửa hàng" v-model="query.store_id"
-                                clearable>
-                                <el-option v-for="item in stores" :key="item.id" :label="item.store_name"
-                                    :value="item.id">
-                                    <span style="float: left">{{
-                                        item.store_name
-                                        }}</span>
+                    <div class="row align-items-end">
+                        <!-- CHẾ ĐỘ 1: CHỌN LẺ 1 NGÀY -->
+                        <div v-if="dateMode === 'single'" class="col-lg-4 col-md-5 mb-2">
+                            <label class="font-weight-bold text-dark d-block">
+                                <i class="flaticon2-calendar-9 text-primary mr-1"></i> Chọn ngày cần xem:
+                            </label>
+                            <el-date-picker 
+                                v-model="singleDate" 
+                                type="date" 
+                                format="dd-MM-yyyy" 
+                                value-format="yyyy-MM-dd" 
+                                placeholder="Chọn ngày cụ thể" 
+                                class="w-100"
+                                :clearable="false"
+                                @change="onSingleDateChange"
+                            ></el-date-picker>
+                            <small class="text-muted d-block mt-1">Chọn lẻ 1 ngày sẽ hiển thị báo cáo chính xác của ngày đó.</small>
+                        </div>
+
+                        <!-- CHẾ ĐỘ 2: CHỌN KHOẢNG NGÀY -->
+                        <div v-else class="col-lg-6 col-md-7 mb-2">
+                            <label class="font-weight-bold text-dark d-block">
+                                <i class="flaticon2-calendar-8 text-primary mr-1"></i> Khoảng ngày (Từ ngày ~ Đến ngày):
+                            </label>
+                            <div class="d-flex align-items-center">
+                                <el-date-picker 
+                                    v-model="rangeStartDate" 
+                                    type="date" 
+                                    format="dd-MM-yyyy" 
+                                    value-format="yyyy-MM-dd" 
+                                    placeholder="Từ ngày" 
+                                    class="w-100 mr-2"
+                                    :clearable="false"
+                                ></el-date-picker>
+                                <span class="font-weight-bolder text-muted mr-2">~</span>
+                                <el-date-picker 
+                                    v-model="rangeEndDate" 
+                                    type="date" 
+                                    format="dd-MM-yyyy" 
+                                    value-format="yyyy-MM-dd" 
+                                    placeholder="Đến ngày" 
+                                    class="w-100 mr-2"
+                                    :clearable="false"
+                                ></el-date-picker>
+                                <button 
+                                    class="btn btn-success font-weight-bolder text-nowrap"
+                                    :class="{ 'spinner spinner-white spinner-right': is_loading_search }"
+                                    @click="confirmAndSearch"
+                                    title="Xác nhận khoảng ngày đã chọn"
+                                >
+                                    <i class="fa fa-check mr-1"></i> Xác nhận
+                                </button>
+                            </div>
+                            <small class="text-muted d-block mt-1">Chọn từ ngày nào đến ngày nào rồi bấm "Xác nhận" để ra đúng khoảng ngày đó.</small>
+                        </div>
+
+                        <!-- LỌC THEO CỬA HÀNG -->
+                        <div class="col-lg-3 col-md-4 mb-2">
+                            <label class="font-weight-bold text-dark">Cửa hàng:</label>
+                            <el-select filterable class="w-100" placeholder="Toàn hệ thống (Tất cả)" v-model="query.store_id" clearable @change="search">
+                                <el-option v-for="item in stores" :key="item.id" :label="item.store_name" :value="item.id">
+                                    <span>{{ item.store_name }}</span>
                                 </el-option>
                             </el-select>
                         </div>
-                    </div>
-                    <div class="col-md-3 mt-8">
-                        <button class="btn btn-primary" :class="{
-                            'spinner spinner-white spinner-right':
-                                is_loading_search,
-                        }" @click="search">
-                            Tìm kiếm
-                        </button>
 
+                        <!-- NÚT TÌM KIẾM -->
+                        <div class="col-lg-2 col-md-3 mb-2" v-if="dateMode === 'single'">
+                            <button 
+                                class="btn btn-primary font-weight-bolder w-100" 
+                                :class="{ 'spinner spinner-white spinner-right': is_loading_search }" 
+                                @click="confirmAndSearch"
+                            >
+                                <i class="fa fa-search mr-1"></i> Tìm kiếm
+                            </button>
+                        </div>
                     </div>
                 </div>
+
+                <!-- BẢNG TẤT CẢ CỬA HÀNG CÓ MŨI TÊN CHI TIẾT TỪNG LOẠI PHÍ -->
                 <div class="example mb-10">
-                    <h4 class="section-title">Tất cả cửa hàng</h4>
-                    <table class="table" v-if="reports_all_stores">
-                        <thead>
-                            <tr>
-                                <th scope="col">Tổng thu thực tế</th>
-                                <th scope="col">Tổng chi thực tế</th>
-                                <th scope="col">Tổng thu cọc</th>
-                                <th scope="col">Tổng thu gia hạn</th>
-                                <th scope="col">Tổng thu phí thuê</th>
-                                <th scope="col">Tổng trả sớm</th>
-                                <th scope="col">Tổng phạt muộn</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="total-highlight">
-                                <td>{{ totalInForAllStores | formatPrice }}</td>
-                                <td>{{ reports_all_stores.total_real_refund | formatPrice }} </td>
-                                <td>{{ reports_all_stores.total_deposit | formatPrice }}</td>
-                                <td>{{ reports_all_stores.total_renew | formatPrice }}</td>
-                                <td>{{ reports_all_stores.total_rental_fees | formatPrice }}</td>
-                                <td>{{ Math.abs(reports_all_stores.total_money_early) | formatPrice }}</td>
-								<td>{{ reports_all_stores.total_money_out_date | formatPrice }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap">
+                        <h4 class="section-title my-0">
+                            <i class="fa fa-chart-bar text-primary mr-1"></i> Tất cả cửa hàng
+                        </h4>
+                        <button 
+                            type="button" 
+                            class="btn btn-sm btn-outline-primary font-weight-bolder shadow-sm"
+                            @click="toggleAllStoresDetail"
+                        >
+                            <i :class="showDetail ? 'fa fa-chevron-up mr-1 text-primary' : 'fa fa-chevron-down mr-1 text-primary'"></i>
+                            {{ showDetail ? 'Thu gọn chi tiết' : 'Mũi tên xem chi tiết từng loại phí ▼' }}
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" v-if="reports_all_stores">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('real_in')" title="Bấm để xem chi tiết Thu thực tế">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span>Tổng thu thực tế</span>
+                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'real_in' && showDetail }">
+                                                <i :class="selectedFee === 'real_in' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
+                                            </span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('real_refund')" title="Bấm để xem chi tiết Chi thực tế">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span>Tổng chi thực tế</span>
+                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'real_refund' && showDetail }">
+                                                <i :class="selectedFee === 'real_refund' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
+                                            </span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('deposit')" title="Bấm để xem chi tiết Thu cọc">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span>Tổng thu cọc</span>
+                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'deposit' && showDetail }">
+                                                <i :class="selectedFee === 'deposit' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
+                                            </span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('renew')" title="Bấm để xem chi tiết Thu gia hạn">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span>Tổng thu gia hạn</span>
+                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'renew' && showDetail }">
+                                                <i :class="selectedFee === 'renew' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
+                                            </span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('rental_fees')" title="Bấm để xem chi tiết Phí thuê">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span>Tổng thu phí thuê</span>
+                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'rental_fees' && showDetail }">
+                                                <i :class="selectedFee === 'rental_fees' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
+                                            </span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('early')" title="Bấm để xem chi tiết Trả sớm">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span>Tổng trả sớm</span>
+                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'early' && showDetail }">
+                                                <i :class="selectedFee === 'early' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
+                                            </span>
+                                        </div>
+                                    </th>
+                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('out_date')" title="Bấm để xem chi tiết Phạt muộn">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <span>Tổng phạt muộn</span>
+                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'out_date' && showDetail }">
+                                                <i :class="selectedFee === 'out_date' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
+                                            </span>
+                                        </div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="total-highlight">
+                                    <td class="cursor-pointer" @click="toggleFeeDetail('real_in')" :class="{ 'bg-light-success': selectedFee === 'real_in' && showDetail }">
+                                        {{ totalInForAllStores | formatPrice }}
+                                    </td>
+                                    <td class="cursor-pointer" @click="toggleFeeDetail('real_refund')" :class="{ 'bg-light-danger': selectedFee === 'real_refund' && showDetail }">
+                                        {{ reports_all_stores.total_real_refund | formatPrice }}
+                                    </td>
+                                    <td class="cursor-pointer" @click="toggleFeeDetail('deposit')" :class="{ 'bg-light-info': selectedFee === 'deposit' && showDetail }">
+                                        {{ reports_all_stores.total_deposit | formatPrice }}
+                                    </td>
+                                    <td class="cursor-pointer" @click="toggleFeeDetail('renew')" :class="{ 'bg-light-info': selectedFee === 'renew' && showDetail }">
+                                        {{ reports_all_stores.total_renew | formatPrice }}
+                                    </td>
+                                    <td class="cursor-pointer" @click="toggleFeeDetail('rental_fees')" :class="{ 'bg-light-info': selectedFee === 'rental_fees' && showDetail }">
+                                        {{ reports_all_stores.total_rental_fees | formatPrice }}
+                                    </td>
+                                    <td class="cursor-pointer" @click="toggleFeeDetail('early')" :class="{ 'bg-light-info': selectedFee === 'early' && showDetail }">
+                                        {{ Math.abs(reports_all_stores.total_money_early) | formatPrice }}
+                                    </td>
+                                    <td class="cursor-pointer" @click="toggleFeeDetail('out_date')" :class="{ 'bg-light-info': selectedFee === 'out_date' && showDetail }">
+                                        {{ reports_all_stores.total_money_out_date | formatPrice }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- KHỐI MỞ RỘNG CHI TIẾT TỪNG LOẠI PHÍ & TỪNG CỬA HÀNG -->
+                    <div v-if="showDetail" class="detail-box card card-body bg-light border border-primary p-4 mt-3 mb-6 rounded shadow-sm">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h5 class="font-weight-bolder text-primary mb-0">
+                                <i class="fa fa-info-circle mr-1 text-primary"></i> Chi tiết loại phí:
+                                <span v-if="selectedFeeLabel" class="badge badge-primary ml-2 font-size-sm">{{ selectedFeeLabel }}</span>
+                                <span v-else class="badge badge-light-primary ml-2 font-size-sm">Tất cả loại phí</span>
+                            </h5>
+                            <button type="button" class="btn btn-xs btn-outline-secondary" @click="showDetail = false">
+                                <i class="fa fa-times mr-1"></i> Đóng
+                            </button>
+                        </div>
+
+                        <!-- 1. Cơ cấu loại phí (Thu - Chi) -->
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-2">
+                                <div class="card p-3 border h-100 shadow-none" :class="{ 'border-success bg-white': selectedFee === 'real_in' || selectedFee === 'deposit' || selectedFee === 'renew' || selectedFee === 'rental_fees' }">
+                                    <div class="font-weight-bolder text-success mb-2 d-flex justify-content-between align-items-center">
+                                        <span><i class="fa fa-arrow-down mr-1"></i> Cơ cấu Thu thực tế:</span>
+                                        <span class="font-size-h6">{{ totalInForAllStores | formatPrice }}</span>
+                                    </div>
+                                    <ul class="list-unstyled mb-0 font-size-sm">
+                                        <li class="d-flex justify-content-between py-1 border-bottom" :class="{ 'font-weight-bolder text-primary': selectedFee === 'deposit' }">
+                                            <span>• Thu tiền cọc:</span>
+                                            <span>{{ (reports_all_stores.total_deposit || 0) | formatPrice }}</span>
+                                        </li>
+                                        <li class="d-flex justify-content-between py-1 border-bottom" :class="{ 'font-weight-bolder text-primary': selectedFee === 'renew' }">
+                                            <span>• Thu tiền gia hạn:</span>
+                                            <span>{{ (reports_all_stores.total_renew || 0) | formatPrice }}</span>
+                                        </li>
+                                        <li class="d-flex justify-content-between py-1" :class="{ 'font-weight-bolder text-primary': selectedFee === 'rental_fees' }">
+                                            <span>• Thu phí thuê xe:</span>
+                                            <span>{{ (reports_all_stores.total_rental_fees || 0) | formatPrice }}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="card p-3 border h-100 shadow-none" :class="{ 'border-danger bg-white': selectedFee === 'real_refund' || selectedFee === 'early' || selectedFee === 'out_date' }">
+                                    <div class="font-weight-bolder text-danger mb-2 d-flex justify-content-between align-items-center">
+                                        <span><i class="fa fa-arrow-up mr-1"></i> Cơ cấu Chi & Trừ thực tế:</span>
+                                        <span class="font-size-h6">{{ (reports_all_stores.total_real_refund || 0) | formatPrice }}</span>
+                                    </div>
+                                    <ul class="list-unstyled mb-0 font-size-sm">
+                                        <li class="d-flex justify-content-between py-1 border-bottom" :class="{ 'font-weight-bolder text-primary': selectedFee === 'real_refund' }">
+                                            <span>• Tiền hoàn cọc thực tế cho khách:</span>
+                                            <span>{{ (reports_all_stores.total_real_refund || 0) | formatPrice }}</span>
+                                        </li>
+                                        <li class="d-flex justify-content-between py-1 border-bottom" :class="{ 'font-weight-bolder text-primary': selectedFee === 'early' }">
+                                            <span>• Hoàn trừ do khách trả xe sớm:</span>
+                                            <span>{{ Math.abs(reports_all_stores.total_money_early || 0) | formatPrice }}</span>
+                                        </li>
+                                        <li class="d-flex justify-content-between py-1" :class="{ 'font-weight-bolder text-primary': selectedFee === 'out_date' }">
+                                            <span>• Phạt trả xe quá hạn (thu bù thêm):</span>
+                                            <span>{{ (reports_all_stores.total_money_out_date || 0) | formatPrice }}</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Bảng phân bổ đóng góp từng cửa hàng -->
+                        <div class="card p-3 border bg-white shadow-none">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="font-weight-bolder text-dark">
+                                    <i class="fa fa-store mr-1 text-primary"></i> Phân bổ số tiền từng loại phí theo từng cửa hàng:
+                                </span>
+                                <span class="text-muted font-size-xs">Cập nhật theo khoảng thời gian đã lọc</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered table-striped mb-0">
+                                    <thead class="bg-primary text-white">
+                                        <tr>
+                                            <th>Cửa hàng</th>
+                                            <th :class="{ 'bg-success font-weight-bolder': selectedFee === 'real_in' }">Thu thực tế</th>
+                                            <th :class="{ 'bg-danger font-weight-bolder': selectedFee === 'real_refund' }">Chi thực tế</th>
+                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'deposit' }">Thu cọc</th>
+                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'renew' }">Thu gia hạn</th>
+                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'rental_fees' }">Phí thuê</th>
+                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'early' }">Trả sớm</th>
+                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'out_date' }">Phạt muộn</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="st in (reports_all_stores.by_store || [])" :key="st.store_id">
+                                            <td class="font-weight-bold">{{ st.store_name }}</td>
+                                            <td class="text-success font-weight-bold" :class="{ 'bg-light-success': selectedFee === 'real_in' }">
+                                                {{ st.total_real_in | formatPrice }}
+                                            </td>
+                                            <td class="text-danger font-weight-bold" :class="{ 'bg-light-danger': selectedFee === 'real_refund' }">
+                                                {{ st.total_real_refund | formatPrice }}
+                                            </td>
+                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'deposit' }">
+                                                {{ st.total_deposit | formatPrice }}
+                                            </td>
+                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'renew' }">
+                                                {{ st.total_renew | formatPrice }}
+                                            </td>
+                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'rental_fees' }">
+                                                {{ st.total_rental_fees | formatPrice }}
+                                            </td>
+                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'early' }">
+                                                {{ Math.abs(st.total_money_early) | formatPrice }}
+                                            </td>
+                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'out_date' }">
+                                                {{ st.total_money_out_date | formatPrice }}
+                                            </td>
+                                        </tr>
+                                        <tr v-if="!(reports_all_stores.by_store && reports_all_stores.by_store.length)">
+                                            <td colspan="8" class="text-center text-muted py-3">Chưa có dữ liệu phân bổ theo từng cửa hàng.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                     <h4 class="section-title">Từng cửa hàng</h4>
 
 					<div class="example-preview table-responsive" v-for="(report, key) in reports" :key="key">
@@ -150,6 +434,12 @@ export default {
             reports: {},
             reports_all_stores: {},
             stores: [],
+            dateMode: 'range', // 'single' | 'range'
+            singleDate: moment().format("YYYY-MM-DD"),
+            rangeStartDate: moment().startOf("month").format("YYYY-MM-DD"),
+            rangeEndDate: moment().format("YYYY-MM-DD"),
+            showDetail: false,
+            selectedFee: null,
             query: {
                 store_id: store_id ? +store_id : "",
                 dates: [],
@@ -165,6 +455,27 @@ export default {
 			const fee = parseInt(this.reports_all_stores && this.reports_all_stores.total_rental_fees) || 0;
 			return dep + ren + fee;
 		},
+        activeDateDisplay() {
+            if (this.query.dates && this.query.dates.length === 2) {
+                if (this.query.dates[0] === this.query.dates[1]) {
+                    return `Ngày ${this.moment(this.query.dates[0]).format('DD/MM/YYYY')}`;
+                }
+                return `Từ ${this.moment(this.query.dates[0]).format('DD/MM/YYYY')} đến ${this.moment(this.query.dates[1]).format('DD/MM/YYYY')}`;
+            }
+            return '';
+        },
+        selectedFeeLabel() {
+            const map = {
+                real_in: 'Tổng thu thực tế',
+                real_refund: 'Tổng chi thực tế',
+                deposit: 'Tổng thu cọc',
+                renew: 'Tổng thu gia hạn',
+                rental_fees: 'Tổng thu phí thuê',
+                early: 'Tổng trả sớm',
+                out_date: 'Tổng phạt muộn',
+            };
+            return map[this.selectedFee] || '';
+        },
 	},
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Báo cáo" }]);
@@ -292,22 +603,102 @@ export default {
 				}
 			}
 		},
+        switchDateMode(mode) {
+            this.dateMode = mode;
+            if (mode === 'single') {
+                if (!this.singleDate) {
+                    this.singleDate = this.moment().format("YYYY-MM-DD");
+                }
+                this.query.dates = [this.singleDate, this.singleDate];
+                this.search();
+            } else {
+                if (!this.rangeStartDate || !this.rangeEndDate) {
+                    this.rangeStartDate = this.moment().startOf("month").format("YYYY-MM-DD");
+                    this.rangeEndDate = this.moment().format("YYYY-MM-DD");
+                }
+                this.query.dates = [this.rangeStartDate, this.rangeEndDate];
+                this.search();
+            }
+        },
+        selectToday() {
+            const today = this.moment().format("YYYY-MM-DD");
+            this.dateMode = 'single';
+            this.singleDate = today;
+            this.rangeStartDate = today;
+            this.rangeEndDate = today;
+            this.query.dates = [today, today];
+            this.search();
+        },
+        onSingleDateChange(val) {
+            if (val) {
+                this.singleDate = val;
+                this.query.dates = [val, val];
+                this.search();
+            }
+        },
+        confirmAndSearch() {
+            if (this.dateMode === 'single') {
+                if (!this.singleDate) {
+                    if (this.$message && this.$message.warning) {
+                        this.$message.warning('Vui lòng chọn ngày cần xem');
+                    }
+                    return;
+                }
+                this.query.dates = [this.singleDate, this.singleDate];
+            } else {
+                if (!this.rangeStartDate || !this.rangeEndDate) {
+                    if (this.$message && this.$message.warning) {
+                        this.$message.warning('Vui lòng chọn đầy đủ từ ngày và đến ngày');
+                    }
+                    return;
+                }
+                if (this.rangeStartDate > this.rangeEndDate) {
+                    if (this.$message && this.$message.warning) {
+                        this.$message.warning('Ngày kết thúc phải từ ngày bắt đầu trở đi');
+                    }
+                    return;
+                }
+                this.query.dates = [this.rangeStartDate, this.rangeEndDate];
+            }
+            this.search();
+        },
+        toggleAllStoresDetail() {
+            this.showDetail = !this.showDetail;
+            if (!this.showDetail) {
+                this.selectedFee = null;
+            }
+        },
+        toggleFeeDetail(feeKey) {
+            if (this.showDetail && this.selectedFee === feeKey) {
+                this.showDetail = false;
+                this.selectedFee = null;
+            } else {
+                this.showDetail = true;
+                this.selectedFee = feeKey;
+            }
+        },
         getDateDefault() {
-            this.query.dates.push(
-                this.moment().startOf("month").format("YYYY-MM-DD"),
-            );
-            this.query.dates.push(this.moment().format("YYYY-MM-DD"));
+            const start = this.moment().startOf("month").format("YYYY-MM-DD");
+            const end = this.moment().format("YYYY-MM-DD");
+            this.rangeStartDate = start;
+            this.rangeEndDate = end;
+            this.singleDate = end;
+            this.query.dates = [start, end];
         },
         async search() {
-            // this.pushParamsUrl();
-            this.report();
-			if (this.collapse_opened_ids) {
-				let params = JSON.parse(JSON.stringify(this.query)); // Deep clone {this.query} to prevent new changed in {params} will be overwride {this.query}
-				for (let store_id of this.collapse_opened_ids) {
-					params['store_id'] = store_id;
-					await this.getStoreDetailReport(params, store_id);
-				}
-			}
+            this.is_loading_search = true;
+            try {
+                await this.report();
+                if (this.collapse_opened_ids && this.collapse_opened_ids.length > 0) {
+                    let params = JSON.parse(JSON.stringify(this.query));
+                    for (let store_id of this.collapse_opened_ids) {
+                        params['store_id'] = store_id;
+                        await this.getStoreDetailReport(params, store_id);
+                    }
+                }
+            } finally {
+                this.is_loading_search = false;
+            }
         },
 
 		async getStoreDetailReport(params, store_id) {
@@ -325,7 +716,7 @@ export default {
 		},
 
         report() {
-            this.$store.dispatch(REPORT_CAR_RENTAL_NEW, this.query).then((data) => {
+            return this.$store.dispatch(REPORT_CAR_RENTAL_NEW, this.query).then((data) => {
 				this.reports_all_stores = data.data;
             });
         },
@@ -456,5 +847,51 @@ export default {
 
 .section-title {
     margin: 40px 0;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.fee-header {
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.fee-header:hover {
+    background-color: #e8f4fd !important;
+}
+
+.fee-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    margin-left: 6px;
+    background: rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+
+.fee-header:hover .fee-arrow,
+.fee-arrow.arrow-active {
+    background: #e1f0ff;
+}
+
+.detail-box {
+    background: #fbfcfe !important;
+    animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 </style>

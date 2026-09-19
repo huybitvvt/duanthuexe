@@ -90,4 +90,22 @@ class KpiReportServiceTest extends TestCase
         $this->assertEquals('Tư vấn A', $report['by_staff'][0]['label']);
         $this->assertCount(2, $report['daily']);
     }
+
+    public function testReportSupportsLongDateRangeUpToThreeYears()
+    {
+        // 2025-01-20 to 2026-09-19 is ~608 days, which previously failed at > 366 days
+        $report = app(KpiReportService::class)->build('2025-01-20', '2026-09-19', 1);
+        $this->assertIsArray($report);
+        $this->assertArrayHasKey('summary', $report);
+    }
+
+    public function testReportThrowsValidationExceptionWhenExceedingThreeYears()
+    {
+        try {
+            app(KpiReportService::class)->build('2022-01-01', '2026-09-19', 1);
+            $this->fail('Expected ValidationException was not thrown');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertEquals('Khoảng báo cáo tối đa là 3 năm (1095 ngày).', $e->errors()['end_date'][0]);
+        }
+    }
 }

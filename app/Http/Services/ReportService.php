@@ -352,8 +352,8 @@ class ReportService
 		$separate_result_by_day = ( isset( $params['separate_result_by_day'] ) && $params['separate_result_by_day'] ) ? true : false;
 
 		$user  = Auth::user();
-        if ($user->role_id !== 1){
-            $store_id =   $user->store->id;
+        if ($user && $user->role_id !== 1){
+            $store_id = $user->store ? $user->store->id : $user->store_id;
         }
 
 		if ( isset( $params['dates'] ) && is_array( $params['dates'] ) && count( $params['dates'] ) == 2 ) {
@@ -369,9 +369,11 @@ class ReportService
 		$has_search_order_query = false;
 
 		/** ------ JOIN TABLES ------ */
+		$has_joined_orders = false;
 		if ( ! empty( $keyword ) || ! empty( $store_id ) || ! empty( $order_status ) || ! empty( $is_out_of_date ) || (is_array( $source ) && ! empty( $source )) ) {
 			$transaction_query->leftJoin('orders', 'orders.id', '=', 'transactions.order_id');
 			$order_item_query->leftJoin('orders', 'orders.id', '=', 'order_vehicle_details.order_id');
+			$has_joined_orders = true;
 		}
 
 		if ( ! empty( $keyword ) ) {
@@ -519,24 +521,106 @@ class ReportService
 				'total_money_out_date' 	=> $this->orderByOrderItemDate($total_money_out_date_query)->get(),
 			];
 		} else {
+			$stores = Store::select('id', 'store_name')->orderBy('id')->get();
+
+			$deposit_sub = clone $total_deposit_query;
+			$renew_sub = clone $total_renew_new_query;
+			$rental_sub = clone $total_rental_fees_query;
+			$refund_sub = clone $total_refund_query;
+			$early_sub = clone $total_money_early_query;
+			$out_date_sub = clone $total_money_out_date_query;
+
+			if (!$has_joined_orders) {
+				$deposit_sub->leftJoin('orders', 'orders.id', '=', 'transactions.order_id');
+				$renew_sub->leftJoin('orders', 'orders.id', '=', 'transactions.order_id');
+				$rental_sub->leftJoin('orders', 'orders.id', '=', 'transactions.order_id');
+				$refund_sub->leftJoin('orders', 'orders.id', '=', 'transactions.order_id');
+				$early_sub->leftJoin('orders', 'orders.id', '=', 'order_vehicle_details.order_id');
+				$out_date_sub->leftJoin('orders', 'orders.id', '=', 'order_vehicle_details.order_id');
+			}
+
+			$deposit_by_store = $deposit_sub
+				->select('orders.store_id', DB::raw('SUM(transactions.value) as total'))
+				->groupBy('orders.store_id')
+				->pluck('total', 'orders.store_id')
+				->toArray();
+
+			$renew_by_store = $renew_sub
+				->select('orders.store_id', DB::raw('SUM(transactions.value) as total'))
+				->groupBy('orders.store_id')
+				->pluck('total', 'orders.store_id')
+				->toArray();
+
+			$rental_fees_by_store = $rental_sub
+				->select('orders.store_id', DB::raw('SUM(transactions.value) as total'))
+				->groupBy('orders.store_id')
+				->pluck('total', 'orders.store_id')
+				->toArray();
+
+			$refund_by_store = $refund_sub
+				->select('orders.store_id', DB::raw('SUM(transactions.value) as total'))
+				->groupBy('orders.store_id')
+				->pluck('total', 'orders.store_id')
+				->toArray();
+
+			$money_early_by_store = $early_sub
+				->select('orders.store_id', DB::raw('SUM(order_vehicle_details.money_out_date) as total'))
+				->groupBy('orders.store_id')
+				->pluck('total', 'orders.store_id')
+				->toArray();
+
+			$money_out_date_by_store = $out_date_sub
+				->select('orders.store_id', DB::raw('SUM(order_vehicle_details.money_out_date) as total'))
+				->groupBy('orders.store_id')
+				->pluck('total', 'orders.store_id')
+				->toArray();
+
+			$by_store = [];
+			foreach ($stores as $st) {
+				if ($store_id > 0 && $st->id != $store_id) {
+					continue;
+				}
+				$sId = $st->id;
+				$dep = (float)($deposit_by_store[$sId] ?? 0);
+				$ren = (float)($renew_by_store[$sId] ?? 0);
+				$rentFee = (float)($rental_fees_by_store[$sId] ?? 0);
+				$realRefund = (float)($refund_by_store[$sId] ?? 0);
+				$early = (float)($money_early_by_store[$sId] ?? 0);
+				$outDate = (float)($money_out_date_by_store[$sId] ?? 0);
+				$realIn = $dep + $ren + $rentFee;
+
+				$by_store[] = [
+					'store_id' => $sId,
+					'store_name' => $st->store_name,
+					'total_real_in' => $realIn,
+					'total_real_refund' => $realRefund,
+					'total_deposit' => $dep,
+					'total_renew' => $ren,
+					'total_rental_fees' => $rentFee,
+					'total_money_early' => $early,
+					'total_money_out_date' => $outDate,
+				];
+			}
+
 			return [
 				/** NEW QUERY */
 				// Tổng thu cọc: name in( 'order:deposit:keep_vehicle', 'order:additional_deposit', 'order:deposit:11414' ) && type = in
-				'total_deposit' 		=> $total_deposit_query->sum('value'),
+				'total_deposit' 		=> (float) $total_deposit_query->sum('transactions.value'),
 				// Tổng thu gia hạn: name = addon && type = addon
-				'total_renew' 			=> $total_renew_new_query->sum('value'),
+				'total_renew' 			=> (float) $total_renew_new_query->sum('transactions.value'),
 				// Tổng thu phí thuê: name = order:rental_fees && type = in
-				'total_rental_fees' 	=> $total_rental_fees_query->sum('value'),
+				'total_rental_fees' 	=> (float) $total_rental_fees_query->sum('transactions.value'),
 	
 				// Tổng số tiền cọc đáng ra phải hoàn trả: chưa cộng trừ thêm khoản trả sớm, trả muộn.
 				// 'total_origin_refund' 	=> $total_origin_refund_query->select(DB::raw('SUM(COALESCE(first_deposit_amount, 0) + COALESCE(additional_deposit_amount, 0)) as total_sum'))->value('total_sum'),
-				'total_origin_refund' 	=> $total_origin_refund_query2->select(DB::raw('SUM(COALESCE(first_deposit_amount, 0) + COALESCE(additional_deposit_amount, 0)) as total_sum'))->value('total_sum'),
+				'total_origin_refund' 	=> (float) $total_origin_refund_query2->select(DB::raw('SUM(COALESCE(first_deposit_amount, 0) + COALESCE(additional_deposit_amount, 0)) as total_sum'))->value('total_sum'),
 				// Tổng trả cọc: name like 'order:complete:11415' && type = out
-				'total_real_refund' 	=> $total_refund_query->sum('value'),
+				'total_real_refund' 	=> (float) $total_refund_query->sum('transactions.value'),
 				//-- Tổng trả sớm: order_vehicle_details join orders => handler_price = 0 && orders.status = 'completed' && minute_out_date < 0.
-				'total_money_early' 	=> $total_money_early_query->sum('order_vehicle_details.money_out_date'),
+				'total_money_early' 	=> (float) $total_money_early_query->sum('order_vehicle_details.money_out_date'),
 				//-- Tổng phạt muộn: order_vehicle_details join orders => handler_price = 0 && orders.status = 'completed' && minute_out_date > 0.
-				'total_money_out_date' 	=> $total_money_out_date_query->sum('order_vehicle_details.money_out_date'),
+				'total_money_out_date' 	=> (float) $total_money_out_date_query->sum('order_vehicle_details.money_out_date'),
+				'by_store'				=> $by_store,
 			];
 		}
 	}

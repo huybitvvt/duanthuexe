@@ -16,8 +16,8 @@ class KpiReportService
         if ($end->lessThan($start)) {
             throw ValidationException::withMessages(['end_date' => 'Ngày kết thúc phải từ ngày bắt đầu trở đi.']);
         }
-        if ($start->diffInDays($end) > 366) {
-            throw ValidationException::withMessages(['end_date' => 'Khoảng báo cáo tối đa là 366 ngày.']);
+        if ($start->diffInDays($end) > 1095) {
+            throw ValidationException::withMessages(['end_date' => 'Khoảng báo cáo tối đa là 3 năm (1095 ngày).']);
         }
 
         $leads = Lead::query()

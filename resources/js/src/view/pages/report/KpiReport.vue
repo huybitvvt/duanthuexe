@@ -156,6 +156,10 @@ export default {
         const payload = error.response?.data || {};
         if (payload.code === "SCHEMA_NOT_READY") {
           this.schemaMessage = "Báo cáo KPI đang khóa an toàn. Cần chạy migration 000009 trên staging để bổ sung trường nguồn/chiến dịch.";
+        } else if (payload.errors && typeof payload.errors === "object") {
+          const firstKey = Object.keys(payload.errors)[0];
+          const firstErr = Array.isArray(payload.errors[firstKey]) ? payload.errors[firstKey][0] : payload.errors[firstKey];
+          this.errorMessage = firstErr || payload.message || "Không thể tải báo cáo KPI.";
         } else {
           this.errorMessage = payload.message || "Không thể tải báo cáo KPI.";
         }
