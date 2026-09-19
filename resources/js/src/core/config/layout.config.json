@@ -69,7 +69,7 @@
       "gray-900": "#212121"
     }
   },
-  "font-family": "Nunito Sans",
+  "font-family": "Inter",
   "header": {
     "self": {
       "display": true,

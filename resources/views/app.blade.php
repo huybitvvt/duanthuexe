@@ -12,8 +12,7 @@ Use below html tag for RTL version
     <meta name="csrf-token" value="{{ csrf_token() }}"/>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="preload" as="image" href="/images/branding/himoto-journey.webp" type="image/webp" fetchpriority="high">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="/images/branding/favicon.ico">
     <link rel="apple-touch-icon" href="/images/branding/favicon-apple-touch.png">
     <link href="/css/app.css" type="text/css" rel="stylesheet"/>
