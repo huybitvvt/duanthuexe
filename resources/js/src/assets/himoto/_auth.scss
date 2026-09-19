@@ -322,7 +322,7 @@
 /* Journey login layout */
 .himoto-auth {
   background: #d60715;
-  .himoto-auth-brand { position: relative; flex: 0 0 50%; min-height: 100vh; background: linear-gradient(165deg, #f6fafb 10%, #def2fc 45%, #7bc5d8 72%, #436f66); overflow: hidden; }
+  .himoto-auth-brand { position: relative; flex: 0 0 50%; min-height: 100vh; background: linear-gradient(165deg, #f6fafb 10%, #def2fc 45%, #7bc5d8 72%, #436f66); overflow: hidden; picture { display: contents; } }
   .himoto-hero-image { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; object-position: center; }
   .himoto-hero-copy { padding: 7.4%; color: #061423; }
   .himoto-hero-copy img { width: 220px; max-width: 55%; padding: 8px 22px; border-radius: 5px; background: #ed071b; }

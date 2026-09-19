@@ -13,12 +13,12 @@ Use below html tag for RTL version
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preload" as="image" href="/images/branding/himoto-journey.webp" type="image/webp" fetchpriority="high">
     <link rel="icon" type="image/x-icon" href="/images/branding/favicon.ico">
     <link rel="apple-touch-icon" href="/images/branding/favicon-apple-touch.png">
     <link href="/css/app.css" type="text/css" rel="stylesheet"/>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-theme-chalk@2.15.14/lib/index.min.css">
     <link href="{{ mix('/css/himoto-app.css') }}" type="text/css" rel="stylesheet"/>
-    
     <link rel="manifest" href="/manifest.json">
     <title>HIMOTO - Hệ Thống Quản Lý Cho Thuê Xe</title>
 </head>

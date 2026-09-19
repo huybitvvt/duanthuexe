@@ -1,7 +1,20 @@
 <template>
     <div class="himoto-auth">
         <aside class="himoto-auth-brand" aria-label="Thuê xe máy du lịch cùng HiMOTO">
-            <img v-if="heroAvailable" class="himoto-hero-image" src="/images/branding/himoto-journey.png" alt="Hai xe máy trên cung đường ven biển Việt Nam" @error="heroAvailable = false" />
+            <picture v-if="heroAvailable">
+                <source srcset="/images/branding/himoto-journey.webp" type="image/webp" />
+                <img
+                    class="himoto-hero-image"
+                    src="/images/branding/himoto-journey.png"
+                    alt="Hai xe máy trên cung đường ven biển Việt Nam"
+                    loading="eager"
+                    fetchpriority="high"
+                    decoding="async"
+                    width="1122"
+                    height="1402"
+                    @error="heroAvailable = false"
+                />
+            </picture>
             <div v-else class="himoto-hero-copy">
                 <img src="/images/branding/logo-himoto-pdf.png" alt="HiMOTO" />
                 <h1>Khởi đầu hành trình.<br />Khám phá tự do.</h1>
