@@ -197,4 +197,20 @@ class VehicleRevenuePerformanceTest extends TestCase
         $this->assertCount(30, $result);
         $this->assertFalse($result->first()->relationLoaded('store'));
     }
+
+    public function test_revenue_index_migration_can_be_applied_and_rolled_back(): void
+    {
+        require_once database_path('migrations/2026_09_19_000002_add_vehicle_revenue_index.php');
+        $migration = new \AddVehicleRevenueIndex();
+
+        $this->assertFalse($migration->withinTransaction);
+        $migration->up();
+
+        $indexes = DB::select("PRAGMA index_list('order_vehicle_details')");
+        $this->assertContains('order_vehicle_details_rent_vehicle_idx', array_column($indexes, 'name'));
+
+        $migration->down();
+        $indexes = DB::select("PRAGMA index_list('order_vehicle_details')");
+        $this->assertNotContains('order_vehicle_details_rent_vehicle_idx', array_column($indexes, 'name'));
+    }
 }
