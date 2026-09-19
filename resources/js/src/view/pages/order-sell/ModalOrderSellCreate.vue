@@ -467,6 +467,7 @@ export default {
                     type_of_service_id: XE_BAN,
                     store_id: this.order.store_id,
                     is_all: true,
+                    compact: 1,
                 })
                 .then((data) => {
                     this.vehicles = data.data;

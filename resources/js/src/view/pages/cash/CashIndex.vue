@@ -135,9 +135,13 @@ export default {
         }
         const queryPage = +this.$route?.query?.page || 1;
         const queryKeyword = this.$route?.query?.keyword || '';
-        if (queryPage !== this.page || queryKeyword !== (this.query.keyword || '')) {
+        const queryChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
+        if (queryChanged) {
             this.page = queryPage;
             this.query.keyword = queryKeyword;
+        }
+        if (!queryChanged && this.lastFetchedAt && Date.now() - this.lastFetchedAt < 60000) {
+            return;
         }
         this.getList();
     },

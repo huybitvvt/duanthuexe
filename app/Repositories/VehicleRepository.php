@@ -11,5 +11,5 @@ use Prettus\Repository\Contracts\RepositoryInterface;
  */
 interface VehicleRepository extends RepositoryInterface
 {
-    //
+    public function applyFilters($query, array $params);
 }

@@ -243,6 +243,7 @@ export default {
             let params = {
                 is_all: true,
                 status: "ready",
+                compact: 1,
             };
 
             this.$store.dispatch(VEHICLE_GET_ALL, params).then((data) => {

@@ -247,7 +247,7 @@ def run_comprehensive_audit(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUT):
                 {"name": "Customers", "path": "/customers", "selector": 'a.sidebar-nav-item[href*="customers"]'},
                 {"name": "Leads", "path": "/leads", "selector": 'a.sidebar-nav-item[href*="leads"]'},
                 {"name": "Maintenance", "path": "/maintenance-schedule", "selector": 'a.sidebar-nav-item[href*="maintenance-schedule"]'},
-                {"name": "Cash", "path": "/cash", "selector": 'a.sidebar-nav-item[href*="cash"]'},
+                {"name": "Cash", "path": "/cash", "selector": 'a.sidebar-nav-item[href="/cash"]'},
                 {"name": "Banks", "path": "/banks", "selector": 'a.sidebar-nav-item[href*="banks"]'}
             ]
 
@@ -351,7 +351,7 @@ def run_comprehensive_audit(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUT):
             maint_text = maint_row.inner_text() if maint_row.count() > 0 else ""
             maint_has_data = "Honda Vision" in maint_text or "Thay dầu" in maint_text
 
-            page.locator('a.sidebar-nav-item[href*="cash"]').first.click()
+            page.locator('a.sidebar-nav-item[href="/cash"]').first.click()
             page.wait_for_timeout(600)
             cash_row = page.locator("table tbody tr").first
             cash_text = cash_row.inner_text() if cash_row.count() > 0 else ""

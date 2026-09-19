@@ -2,6 +2,7 @@
 
 namespace App\Http\Services;
 
+use App\Helpers\DateTimeHelper;
 use Illuminate\Http\Request;
 use App\Models\Transaction;
 use App\Repositories\TransactionRepository;
@@ -55,14 +56,14 @@ class TransactionService
             $start_date = $params['start_date'] ;  
             if (  $start_date) {
             
-                $query = $query->whereDate('transactions.created_at', '>=', $start_date);
+                $query->where('transactions.created_at', '>=', DateTimeHelper::parse($start_date)->startOfDay());
             }
         }
     
         if (isset($params['end_date'] )){
             $end_date =  $params['end_date'] ;  
             if ($end_date) {
-                $query = $query->whereDate('transactions.created_at', '<=', $end_date);
+                $query->where('transactions.created_at', '<=', DateTimeHelper::parse($end_date)->endOfDay());
             }
         }
        
@@ -109,12 +110,12 @@ class TransactionService
 
         $start_date = $request->get('start_date');
         if ($start_date) {
-            $query = $query->whereDate('created_at', '>=', $start_date);
+            $query->where('created_at', '>=', DateTimeHelper::parse($start_date)->startOfDay());
         }
 
         $end_date = $request->get('end_date');
         if ($end_date) {
-            $query = $query->whereDate('created_at', '<=', $end_date);
+            $query->where('created_at', '<=', DateTimeHelper::parse($end_date)->endOfDay());
         }
 
         $nodes = $query

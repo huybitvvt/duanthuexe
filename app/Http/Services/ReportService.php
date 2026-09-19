@@ -11,7 +11,6 @@ use App\Helpers\DateTimeHelper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Services\OrderService;
-use Illuminate\Support\Facades\Log;
 use App\Repositories\OrderRepositoryEloquent;
 
 class ReportService
@@ -496,16 +495,9 @@ class ReportService
 		
 		$total_origin_refund_query->where('orders.order_status', 'completed'); // Tổng số tiền cần refund mà chưa tính phí quá hạn hay trả sớm. VD hợp đồng A khách cọc 1tr thì khoản origin-refund phải là 1tr. Trên thực tế nếu phát sinh trả sớm hoặc trả muộn thì sẽ cộng trừ vào khoản cọc này.
 
-		// Log::info('Generated SQL:', ['total_money_out_date_query' => $total_money_out_date_query->toSql(), 'total_money_out_date_bindings' => $total_money_out_date_query->getBindings()]);
-		// Log::info('Generated SQL:', ['total_money_early_query' => $total_money_early_query->toSql(), 'total_money_early_bindings' => $total_money_early_query->getBindings()]);
-
-
 		$found_order_ids = $total_origin_refund_query->pluck('orders.id');
 		$total_origin_refund_query2  = Order::query()->whereIn('orders.id', $found_order_ids);
 
-
-		$total_deposit_query_str = vsprintf(str_replace('?', "'%s'", $total_deposit_query->toSql()), $total_deposit_query->getBindings());
-		Log::info('total_deposit_query sql: ', [ 'query' => $total_deposit_query_str ]);
 
 		if ( $separate_result_by_day ) {
 			return [

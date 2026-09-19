@@ -1425,6 +1425,7 @@ export default {
 
                 is_all: true,
                 status: "ready",
+                compact: 1,
             };
             await this.$store.dispatch(VEHICLE_GET_ALL, params).then((data) => {
                 const merged = [

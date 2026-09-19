@@ -145,6 +145,7 @@ export default {
         async getListVehicles() {
             let params = {
                 is_all: true,
+                compact: 1,
             };
             await this.$store.dispatch(VEHICLE_GET_ALL, params).then((data) => {
                 this.vehicles = data?.data || [];

@@ -24,8 +24,8 @@ class VehicleRevenueExport implements FromCollection, WithHeadings, WithStrictNu
    
     public function collection(): Collection
     {
-        
-        $items = $this->vehicleService->indexWithRevenue($this->params,  true);
+        $params = array_merge($this->params, ['include_store' => false]);
+        $items = $this->vehicleService->indexWithRevenue($params, true);
 
        $items = $items->each(function($item){
         unset($item['price_range']);
@@ -50,4 +50,3 @@ class VehicleRevenueExport implements FromCollection, WithHeadings, WithStrictNu
         ];
     }
 }
-

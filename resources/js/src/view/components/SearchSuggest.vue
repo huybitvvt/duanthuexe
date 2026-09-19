@@ -29,7 +29,8 @@ export default {
     endpoint: { type: String, required: true },
     params: { type: Object, default: () => ({}) },
     queryKey: { type: String, default: "keyword" },
-    fields: { type: String, required: true }
+    fields: { type: String, required: true },
+    compact: { type: Boolean, default: false }
   },
   data() {
     return { open: false, loading: false, items: [], active: -1, message: "", timer: null, version: 0, listId: `search-suggestions-${this._uid}` };
@@ -64,6 +65,7 @@ export default {
         try {
           const params = { ...this.params, [this.queryKey]: keyword, page: 1, per_page: 20 };
           delete params.is_all;
+          if (this.compact) params.compact = 1;
           const { data } = await ApiService.query(this.endpoint, params);
           if (version !== this.version) return;
           this.items = buildSuggestions(data, this.fields, keyword);

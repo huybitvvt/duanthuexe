@@ -19,7 +19,7 @@
                     <div class="col-md-3">
                         <div class="form-group">
                             <label>Tên xe, biển số</label>
-                            <search-suggest endpoint="/api/auth/vehicle/vehicles" :params="query" query-key="name" fields="name,license" @select="search" @submit="search" clearable placeholder="Tên xe, biển số" v-model="query.name"></search-suggest>
+                            <search-suggest endpoint="/api/auth/vehicle/vehicles" :params="query" query-key="name" fields="name,license" compact @select="search" @submit="search" clearable placeholder="Tên xe, biển số" v-model="query.name"></search-suggest>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -199,14 +199,11 @@
 <script>
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import { EXPORT_VEHICLE_REVENUE } from "@/core/services/store/exports.module";
-import { mapGetters } from "vuex";
 import {
     VEHICLE_DELETE,
     VEHICLE_WITH_REVENUE,
-    VEHICLE_GET_ALL_REPORT,
 } from "../../../core/services/store/vehicle.module";
 import queryMixin from '@/utils/queryMixin.js';
-import moment from "moment-timezone";
 import {
     types,
     typeOfService,
@@ -224,7 +221,6 @@ import { STORE_GET_ALL } from "../../../core/services/store/store.module";
 import ModalShowVehicleRevenue from "./ModalShowVehicleRevenue";
 import Swal from "sweetalert2";
 
-const _ = require("lodash");
 export default {
     mixins: [queryMixin],
     name: "ReportVehicleRevenue",
@@ -257,7 +253,6 @@ export default {
             stores: [],
             brands: brands,
             vehicles: [],
-            reports: [],
             page: +page || 1,
             last_page: 1,
             types: types,
@@ -273,9 +268,6 @@ export default {
             item_current: null,
         };
     },
-    computed: {
-        ...mapGetters(["currentUser"]),
-    },
     watch: {
         vehicle_show(newVal, oldVal) {
             this.showOrder = false;
@@ -290,7 +282,6 @@ export default {
         this.getStore();
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Doanh thu xe" }]);
         this.getList();
-        this.getReport();
     },
     methods: {
         showPopup(item) {
@@ -311,7 +302,6 @@ export default {
         search() {
             // this.pushParamsUrl();
             this.getList();
-            this.getReport();
         },
         pushParamsUrl() {
             this.$router.push({
@@ -335,14 +325,6 @@ export default {
                 })
                 .finally(() => {
                     this.is_loading_search = false;
-                });
-        },
-        getReport() {
-            this.is_loading_search = true;
-            this.$store
-                .dispatch(VEHICLE_GET_ALL_REPORT, this.query)
-                .then((data) => {
-                    this.reports = data.data;
                 });
         },
         clickCallback(obj) {

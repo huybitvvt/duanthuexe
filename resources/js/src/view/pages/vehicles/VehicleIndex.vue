@@ -47,7 +47,7 @@
                     <div class="">
 
 
-                        <search-suggest endpoint="/api/auth/vehicle/vehicles" :params="query" query-key="name" fields="name,license" @select="search" @submit="search" clearable placeholder="Tên xe, biển số" v-model="query.name"></search-suggest>
+                        <search-suggest endpoint="/api/auth/vehicle/vehicles" :params="query" query-key="name" fields="name,license" compact @select="search" @submit="search" clearable placeholder="Tên xe, biển số" v-model="query.name"></search-suggest>
 
                     </div>
                     <div class=" ">
@@ -417,11 +417,15 @@ export default {
         const queryPage = +this.$route?.query?.page || 1;
         const queryName = this.$route?.query?.name || this.$route?.query?.keyword || '';
         const currentName = this.query.name || this.query.keyword || '';
-        if (queryPage !== this.page || queryName !== currentName) {
+        const queryChanged = queryPage !== this.page || queryName !== currentName;
+        if (queryChanged) {
             this.page = queryPage;
             if (this.$route?.query?.name !== undefined) {
                 this.query.name = this.$route.query.name;
             }
+        }
+        if (!queryChanged && this.lastFetchedAt && Date.now() - this.lastFetchedAt < 60000) {
+            return;
         }
         this.getList();
         this.getReport();

@@ -4,6 +4,7 @@
 namespace App\Repositories;
 
 
+use App\Helpers\DateTimeHelper;
 use App\Models\Order;
 use App\Validators\OrderValidator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -96,13 +97,12 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
             $query->where('orders.store_id', $params['store_id']);   // orders.id because this will be used in OrderExport
         }
       
-        if ( isset($params['start_date'])) {
+        if (!empty($params['start_date'])) {
             // orders.created_at because this will be used in OrderExport
-            $query = $query->whereDate('orders.created_at', '>=',  $params['start_date']);
+            $query->where('orders.created_at', '>=', DateTimeHelper::parse($params['start_date'])->startOfDay());
         }
-        if (  isset($params['end_date'])  ) {
-          
-            $query = $query->whereDate('orders.created_at', '<=', $params['end_date']);
+        if (!empty($params['end_date'])) {
+            $query->where('orders.created_at', '<=', DateTimeHelper::parse($params['end_date'])->endOfDay());
         }
 
         if (   isset($params['order_status']) ) {

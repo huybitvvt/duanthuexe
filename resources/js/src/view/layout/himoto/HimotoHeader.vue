@@ -652,6 +652,7 @@ export default {
         name: qLower,
         keyword: qLower,
         limit: 5,
+        compact: 1,
         ...storeIdParam
       })
         .then(({ data }) => {

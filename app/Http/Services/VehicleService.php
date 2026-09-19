@@ -2,16 +2,12 @@
 
 namespace App\Http\Services;
 
-use App\Http\Services\OrderService;
+use App\Helpers\DateTimeHelper;
 use App\Interfaces\ICrud;
 use App\Models\Vehicle;
 use App\Models\MaintenanceVehicle;
-use App\Models\MaintenanceType;
-use App\Models\MaintenanceRule;
-use App\Models\MaintenanceSchedule;
 use App\Repositories\VehicleRepository;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 use App\Http\Controllers\MaintenanceVehicleController;
 use App\Http\Controllers\FileController;
@@ -20,11 +16,10 @@ class VehicleService implements ICrud
 {
     private $vehicleRepository;
 
-    public function __construct(  OrderService $orderService,VehicleRepository $vehicleRepository,MaintenanceVehicle $maintenanceVehicle, MaintenanceVehicleController $maintenanceVehicleController)
+    public function __construct(VehicleRepository $vehicleRepository, MaintenanceVehicle $maintenanceVehicle, MaintenanceVehicleController $maintenanceVehicleController)
     {
         $this->maintenanceVehicleController = $maintenanceVehicleController;
         $this->maintenanceVehicle = $maintenanceVehicle;
-        $this->orderService = $orderService;
         $this->vehicleRepository = $vehicleRepository;
     }
     
@@ -32,11 +27,20 @@ class VehicleService implements ICrud
     public function index(array $params, $all = false)
     {
         $limit = data_get($params, 'limit', config('app.paginate'));
-        $items = $this->vehicleRepository->with(['store:id,store_name','maintenanceLog.maintenanceType','maintenanceVehicle','maintenanceSchedule.maintenanceType'])
+        $compact = filter_var(data_get($params, 'compact', false), FILTER_VALIDATE_BOOLEAN);
+        $relations = ['store:id,store_name'];
+        if (!$compact) {
+            $relations = array_merge($relations, [
+                'maintenanceLog.maintenanceType',
+                'maintenanceVehicle',
+                'maintenanceSchedule.maintenanceType',
+                'images',
+            ]);
+        }
+
+        $items = $this->vehicleRepository->with($relations)
             ->filter($params)
             ->orderBy('id', 'DESC');
-
-		$items->with('images');
 		
         if ( $all ) {
             $results = $items->get();
@@ -44,70 +48,115 @@ class VehicleService implements ICrud
 			$results = $items->paginate($limit);
 		}
 
-		foreach ( $results as $item ) {
-			foreach ( $item->images as $image ) {
-				if (($image->provider !== 'cloudinary' || !$image->url) && $image->key) {
-					$image->url = FileController::get_temp_url( $image->key );
+        if (!$compact) {
+			foreach ( $results as $item ) {
+				foreach ( $item->images as $image ) {
+					if (($image->provider !== 'cloudinary' || !$image->url) && $image->key) {
+						$image->url = FileController::get_temp_url( $image->key );
+					}
 				}
 			}
-		}
+        }
 
         return $results;
     }
     public function indexWithRevenue(array $params, $all = false)
     {
         $limit = data_get($params, 'limit', config('app.paginate'));
-        $startDate = data_get($params, 'start_date', '');
-        $endDate = data_get($params, 'end_date', '');
+        $revenueTotals = $this->revenueTotalsQuery($params);
 
-        $items  = $this->vehicleRepository->with(['store:id,store_name','orderVehicleDetails' 
-        => function($query) use ($startDate,$endDate){
-         
-            if ($startDate !== null) {
-                $query->whereDate('order_vehicle_details.rent_at', '>=', $startDate);
-            }
-            if ($endDate !== null){
-                $query->whereDate('order_vehicle_details.rent_at', '<=', $endDate);
-            }
-            $query->orderBy('id', 'desc');
-        }
-        ])
-        ->filter($params)->get();
- 
-          
-        $items->transform(function ($vehicle) {
-            $vehicle->count_order = $vehicle->orderVehicleDetails->count();  
-                $vehicle->revenue = $vehicle->orderVehicleDetails->sum(function ($item) {
-                    return $this->orderService->getOrderItemPrice($item);        
-              
- 
-                });
-        
-            return $vehicle;
-            
-        });
-       
-        if (isset($params['sort_type']) && strtolower($params['sort_type']) === 'asc') {
-            $items = $items->sortBy(isset($params['sort_by']) ? $params['sort_by'] : 'revenue');
-        } else {
-            $items = $items->sortByDesc( isset($params['sort_by']) ? $params['sort_by'] : 'revenue' );
+        $query = Vehicle::query()
+            ->select('vehicles.*')
+            ->selectRaw('COALESCE(vehicle_revenue.count_order, 0) as count_order')
+            ->selectRaw('COALESCE(vehicle_revenue.revenue, 0) as revenue')
+            ->leftJoinSub($revenueTotals, 'vehicle_revenue', function ($join) {
+                $join->on('vehicle_revenue.vehicle_id', '=', 'vehicles.id');
+            });
+
+        if (filter_var(data_get($params, 'include_store', true), FILTER_VALIDATE_BOOLEAN)) {
+            $query->with('store:id,store_name');
         }
 
-      
-        $items = $items->values() ;
-        if ($all){
-            return $items;
-        } else {
-            $page = LengthAwarePaginator::resolveCurrentPage();
-            $perPage = 20;  
-           
-            $currentPageItems = $items->slice(($page - 1) * $perPage, $perPage);
-            $paginator = new LengthAwarePaginator($currentPageItems, $items->count(), $perPage, $page);
-            return $paginator;
-        }  
-     
-            
-     
+        $this->vehicleRepository->applyFilters($query, $params);
+
+        $sortBy = in_array(data_get($params, 'sort_by'), ['count_order', 'revenue'], true)
+            ? data_get($params, 'sort_by')
+            : 'revenue';
+        $sortDirection = strtolower(data_get($params, 'sort_type', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query->orderBy($sortBy, $sortDirection)->orderBy('vehicles.id', 'desc');
+
+        return $all ? $query->get() : $query->paginate($limit);
+    }
+
+    /**
+     * Aggregate rental count and revenue in SQL before pagination. The old
+     * implementation hydrated every matching rental row, calculated totals in
+     * PHP, sorted the whole collection and only then kept the current 20 rows.
+     */
+    private function revenueTotalsQuery(array $params)
+    {
+        $query = DB::table('order_vehicle_details')
+            ->select('vehicle_id')
+            ->selectRaw('COUNT(*) as count_order')
+            ->selectRaw(
+                'COALESCE(SUM(CASE WHEN COALESCE(handler_price, 0) <> 0 THEN handler_price ELSE COALESCE(total_money, 0) + COALESCE(money_out_date, 0) END), 0) as revenue'
+            )
+            ->whereNull('deleted_at');
+
+        $startDate = data_get($params, 'start_date');
+        if (!empty($startDate)) {
+            $query->where('rent_at', '>=', DateTimeHelper::parse($startDate)->startOfDay());
+        }
+
+        $endDate = data_get($params, 'end_date');
+        if (!empty($endDate)) {
+            $query->where('rent_at', '<=', DateTimeHelper::parse($endDate)->endOfDay());
+        }
+
+        return $query->groupBy('vehicle_id');
+    }
+
+    /**
+     * Build the vehicle summary with one aggregate query instead of loading
+     * every vehicle, maintenance record and image into memory.
+     */
+    public function reportByParams(array $params): array
+    {
+        $query = Vehicle::query();
+        $this->vehicleRepository->applyFilters($query, $params);
+
+        $metrics = $query->selectRaw(
+            "COALESCE(SUM(CASE WHEN vehicles.status <> ? THEN 1 ELSE 0 END), 0) as total_vehicle,
+             COALESCE(SUM(CASE WHEN vehicles.status = ? THEN 1 ELSE 0 END), 0) as total_vehicle_ready,
+             COALESCE(SUM(CASE WHEN vehicles.status = ? THEN 1 ELSE 0 END), 0) as total_vehicle_using,
+             COALESCE(SUM(CASE WHEN vehicles.status <> ? AND vehicles.type = ? THEN 1 ELSE 0 END), 0) as total_vehicle_ga,
+             COALESCE(SUM(CASE WHEN vehicles.status <> ? AND vehicles.type = ? THEN 1 ELSE 0 END), 0) as total_vehicle_so,
+             COALESCE(SUM(CASE WHEN vehicles.status <> ? AND vehicles.type = ? THEN 1 ELSE 0 END), 0) as total_vehicle_con,
+             COALESCE(SUM(CASE WHEN vehicles.status <> ? THEN CAST(COALESCE(NULLIF(vehicles.cost_price, ''), '0') AS DECIMAL(18, 2)) ELSE 0 END), 0) as total_price",
+            [
+                Vehicle::STATUS_SOLD,
+                Vehicle::STATUS_READY,
+                Vehicle::STATUS_USING,
+                Vehicle::STATUS_SOLD,
+                Vehicle::TYPE_XEGA,
+                Vehicle::STATUS_SOLD,
+                Vehicle::TYPE_XESO,
+                Vehicle::STATUS_SOLD,
+                Vehicle::TYPE_XECON,
+                Vehicle::STATUS_SOLD,
+            ]
+        )->first();
+
+        return [
+            'total_vehicle' => (int) ($metrics->total_vehicle ?? 0),
+            'total_vehicle_ready' => (int) ($metrics->total_vehicle_ready ?? 0),
+            'total_vehicle_using' => (int) ($metrics->total_vehicle_using ?? 0),
+            'total_vehicle_ga' => (int) ($metrics->total_vehicle_ga ?? 0),
+            'total_vehicle_so' => (int) ($metrics->total_vehicle_so ?? 0),
+            'total_vehicle_con' => (int) ($metrics->total_vehicle_con ?? 0),
+            'total_price' => (float) ($metrics->total_price ?? 0),
+        ];
     }
 
     public function report($items)

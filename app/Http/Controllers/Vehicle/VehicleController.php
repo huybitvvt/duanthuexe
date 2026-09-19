@@ -46,8 +46,7 @@ class VehicleController extends Controller
      */
     public function report(Request $request)
     {
-        $result = $this->vehicleService->index($request->all(), true);
-        return $this->successResponse($this->vehicleService->report($result));
+        return $this->successResponse($this->vehicleService->reportByParams($request->all()));
     }
 
     /**

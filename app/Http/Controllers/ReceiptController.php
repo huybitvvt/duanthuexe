@@ -113,11 +113,11 @@ class ReceiptController extends Controller
         }
         if ($request->filled('start_date')) {
             $start_date = $request->get('start_date');
-            $receipts = $receipts->whereDate('created_at', '>=', $start_date);
+            $receipts->where('created_at', '>=', DateTimeHelper::parse($start_date)->startOfDay());
         }
         if ($request->filled('end_date')) {
             $end_date = $request->get('end_date');
-            $receipts = $receipts->whereDate('created_at', '<=', $end_date);
+            $receipts->where('created_at', '<=', DateTimeHelper::parse($end_date)->endOfDay());
         }
  
         if ($keyword) {
