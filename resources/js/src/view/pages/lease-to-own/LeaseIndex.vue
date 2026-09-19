@@ -28,12 +28,12 @@
       <div class="col-xl-3 col-md-6 mb-4">
         <div class="card card-custom bg-light-primary p-4 border-0">
           <div>
-            <span class="text-muted font-weight-bold font-size-sm d-block">TỔNG HỢP ĐỒNG</span>
+            <span class="text-dark font-weight-bolder font-size-sm d-block">TỔNG HỢP ĐỒNG</span>
             <span class="font-size-h3 font-weight-bolder text-primary">
               {{ stats ? stats.total_contracts : 0 }}
             </span>
-            <span class="text-muted font-size-xs d-block mt-1">
-              Đang thực hiện: <strong>{{ stats ? stats.active_contracts : 0 }}</strong> HĐ
+            <span class="text-dark font-size-xs d-block mt-1 font-weight-bold">
+              Đang thực hiện: <strong class="text-primary">{{ stats ? stats.active_contracts : 0 }}</strong> HĐ
             </span>
           </div>
         </div>
@@ -42,11 +42,11 @@
       <div class="col-xl-3 col-md-6 mb-4">
         <div class="card card-custom bg-light-danger p-4 border-0">
           <div>
-            <span class="text-muted font-weight-bold font-size-sm d-block">TỔNG DƯ NỢ CÒN LẠI</span>
+            <span class="text-dark font-weight-bolder font-size-sm d-block">TỔNG DƯ NỢ CÒN LẠI</span>
             <span class="font-size-h3 font-weight-bolder text-danger">
               {{ (stats ? stats.total_remaining_debt : 0) | formatPrice }}
             </span>
-            <span class="text-muted font-size-xs d-block mt-1">
+            <span class="text-dark font-size-xs d-block mt-1 font-weight-bold">
               Tổng thu dự kiến từ các kỳ
             </span>
           </div>
@@ -56,12 +56,12 @@
       <div class="col-xl-3 col-md-6 mb-4">
         <div class="card card-custom bg-light-warning p-4 border-0">
           <div>
-            <span class="text-muted font-weight-bold font-size-sm d-block">HỢP ĐỒNG QUÁ HẠN</span>
+            <span class="text-dark font-weight-bolder font-size-sm d-block">HỢP ĐỒNG QUÁ HẠN</span>
             <span class="font-size-h3 font-weight-bolder text-warning">
               {{ stats ? stats.overdue_contracts : 0 }}
             </span>
-            <span class="text-muted font-size-xs d-block mt-1">
-              Chiếm <strong>{{ overduePercentage }}%</strong> tổng hợp đồng
+            <span class="text-dark font-size-xs d-block mt-1 font-weight-bold">
+              Chiếm <strong class="text-danger">{{ overduePercentage }}%</strong> tổng hợp đồng
             </span>
           </div>
         </div>
@@ -70,11 +70,11 @@
       <div class="col-xl-3 col-md-6 mb-4">
         <div class="card card-custom bg-light-success p-4 border-0">
           <div>
-            <span class="text-muted font-weight-bold font-size-sm d-block">ĐÃ THU LŨY KẾ</span>
+            <span class="text-dark font-weight-bolder font-size-sm d-block">ĐÃ THU LŨY KẾ</span>
             <span class="font-size-h3 font-weight-bolder text-success">
               {{ (stats ? stats.total_collected : 0) | formatPrice }}
             </span>
-            <span class="text-muted font-size-xs d-block mt-1">
+            <span class="text-dark font-size-xs d-block mt-1 font-weight-bold">
               Tiền cọc & các kỳ đã đóng
             </span>
           </div>
@@ -87,7 +87,7 @@
       <div class="card-body py-3 px-4">
         <div class="d-flex flex-wrap align-items-center justify-content-between">
           <div class="d-flex flex-wrap align-items-center gap-2 mb-2 mb-md-0">
-            <span class="font-weight-bold text-muted mr-3 font-size-sm">PHÂN LOẠI CÔNG NỢ:</span>
+            <span class="font-weight-bolder text-dark mr-3 font-size-sm">PHÂN LOẠI CÔNG NỢ:</span>
             <button
               type="button"
               class="btn btn-sm mr-2"
@@ -130,8 +130,8 @@
             </button>
           </div>
 
-          <div class="text-muted font-size-sm">
-            Hiển thị <strong>{{ contracts.length }}</strong> hợp đồng
+          <div class="text-dark font-size-sm font-weight-bold">
+            Hiển thị <strong class="text-primary">{{ contracts.length }}</strong> hợp đồng
           </div>
         </div>
       </div>
@@ -565,5 +565,14 @@ export default {
 }
 .gap-2 {
   gap: 0.5rem;
+}
+
+.table.table-head-custom thead th,
+.table-head-custom thead th,
+.table thead th {
+  color: #181C32 !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+  letter-spacing: 0.5px;
 }
 </style>

@@ -63,3 +63,10 @@
   font-weight: 600;
   color: #687386;
 }
+
+.table.table-head-custom thead tr th,
+.table.table-head-custom thead th,
+.table-head-custom thead th {
+  color: #181C32 !important;
+  font-weight: 700 !important;
+}
