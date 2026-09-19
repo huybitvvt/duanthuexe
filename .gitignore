@@ -35,3 +35,4 @@ notes.txt
 crontab
 __pycache__/
 *.py[cod]
+/himoto-next/
