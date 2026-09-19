@@ -44,7 +44,7 @@
                                 @click="selectToday" 
                                 title="Xem nhanh báo cáo hôm nay"
                             >
-                                ⚡ Hôm nay
+                                Hôm nay
                             </button>
                         </div>
                         <div v-if="activeDateDisplay" class="mb-2">
