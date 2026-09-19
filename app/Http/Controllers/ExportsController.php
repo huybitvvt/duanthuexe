@@ -13,8 +13,6 @@ use App\Exports\OrderExport;
 use App\Exports\CashExport;
 use Maatwebsite\Excel\Facades\Excel;  
 use Illuminate\Http\Request;   
-use ZipArchive; 
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use App\Support\PilotAccess;
  
@@ -62,41 +60,12 @@ class ExportsController extends Controller
         return  $file ;
   
      }
-     public function generalReports(Request $request){
-        
+    public function generalReports(Request $request){
         $params = $request->all();
-        $reportExport = app(ReportExport::class,['params' => $params])  ;
-        $countReport = $reportExport->countReport();
-        
-   
-        $zip = new ZipArchive();
-        
- 
-        $zipFilePath = storage_path('app/exports/files.zip');
-        
-    
-        if ($zip->open($zipFilePath, ZipArchive::CREATE) === true) {
-          
-            for ($i = 0; $i < $countReport; $i++) {
-           
-                $export = app()->make(ReportExport::class, ['params' => $params, 'reportIndex' => $i]);
-     
-                $file = Excel::download($export, "file{$i}.xlsx");
-         
-                $zip->addFromString("report-{$i}.xlsx", file_get_contents($file->getFile()));
-            }
-        
-            
-            $zip->close();
-        
-   
-            return response()->download($zipFilePath)->deleteFileAfterSend(true);
-        } else {
-         
-            return response()->json(['error' => 'Unable to create the zip file'], 500);
-        }
+        $export = app()->make(ReportExport::class, ['params' => $params]);
+        $fileName = 'bao-cao-thue-xe-' . date('Ymd_His') . '.xlsx';
 
-
+        return Excel::download($export, $fileName);
     }
     public function vehicleRevenue(Request $request){
         $params = $request->all();

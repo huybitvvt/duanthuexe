@@ -5,11 +5,18 @@
                 <div class="card-title">
                     <h3 class="card-label">Tổng quan báo cáo thuê xe</h3>
                 </div>
-                <!-- <div class="card-title">
-                    <button class="btn btn-success" @click="exportFile">
-                        Export
+                <div class="card-title">
+                    <button
+                        type="button"
+                        class="btn btn-success"
+                        :class="{ 'spinner spinner-white spinner-right': is_exporting }"
+                        :disabled="is_exporting"
+                        @click="exportFile"
+                    >
+                        <i v-if="!is_exporting" class="fa fa-file-excel mr-2"></i>
+                        {{ is_exporting ? 'Đang xuất...' : 'Xuất Excel' }}
                     </button>
-                </div> -->
+                </div>
 
             </div>
             <div class="card-body">
@@ -131,19 +138,20 @@
                     </div>
                 </div>
 
-                <!-- BẢNG TẤT CẢ CỬA HÀNG CÓ MŨI TÊN CHI TIẾT TỪNG LOẠI PHÍ -->
+                <!-- BẢNG TỔNG QUAN THEO BỘ LỌC -->
                 <div class="example mb-10">
                     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap">
                         <h4 class="section-title my-0">
-                            <i class="fa fa-chart-bar text-primary mr-1"></i> Tất cả cửa hàng
+                            <i class="fa fa-chart-bar text-primary mr-1"></i>
+                            {{ selectedStoreName ? `Tổng quan cửa hàng: ${selectedStoreName}` : 'Tất cả cửa hàng' }}
                         </h4>
-                        <button 
+                        <button
                             type="button" 
                             class="btn btn-sm btn-outline-primary font-weight-bolder shadow-sm"
-                            @click="toggleAllStoresDetail"
+                            @click="viewSelectedStoreDetail"
                         >
-                            <i :class="showDetail ? 'fa fa-chevron-up mr-1 text-primary' : 'fa fa-chevron-down mr-1 text-primary'"></i>
-                            {{ showDetail ? 'Thu gọn chi tiết' : 'Mũi tên xem chi tiết từng loại phí ▼' }}
+                            <i class="fa fa-chevron-down mr-1 text-primary"></i>
+                            Xem chi tiết cửa hàng
                         </button>
                     </div>
 
@@ -151,85 +159,50 @@
                         <table class="table table-bordered table-hover" v-if="reports_all_stores">
                             <thead class="thead-light">
                                 <tr>
-                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('real_in')" title="Bấm để xem chi tiết Thu thực tế">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span>Tổng thu thực tế</span>
-                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'real_in' && showDetail }">
-                                                <i :class="selectedFee === 'real_in' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
-                                            </span>
-                                        </div>
+                                    <th scope="col">
+                                        Tổng thu thực tế
                                     </th>
-                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('real_refund')" title="Bấm để xem chi tiết Chi thực tế">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span>Tổng chi thực tế</span>
-                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'real_refund' && showDetail }">
-                                                <i :class="selectedFee === 'real_refund' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
-                                            </span>
-                                        </div>
+                                    <th scope="col">
+                                        Tổng chi thực tế
                                     </th>
-                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('deposit')" title="Bấm để xem chi tiết Thu cọc">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span>Tổng thu cọc</span>
-                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'deposit' && showDetail }">
-                                                <i :class="selectedFee === 'deposit' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
-                                            </span>
-                                        </div>
+                                    <th scope="col">
+                                        Tổng thu cọc
                                     </th>
-                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('renew')" title="Bấm để xem chi tiết Thu gia hạn">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span>Tổng thu gia hạn</span>
-                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'renew' && showDetail }">
-                                                <i :class="selectedFee === 'renew' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
-                                            </span>
-                                        </div>
+                                    <th scope="col">
+                                        Tổng thu gia hạn
                                     </th>
-                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('rental_fees')" title="Bấm để xem chi tiết Phí thuê">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span>Tổng thu phí thuê</span>
-                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'rental_fees' && showDetail }">
-                                                <i :class="selectedFee === 'rental_fees' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
-                                            </span>
-                                        </div>
+                                    <th scope="col">
+                                        Tổng thu phí thuê
                                     </th>
-                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('early')" title="Bấm để xem chi tiết Trả sớm">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span>Tổng trả sớm</span>
-                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'early' && showDetail }">
-                                                <i :class="selectedFee === 'early' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
-                                            </span>
-                                        </div>
+                                    <th scope="col">
+                                        Tổng trả sớm
                                     </th>
-                                    <th scope="col" class="cursor-pointer fee-header" @click="toggleFeeDetail('out_date')" title="Bấm để xem chi tiết Phạt muộn">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <span>Tổng phạt muộn</span>
-                                            <span class="fee-arrow" :class="{ 'arrow-active': selectedFee === 'out_date' && showDetail }">
-                                                <i :class="selectedFee === 'out_date' && showDetail ? 'fa fa-chevron-up text-primary' : 'fa fa-chevron-down text-muted'"></i>
-                                            </span>
-                                        </div>
+                                    <th scope="col">
+                                        Tổng phạt muộn
                                     </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr class="total-highlight">
-                                    <td class="cursor-pointer" @click="toggleFeeDetail('real_in')" :class="{ 'bg-light-success': selectedFee === 'real_in' && showDetail }">
+                                    <td>
                                         {{ totalInForAllStores | formatPrice }}
                                     </td>
-                                    <td class="cursor-pointer" @click="toggleFeeDetail('real_refund')" :class="{ 'bg-light-danger': selectedFee === 'real_refund' && showDetail }">
+                                    <td>
                                         {{ reports_all_stores.total_real_refund | formatPrice }}
                                     </td>
-                                    <td class="cursor-pointer" @click="toggleFeeDetail('deposit')" :class="{ 'bg-light-info': selectedFee === 'deposit' && showDetail }">
+                                    <td>
                                         {{ reports_all_stores.total_deposit | formatPrice }}
                                     </td>
-                                    <td class="cursor-pointer" @click="toggleFeeDetail('renew')" :class="{ 'bg-light-info': selectedFee === 'renew' && showDetail }">
+                                    <td>
                                         {{ reports_all_stores.total_renew | formatPrice }}
                                     </td>
-                                    <td class="cursor-pointer" @click="toggleFeeDetail('rental_fees')" :class="{ 'bg-light-info': selectedFee === 'rental_fees' && showDetail }">
+                                    <td>
                                         {{ reports_all_stores.total_rental_fees | formatPrice }}
                                     </td>
-                                    <td class="cursor-pointer" @click="toggleFeeDetail('early')" :class="{ 'bg-light-info': selectedFee === 'early' && showDetail }">
+                                    <td>
                                         {{ Math.abs(reports_all_stores.total_money_early) | formatPrice }}
                                     </td>
-                                    <td class="cursor-pointer" @click="toggleFeeDetail('out_date')" :class="{ 'bg-light-info': selectedFee === 'out_date' && showDetail }">
+                                    <td>
                                         {{ reports_all_stores.total_money_out_date | formatPrice }}
                                     </td>
                                 </tr>
@@ -237,134 +210,30 @@
                         </table>
                     </div>
 
-                    <!-- KHỐI MỞ RỘNG CHI TIẾT TỪNG LOẠI PHÍ & TỪNG CỬA HÀNG -->
-                    <div v-if="showDetail" class="detail-box card card-body bg-light border border-primary p-4 mt-3 mb-6 rounded shadow-sm">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h5 class="font-weight-bolder text-primary mb-0">
-                                <i class="fa fa-info-circle mr-1 text-primary"></i> Chi tiết loại phí:
-                                <span v-if="selectedFeeLabel" class="badge badge-primary ml-2 font-size-sm">{{ selectedFeeLabel }}</span>
-                                <span v-else class="badge badge-light-primary ml-2 font-size-sm">Tất cả loại phí</span>
-                            </h5>
-                            <button type="button" class="btn btn-xs btn-outline-secondary" @click="showDetail = false">
-                                <i class="fa fa-times mr-1"></i> Đóng
-                            </button>
-                        </div>
-
-                        <!-- 1. Cơ cấu loại phí (Thu - Chi) -->
-                        <div class="row mb-4">
-                            <div class="col-md-6 mb-2">
-                                <div class="card p-3 border h-100 shadow-none" :class="{ 'border-success bg-white': selectedFee === 'real_in' || selectedFee === 'deposit' || selectedFee === 'renew' || selectedFee === 'rental_fees' }">
-                                    <div class="font-weight-bolder text-success mb-2 d-flex justify-content-between align-items-center">
-                                        <span><i class="fa fa-arrow-down mr-1"></i> Cơ cấu Thu thực tế:</span>
-                                        <span class="font-size-h6">{{ totalInForAllStores | formatPrice }}</span>
-                                    </div>
-                                    <ul class="list-unstyled mb-0 font-size-sm">
-                                        <li class="d-flex justify-content-between py-1 border-bottom" :class="{ 'font-weight-bolder text-primary': selectedFee === 'deposit' }">
-                                            <span>• Thu tiền cọc:</span>
-                                            <span>{{ (reports_all_stores.total_deposit || 0) | formatPrice }}</span>
-                                        </li>
-                                        <li class="d-flex justify-content-between py-1 border-bottom" :class="{ 'font-weight-bolder text-primary': selectedFee === 'renew' }">
-                                            <span>• Thu tiền gia hạn:</span>
-                                            <span>{{ (reports_all_stores.total_renew || 0) | formatPrice }}</span>
-                                        </li>
-                                        <li class="d-flex justify-content-between py-1" :class="{ 'font-weight-bolder text-primary': selectedFee === 'rental_fees' }">
-                                            <span>• Thu phí thuê xe:</span>
-                                            <span>{{ (reports_all_stores.total_rental_fees || 0) | formatPrice }}</span>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <div class="card p-3 border h-100 shadow-none" :class="{ 'border-danger bg-white': selectedFee === 'real_refund' || selectedFee === 'early' || selectedFee === 'out_date' }">
-                                    <div class="font-weight-bolder text-danger mb-2 d-flex justify-content-between align-items-center">
-                                        <span><i class="fa fa-arrow-up mr-1"></i> Cơ cấu Chi & Trừ thực tế:</span>
-                                        <span class="font-size-h6">{{ (reports_all_stores.total_real_refund || 0) | formatPrice }}</span>
-                                    </div>
-                                    <ul class="list-unstyled mb-0 font-size-sm">
-                                        <li class="d-flex justify-content-between py-1 border-bottom" :class="{ 'font-weight-bolder text-primary': selectedFee === 'real_refund' }">
-                                            <span>• Tiền hoàn cọc thực tế cho khách:</span>
-                                            <span>{{ (reports_all_stores.total_real_refund || 0) | formatPrice }}</span>
-                                        </li>
-                                        <li class="d-flex justify-content-between py-1 border-bottom" :class="{ 'font-weight-bolder text-primary': selectedFee === 'early' }">
-                                            <span>• Hoàn trừ do khách trả xe sớm:</span>
-                                            <span>{{ Math.abs(reports_all_stores.total_money_early || 0) | formatPrice }}</span>
-                                        </li>
-                                        <li class="d-flex justify-content-between py-1" :class="{ 'font-weight-bolder text-primary': selectedFee === 'out_date' }">
-                                            <span>• Phạt trả xe quá hạn (thu bù thêm):</span>
-                                            <span>{{ (reports_all_stores.total_money_out_date || 0) | formatPrice }}</span>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 2. Bảng phân bổ đóng góp từng cửa hàng -->
-                        <div class="card p-3 border bg-white shadow-none">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="font-weight-bolder text-dark">
-                                    <i class="fa fa-store mr-1 text-primary"></i> Phân bổ số tiền từng loại phí theo từng cửa hàng:
-                                </span>
-                                <span class="text-muted font-size-xs">Cập nhật theo khoảng thời gian đã lọc</span>
-                            </div>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered table-striped mb-0">
-                                    <thead class="bg-primary text-white">
-                                        <tr>
-                                            <th>Cửa hàng</th>
-                                            <th :class="{ 'bg-success font-weight-bolder': selectedFee === 'real_in' }">Thu thực tế</th>
-                                            <th :class="{ 'bg-danger font-weight-bolder': selectedFee === 'real_refund' }">Chi thực tế</th>
-                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'deposit' }">Thu cọc</th>
-                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'renew' }">Thu gia hạn</th>
-                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'rental_fees' }">Phí thuê</th>
-                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'early' }">Trả sớm</th>
-                                            <th :class="{ 'bg-dark font-weight-bolder': selectedFee === 'out_date' }">Phạt muộn</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="st in (reports_all_stores.by_store || [])" :key="st.store_id">
-                                            <td class="font-weight-bold">{{ st.store_name }}</td>
-                                            <td class="text-success font-weight-bold" :class="{ 'bg-light-success': selectedFee === 'real_in' }">
-                                                {{ st.total_real_in | formatPrice }}
-                                            </td>
-                                            <td class="text-danger font-weight-bold" :class="{ 'bg-light-danger': selectedFee === 'real_refund' }">
-                                                {{ st.total_real_refund | formatPrice }}
-                                            </td>
-                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'deposit' }">
-                                                {{ st.total_deposit | formatPrice }}
-                                            </td>
-                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'renew' }">
-                                                {{ st.total_renew | formatPrice }}
-                                            </td>
-                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'rental_fees' }">
-                                                {{ st.total_rental_fees | formatPrice }}
-                                            </td>
-                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'early' }">
-                                                {{ Math.abs(st.total_money_early) | formatPrice }}
-                                            </td>
-                                            <td :class="{ 'bg-light-info font-weight-bolder text-primary': selectedFee === 'out_date' }">
-                                                {{ st.total_money_out_date | formatPrice }}
-                                            </td>
-                                        </tr>
-                                        <tr v-if="!(reports_all_stores.by_store && reports_all_stores.by_store.length)">
-                                            <td colspan="8" class="text-center text-muted py-3">Chưa có dữ liệu phân bổ theo từng cửa hàng.</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
                 </div>
-                    <h4 class="section-title">Từng cửa hàng</h4>
+                    <h4 id="store-details" class="section-title">Từng cửa hàng</h4>
 
-					<div class="example-preview table-responsive" v-for="(report, key) in reports" :key="key">
-                        <el-collapse accordion @change="onCollapseChanged($event, report.store.id)">
+					<div
+                        class="example-preview table-responsive store-detail-section"
+                        v-for="(report, key) in reports"
+                        :key="key"
+                        :id="`store-report-${report.store.id}`"
+                    >
+                        <el-collapse v-model="active_store_collapses[key]" accordion @change="onCollapseChanged($event, report.store.id)">
                             <el-collapse-item name="1">
                                
 								<template slot="title">
-                                    <p class="font-weight-bold">Cửa hàng: {{ report.store.store_name }}</p>
+                                    <p class="font-weight-bold mb-0">
+                                        Cửa hàng: {{ report.store.store_name }}
+                                        <i
+                                            v-if="store_detail_loading[report.store.id]"
+                                            class="fa fa-spinner fa-spin text-primary ml-2"
+                                            title="Đang tải chi tiết"
+                                        ></i>
+                                    </p>
                                 </template>
 
-								<table class="table">
+								<table v-if="!store_detail_loading[report.store.id]" class="table">
                                     <thead>
                                         <tr>
                                             <th scope="col">Ngày</th>
@@ -401,6 +270,11 @@
                                         </tr>
                                     </tbody>
                                 </table>
+
+                                <div v-else class="text-center text-muted py-8">
+                                    <i class="fa fa-spinner fa-spin text-primary mr-2"></i>
+                                    Đang tải dữ liệu chi tiết...
+                                </div>
 							</el-collapse-item>
                         </el-collapse>
                     </div>
@@ -429,15 +303,16 @@ export default {
         return {
             moment: moment,
             is_loading_search: false,
+            is_exporting: false,
             reports: {},
             reports_all_stores: {},
+            store_detail_loading: {},
+            active_store_collapses: {},
             stores: [],
             dateMode: 'range', // 'single' | 'range'
             singleDate: moment().format("YYYY-MM-DD"),
             rangeStartDate: moment().startOf("month").format("YYYY-MM-DD"),
             rangeEndDate: moment().format("YYYY-MM-DD"),
-            showDetail: false,
-            selectedFee: null,
             query: {
                 store_id: store_id ? +store_id : "",
                 dates: [],
@@ -462,17 +337,10 @@ export default {
             }
             return '';
         },
-        selectedFeeLabel() {
-            const map = {
-                real_in: 'Tổng thu thực tế',
-                real_refund: 'Tổng chi thực tế',
-                deposit: 'Tổng thu cọc',
-                renew: 'Tổng thu gia hạn',
-                rental_fees: 'Tổng thu phí thuê',
-                early: 'Tổng trả sớm',
-                out_date: 'Tổng phạt muộn',
-            };
-            return map[this.selectedFee] || '';
+        selectedStoreName() {
+            const store_id = parseInt(this.query.store_id);
+            const store = this.stores.find(item => parseInt(item.id) === store_id);
+            return store ? store.store_name : '';
         },
 	},
     mounted() {
@@ -579,21 +447,17 @@ export default {
 			}
 			return [];
 		},
-		onCollapseChanged(is_opened, store_id) {
-			if ( is_opened ) {
-				let params = JSON.parse(JSON.stringify(this.query)); // Deep clone {this.query} to prevent new changed in {params} will be overwride {this.query}
-				params['store_id'] = store_id;
-				this.$store.dispatch(REPORT_CAR_RENTAL_DAY_BY_DAY, params).then((data) => {
-					store_id = parseInt(store_id);
-					if (this.reports['store_' + store_id]) {
-						this.$set(this.reports['store_' + store_id], 'data', data.data);
-					}
-				});
-
+		async onCollapseChanged(is_opened, store_id) {
+            store_id = parseInt(store_id);
+			if (is_opened) {
 				const index = this.collapse_opened_ids.indexOf(store_id);
-				if (index == -1) {
+				if (index === -1) {
 					this.collapse_opened_ids.push(store_id);
 				}
+
+                const params = JSON.parse(JSON.stringify(this.query));
+                params.store_id = store_id;
+                await this.getStoreDetailReport(params, store_id);
 			} else {
 				const index = this.collapse_opened_ids.indexOf(store_id);
 				if (index !== -1) {
@@ -660,20 +524,40 @@ export default {
             }
             this.search();
         },
-        toggleAllStoresDetail() {
-            this.showDetail = !this.showDetail;
-            if (!this.showDetail) {
-                this.selectedFee = null;
+        async viewSelectedStoreDetail() {
+            const store_id = parseInt(this.query.store_id);
+            if (!store_id) {
+                if (this.$message && this.$message.warning) {
+                    this.$message.warning('Vui lòng chọn cửa hàng trước khi xem chi tiết');
+                }
+                return;
             }
-        },
-        toggleFeeDetail(feeKey) {
-            if (this.showDetail && this.selectedFee === feeKey) {
-                this.showDetail = false;
-                this.selectedFee = null;
-            } else {
-                this.showDetail = true;
-                this.selectedFee = feeKey;
+
+            const report_key = `store_${store_id}`;
+            if (!this.reports[report_key]) {
+                if (this.$message && this.$message.warning) {
+                    this.$message.warning('Không tìm thấy cửa hàng đã chọn');
+                }
+                return;
             }
+
+            this.$set(this.active_store_collapses, report_key, '1');
+            if (this.collapse_opened_ids.indexOf(store_id) === -1) {
+                this.collapse_opened_ids.push(store_id);
+            }
+
+            const params = JSON.parse(JSON.stringify(this.query));
+            params.store_id = store_id;
+            const detail_request = this.getStoreDetailReport(params, store_id);
+
+            this.$nextTick(() => {
+                const store_section = document.getElementById(`store-report-${store_id}`);
+                if (store_section) {
+                    store_section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+
+            await detail_request;
         },
         getDateDefault() {
             const start = this.moment().startOf("month").format("YYYY-MM-DD");
@@ -700,17 +584,25 @@ export default {
         },
 
 		async getStoreDetailReport(params, store_id) {
-			return new Promise(resolve => {
-				this.$store.dispatch(REPORT_CAR_RENTAL_DAY_BY_DAY, params).then((data) => {
-					store_id = parseInt(store_id);
+            store_id = parseInt(store_id);
+            if (this.store_detail_loading[store_id]) {
+                return;
+            }
 
-					if (!this.reports['store_' + store_id]) {
-						this.$set(this.reports, 'store_' + store_id, { data: [] });
-					}
-					this.$set(this.reports['store_' + store_id], 'data', data.data);
-					resolve();
-				});
-			});
+            this.$set(this.store_detail_loading, store_id, true);
+            try {
+                const data = await this.$store.dispatch(REPORT_CAR_RENTAL_DAY_BY_DAY, params);
+                const report_key = `store_${store_id}`;
+                if (!this.reports[report_key]) {
+                    const store = this.stores.find(item => parseInt(item.id) === store_id);
+                    this.$set(this.reports, report_key, { store, data: [] });
+                }
+                this.$set(this.reports[report_key], 'data', data.data);
+            } catch (error) {
+                this.noticeMessage('error', 'Thất bại', 'Không thể tải chi tiết cửa hàng');
+            } finally {
+                this.$set(this.store_detail_loading, store_id, false);
+            }
 		},
 
         report() {
@@ -785,8 +677,6 @@ export default {
             this.$store.dispatch(STORE_GET_ALL, {}).then((res) => {
                 this.stores = res.data;
 
-				console.log('store before: ', this.reports.length, ' -- data: ', this.reports);
-
 				let report_data = {};
 				res.data.forEach((store) => {
 					if ( store ) {
@@ -796,6 +686,7 @@ export default {
 								store,
 								data: []
 							}
+                            this.$set(this.active_store_collapses, 'store_' + store_id, '');
 						}
 					}
 				});
@@ -803,11 +694,11 @@ export default {
             });
         },
         exportFile() {
-            this.is_loading_search = true;
-            this.$store.dispatch(EXPORT_GENERAL_REPORT, this.query).then().catch((error) => {
-                this.noticeMessage('error', 'Thất bại', error.message);
+            this.is_exporting = true;
+            this.$store.dispatch(EXPORT_GENERAL_REPORT, this.query).catch(() => {
+                this.noticeMessage('error', 'Thất bại', 'Không thể xuất file Excel');
             }).finally(() => {
-                this.is_loading_search = false;
+                this.is_exporting = false;
             })
         }
     },
@@ -847,39 +738,8 @@ export default {
     margin: 40px 0;
 }
 
-.cursor-pointer {
-    cursor: pointer;
-}
-
-.fee-header {
-    user-select: none;
-    transition: background-color 0.2s;
-}
-
-.fee-header:hover {
-    background-color: #e8f4fd !important;
-}
-
-.fee-arrow {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    margin-left: 6px;
-    background: rgba(0, 0, 0, 0.05);
-    transition: all 0.2s ease;
-}
-
-.fee-header:hover .fee-arrow,
-.fee-arrow.arrow-active {
-    background: #e1f0ff;
-}
-
-.detail-box {
-    background: #fbfcfe !important;
-    animation: fadeIn 0.25s ease-in-out;
+.store-detail-section {
+    scroll-margin-top: 90px;
 }
 
 .filter-row .filter-label {
@@ -905,16 +765,6 @@ export default {
     }
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-5px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 </style>
 
 <style>

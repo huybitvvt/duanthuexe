@@ -64,7 +64,7 @@ const actions = {
         return downloadExcel(`/api/auth/export/orders`, 'orders.xlsx', params);
     },
     [EXPORT_GENERAL_REPORT](context, params) {
-        return downloadExcel(`/api/auth/export/general_reports`, 'general_reports.zip', params);
+        return downloadExcel(`/api/auth/export/general_reports`, `bao-cao-thue-xe-${Date.now()}.xlsx`, params);
     },
     [EXPORT_VEHICLE_REVENUE](context, params) {
         return downloadExcel(`/api/auth/export/vehicle_revenue`, 'vehicle_revenue.xlsx', params);
