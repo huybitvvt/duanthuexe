@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\MaintenanceSchedule;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
+use App\Helpers\DateTimeHelper;
 
 class MaintenanceScheduleController extends Controller
 {
@@ -62,28 +64,98 @@ class MaintenanceScheduleController extends Controller
     }
 
     public function putOrPostArr($data){
-        
         foreach ($data as $key=>$attributes){
-          
-            if (isset($attributes['id'])){
-                $item = MaintenanceSchedule::find($attributes['id']) ;
-                $item->update($attributes);
-            } else {
-                $item = MaintenanceSchedule::where('vehicle_id', $attributes['vehicle_id'])
-                ->where('maintenance_type_id', $attributes['maintenance_type_id'])
-                ->first();
-                
+            if (!empty($attributes['id'])){
+                $item = MaintenanceSchedule::find($attributes['id']);
                 if ($item) {
                     $item->update($attributes);
                 } else {
                     MaintenanceSchedule::create($attributes);
                 }
-                
+            } else {
+                $item = MaintenanceSchedule::where('vehicle_id', $attributes['vehicle_id'])
+                    ->where('maintenance_type_id', $attributes['maintenance_type_id'])
+                    ->first();
+                if ($item) {
+                    $item->update($attributes);
+                } else {
+                    MaintenanceSchedule::create($attributes);
+                }
             }
-                
+        }
+        return $this->successResponse('','Lưu lịch hẹn bảo dưỡng thành công.');
+    }
+
+    /**
+     * Get upcoming or overdue maintenance schedules for dashboard & notifications.
+     */
+    public function upcoming(Request $request)
+    {
+        $now = DateTimeHelper::now();
+        $daysAhead = (int) $request->input('days', 7);
+        $limitDate = $now->copy()->addDays($daysAhead)->endOfDay();
+        $storeId = $request->input('store_id');
+
+        $query = MaintenanceSchedule::query()
+            ->with(['maintenanceType:id,name', 'vehicle:id,name,license,store_id'])
+            ->where(function ($q) use ($limitDate) {
+                $q->whereNotNull('next_time_manual')
+                  ->where('next_time_manual', '<=', $limitDate);
+            })
+            ->orWhere(function ($q) use ($limitDate) {
+                $q->whereNotNull('next_time_auto')
+                  ->where('next_time_auto', '<=', $limitDate);
+            });
+
+        if ($storeId && $storeId !== 'all') {
+            $query->whereHas('vehicle', function ($vq) use ($storeId) {
+                $vq->where('store_id', (int) $storeId);
+            });
+        }
+
+        $items = $query->orderByRaw("COALESCE(next_time_manual, next_time_auto) ASC")
+            ->take(50)
+            ->get();
+
+        $mapped = $items->map(function ($item) use ($now) {
+            $dueDate = $item->next_time_manual ?: $item->next_time_auto;
+            $carbonDue = Carbon::parse($dueDate)->timezone('Asia/Bangkok');
+
+            if ($carbonDue->lt($now->copy()->startOfDay())) {
+                $daysOver = (int) $now->diffInDays($carbonDue);
+                $status = 'overdue';
+                $statusText = $daysOver <= 1 ? 'Quá hạn 1 ngày' : "Quá hạn {$daysOver} ngày";
+                $severity = 'danger';
+            } elseif ($carbonDue->isToday()) {
+                $status = 'today';
+                $statusText = 'Đến hạn hôm nay';
+                $severity = 'warning';
+            } else {
+                $daysLeft = (int) ceil($now->diffInHours($carbonDue) / 24);
+                $status = 'upcoming';
+                $statusText = "Còn {$daysLeft} ngày";
+                $severity = 'info';
             }
-      
-        return $this->successResponse('','Maintenance schedule created/updated successfully.');
+
+            return [
+                'id' => $item->id,
+                'vehicle_id' => $item->vehicle_id,
+                'vehicle_name' => $item->vehicle ? $item->vehicle->name : 'Xe #' . $item->vehicle_id,
+                'vehicle_license' => $item->vehicle ? $item->vehicle->license : '',
+                'store_id' => $item->vehicle ? $item->vehicle->store_id : null,
+                'maintenance_type_id' => $item->maintenance_type_id,
+                'maintenance_type_name' => $item->maintenanceType ? $item->maintenanceType->name : 'Bảo dưỡng',
+                'next_time_manual' => $item->next_time_manual,
+                'next_time_auto' => $item->next_time_auto,
+                'due_date' => $carbonDue->format('d/m/Y H:i'),
+                'due_date_iso' => $carbonDue->toIso8601String(),
+                'status' => $status,
+                'status_text' => $statusText,
+                'severity' => $severity,
+            ];
+        });
+
+        return $this->successResponse($mapped, 'Lấy danh sách xe cần bảo dưỡng thành công.');
     }
 
     /**
@@ -105,8 +177,8 @@ class MaintenanceScheduleController extends Controller
     public function store(Request $request)
     {
         $params = $request->all();   
-        MaintenanceSchedule::create( $params);
-        return $this->successResponse('','Maintenance schedule created successfully.');
+        MaintenanceSchedule::create($params);
+        return $this->successResponse('','Tạo lịch hẹn bảo dưỡng thành công.');
     }
 
     /**
@@ -117,7 +189,8 @@ class MaintenanceScheduleController extends Controller
      */
     public function show(MaintenanceSchedule $maintenanceSchedule)
     {
-        
+        $maintenanceSchedule->load(['maintenanceType', 'vehicle.store']);
+        return $this->successResponse($maintenanceSchedule, 'Lấy chi tiết lịch hẹn bảo dưỡng thành công.');
     }
 
     /**

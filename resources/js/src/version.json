@@ -1,9 +1,9 @@
 {
   "name": "himoto-fleet-dashboard",
   "version": "1.1.0",
-  "commit": "045e1063c3f72ec78acdf6a0a953acc30c0084de",
-  "short_commit": "045e106",
+  "commit": "30eef65a8ed125742d7350d255328c6b55aa42b2",
+  "short_commit": "30eef65",
   "branch": "main",
-  "build_time": "2026-09-19T12:28:56.891Z",
+  "build_time": "2026-09-19T13:16:08.840Z",
   "environment": "production"
 }

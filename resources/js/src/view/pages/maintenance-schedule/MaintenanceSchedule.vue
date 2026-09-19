@@ -82,9 +82,17 @@
                                             }}
                                         </td>
                                         <td>
-                                            <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteItem(item.id)"
-                                                href="javascript:" class="btn btn-xs btn-outline-danger">Xóa
-                                            </a>
+                                            <div class="d-flex align-items-center">
+                                                <button type="button" class="btn btn-xs btn-outline-info mr-1" title="Xem chi tiết" @click="viewItem(item)">
+                                                    Xem
+                                                </button>
+                                                <button type="button" class="btn btn-xs btn-outline-primary mr-1" title="Chỉnh sửa" @click="editItem(item)">
+                                                    Sửa
+                                                </button>
+                                                <button v-if="currentUser.role_id === 1" type="button" class="btn btn-xs btn-outline-danger" title="Xóa" @click="deleteItem(item.id)">
+                                                    Xóa
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -93,8 +101,114 @@
                         <HimotoEmptyState v-else title="Không có lịch hẹn bảo dưỡng nào" description="Thử thay đổi bộ lọc tìm kiếm hoặc tạo lịch hẹn bảo dưỡng mới." actionText="Tạo mới lịch hẹn" @action="openModalCreate()" />
                     </div>
                 </div>
+                <!-- Modal Tạo mới -->
                 <b-modal title="Tạo mới" size="xl" ref="modal-create" :centered="true" :scrollable="true" hide-footer>
                     <maintenance-schedule-create @createSuccess="createSuccess"></maintenance-schedule-create>
+                </b-modal>
+
+                <!-- Modal Xem chi tiết -->
+                <b-modal title="Chi tiết lịch hẹn bảo dưỡng" size="lg" ref="modal-view" :centered="true" hide-footer>
+                    <div v-if="viewItemData" class="p-2">
+                        <div class="row mb-3">
+                            <div class="col-sm-6 mb-2">
+                                <span class="text-muted d-block font-size-sm">Mã lịch hẹn:</span>
+                                <strong class="font-size-h6 text-dark">#{{ viewItemData.id }}</strong>
+                            </div>
+                            <div class="col-sm-6 mb-2">
+                                <span class="text-muted d-block font-size-sm">Trạng thái hạn:</span>
+                                <span :class="`badge badge-${getScheduleStatus(viewItemData).badge} font-weight-bold`">
+                                    {{ getScheduleStatus(viewItemData).text }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-6 mb-2">
+                                <span class="text-muted d-block font-size-sm">Xe bảo dưỡng:</span>
+                                <span class="font-weight-bold font-size-base text-dark">
+                                    {{ viewItemData.vehicle ? viewItemData.vehicle.name : 'Xe #' + viewItemData.vehicle_id }}
+                                </span>
+                                <span v-if="viewItemData.vehicle && viewItemData.vehicle.license" class="badge badge-secondary ml-2 font-weight-bold">
+                                    {{ viewItemData.vehicle.license }}
+                                </span>
+                            </div>
+                            <div class="col-sm-6 mb-2">
+                                <span class="text-muted d-block font-size-sm">Loại bảo dưỡng:</span>
+                                <strong class="text-primary font-size-base">
+                                    {{ viewItemData.maintenance_type ? viewItemData.maintenance_type.name : '---' }}
+                                </strong>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-6 mb-2">
+                                <span class="text-muted d-block font-size-sm">Lịch hẹn (thủ công):</span>
+                                <strong class="text-dark">
+                                    {{ viewItemData.next_time_manual ? convertToGMTPlus7(viewItemData.next_time_manual) : '---' | formatDateTime }}
+                                </strong>
+                            </div>
+                            <div class="col-sm-6 mb-2">
+                                <span class="text-muted d-block font-size-sm">Lịch hẹn (tự động):</span>
+                                <span class="text-dark">
+                                    {{ viewItemData.next_time_auto ? convertToGMTPlus7(viewItemData.next_time_auto) : 'Không có' | formatDateTime }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-6 mb-2">
+                                <span class="text-muted d-block font-size-sm">Ngày tạo:</span>
+                                <span class="text-muted">
+                                    {{ convertToGMTPlus7(viewItemData.created_at) | formatDateTime }}
+                                </span>
+                            </div>
+                            <div class="col-sm-6 mb-2">
+                                <span class="text-muted d-block font-size-sm">Ngày cập nhật:</span>
+                                <span class="text-muted">
+                                    {{ convertToGMTPlus7(viewItemData.updated_at) | formatDateTime }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end mt-4 pt-3 border-top">
+                            <button type="button" class="btn btn-secondary mr-2" @click="$refs['modal-view'].hide()">Đóng</button>
+                            <button type="button" class="btn btn-primary" @click="switchToEdit(viewItemData)">
+                                Sửa lịch hẹn này
+                            </button>
+                        </div>
+                    </div>
+                </b-modal>
+
+                <!-- Modal Sửa -->
+                <b-modal title="Sửa lịch hẹn bảo dưỡng" size="lg" ref="modal-edit" :centered="true" hide-footer>
+                    <div v-if="editItemData" class="p-2">
+                        <form @submit.prevent="submitEdit">
+                            <div class="form-group mb-4">
+                                <label class="font-weight-bold">Chọn xe <span class="text-danger">(*)</span></label>
+                                <el-select v-model="editItemData.vehicle_id" clearable filterable class="w-100" placeholder="Chọn xe">
+                                    <el-option v-for="v in vehicles" :key="v.id" :label="`${v.name} (${v.license})`" :value="v.id">
+                                        <span style="float: left">{{ v.name }}</span>
+                                        <span style="float: right; color: #8492a6; font-size: 13px;">{{ v.license }}</span>
+                                    </el-option>
+                                </el-select>
+                            </div>
+                            <div class="form-group mb-4">
+                                <label class="font-weight-bold">Loại bảo dưỡng <span class="text-danger">(*)</span></label>
+                                <el-select v-model="editItemData.maintenance_type_id" filterable class="w-100" placeholder="Chọn loại bảo dưỡng" clearable>
+                                    <el-option v-for="t in maintenance_types" :key="t.id" :label="t.name" :value="t.id">
+                                        <span>{{ t.name }}</span>
+                                    </el-option>
+                                </el-select>
+                            </div>
+                            <div class="form-group mb-4">
+                                <label class="font-weight-bold">Ngày hẹn (thủ công) <span class="text-danger">(*)</span></label>
+                                <el-date-picker class="w-100" v-model="editItemData.next_time_manual" type="datetime" format="dd-MM-yyyy HH:mm:ss" placeholder="Chọn thời gian hẹn">
+                                </el-date-picker>
+                            </div>
+                            <div class="d-flex justify-content-end mt-4 pt-3 border-top">
+                                <button type="button" class="btn btn-secondary mr-2" @click="$refs['modal-edit'].hide()">Hủy</button>
+                                <el-button type="primary" :loading="editLoading" native-type="submit">
+                                    Lưu cập nhật
+                                </el-button>
+                            </div>
+                        </form>
+                    </div>
                 </b-modal>
 
                 <div class="edu-paginate mx-auto text-center" v-if="!loading && schedules.length">
@@ -112,7 +226,15 @@
 
 <script>
 import { mapGetters } from "vuex";
-import { MAINTENANCE_LOG_DELETE, MAINTENANCE_LOG_INDEX, MAINTENANCE_SCHEDULE_DELETE, MAINTENANCE_SCHEDULE_INDEX } from "../../../core/services/store/vehicle.module";
+import {
+    MAINTENANCE_LOG_DELETE,
+    MAINTENANCE_LOG_INDEX,
+    MAINTENANCE_SCHEDULE_DELETE,
+    MAINTENANCE_SCHEDULE_INDEX,
+    MAINTENANCE_SCHEDULE_UPDATE,
+    VEHICLE_GET_ALL,
+    MAINTENANCE_TYPE_GET_ALL
+} from "../../../core/services/store/vehicle.module";
 import MaintenanceScheduleCreate from "../maintenance-schedule/MaintenanceScheduleCreate";
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import { getTextShort } from "../../../utils";
@@ -139,6 +261,12 @@ export default {
         return {
             showModalCreate: false,
             moment: moment,
+
+            viewItemData: null,
+            editItemData: null,
+            editLoading: false,
+            vehicles: [],
+            maintenance_types: [],
 
             page: +page || +restQuery?.page || 1,
             last_page: 1,
@@ -169,6 +297,7 @@ export default {
     },
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Lịch hẹn bảo dưỡng" }]);
+        this.fetchVehiclesAndTypes();
     },
     activated() {
         if (this.isFirstActivated) {
@@ -261,6 +390,90 @@ export default {
             let gmtPlus7Date = date.format('YYYY-MM-DD HH:mm:ss');
 
             return gmtPlus7Date;
+        },
+        convertToUTC(dateString) {
+            let date = moment(dateString);
+            date.tz('Asia/Bangkok');
+            return date.utc().format('YYYY-MM-DD HH:mm:ss');
+        },
+        async fetchVehiclesAndTypes() {
+            try {
+                const [vRes, tRes] = await Promise.all([
+                    this.$store.dispatch(VEHICLE_GET_ALL, { is_all: true }),
+                    this.$store.dispatch(MAINTENANCE_TYPE_GET_ALL, { is_all: true })
+                ]);
+                this.vehicles = vRes?.data || [];
+                this.maintenance_types = tRes?.data || [];
+            } catch (e) {
+                console.warn("Failed to fetch vehicles or maintenance types:", e);
+            }
+        },
+        viewItem(item) {
+            this.viewItemData = item;
+            this.$refs['modal-view'].show();
+        },
+        switchToEdit(item) {
+            this.$refs['modal-view'].hide();
+            this.editItem(item);
+        },
+        editItem(item) {
+            this.editItemData = {
+                id: item.id,
+                vehicle_id: item.vehicle_id,
+                maintenance_type_id: item.maintenance_type_id,
+                next_time_manual: item.next_time_manual ? new Date(item.next_time_manual) : new Date()
+            };
+            this.$refs['modal-edit'].show();
+        },
+        submitEdit() {
+            if (!this.editItemData.vehicle_id) {
+                Swal.fire("Lỗi", "Vui lòng chọn xe bảo dưỡng", "error");
+                return;
+            }
+            if (!this.editItemData.maintenance_type_id) {
+                Swal.fire("Lỗi", "Vui lòng chọn loại bảo dưỡng", "error");
+                return;
+            }
+            if (!this.editItemData.next_time_manual) {
+                Swal.fire("Lỗi", "Vui lòng chọn ngày hẹn", "error");
+                return;
+            }
+            this.editLoading = true;
+            const params = {
+                id: this.editItemData.id,
+                vehicle_id: this.editItemData.vehicle_id,
+                maintenance_type_id: this.editItemData.maintenance_type_id,
+                next_time_manual: this.convertToUTC(this.editItemData.next_time_manual)
+            };
+            this.$store.dispatch(MAINTENANCE_SCHEDULE_UPDATE, params)
+                .then((res) => {
+                    Swal.fire("Thành công", res?.message || "Cập nhật lịch hẹn bảo dưỡng thành công", "success");
+                    this.$refs['modal-edit'].hide();
+                    this.getList();
+                })
+                .catch((e) => {
+                    Swal.fire("Thất bại", getApiMessage(e) || "Cập nhật thất bại", "error");
+                })
+                .finally(() => {
+                    this.editLoading = false;
+                });
+        },
+        getScheduleStatus(item) {
+            if (!item) return { text: '---', badge: 'secondary' };
+            const dueDateStr = item.next_time_manual || item.next_time_auto;
+            if (!dueDateStr) return { text: 'Chưa có lịch', badge: 'secondary' };
+            const now = moment().tz('Asia/Bangkok').startOf('day');
+            const due = moment(dueDateStr).tz('Asia/Bangkok').startOf('day');
+            const diffDays = due.diff(now, 'days');
+            if (diffDays < 0) {
+                return { text: `Quá hạn ${Math.abs(diffDays)} ngày`, badge: 'danger' };
+            } else if (diffDays === 0) {
+                return { text: 'Đến hạn hôm nay', badge: 'warning' };
+            } else if (diffDays <= 7) {
+                return { text: `Còn ${diffDays} ngày`, badge: 'info' };
+            } else {
+                return { text: `Còn ${diffDays} ngày`, badge: 'success' };
+            }
         },
 
         deleteItem(id) {

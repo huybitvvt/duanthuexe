@@ -34,6 +34,7 @@ use App\Http\Controllers\KpiReportController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\CustomerReminderController;
 use App\Http\Controllers\LeaseOwnershipController;
+use App\Http\Controllers\NotificationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -230,9 +231,14 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::delete('/{maintenanceVehicle}', [MaintenanceVehicleController::class, 'destroy']); 
             });     
             Route::group(['prefix' => 'maintenance-schedules'], function () {
+                Route::get('/upcoming', [MaintenanceScheduleController::class, 'upcoming']);
                 Route::get('/', [MaintenanceScheduleController::class, 'index']);
                 Route::post('/', [MaintenanceScheduleController::class, 'putOrPost']);
+                Route::get('/{maintenanceSchedule}', [MaintenanceScheduleController::class, 'show']);
                 Route::delete('/{maintenanceSchedule}', [MaintenanceScheduleController::class, 'destroy']); 
+            });   
+            Route::group(['prefix' => 'notifications'], function () {
+                Route::get('/summary', [NotificationController::class, 'summary']);
             });   
             Route::group(['prefix' => 'maintenance-log'], function () {
                 Route::get('/', [MaintenanceLogController::class, 'index']);

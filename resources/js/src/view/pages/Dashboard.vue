@@ -131,6 +131,53 @@
       </div>
     </div>
 
+    <!-- Upcoming Maintenance Alert Section -->
+    <div v-if="upcomingMaintenance && upcomingMaintenance.length > 0" class="maintenance-alert-banner mt-4">
+      <div class="maintenance-alert-header">
+        <div class="d-flex align-items-center flex-wrap">
+          <div class="alert-icon-circle mr-3">
+            <i class="fa fa-wrench text-danger font-size-h5"></i>
+          </div>
+          <div>
+            <h4 class="maintenance-alert-title mb-1">
+              Cảnh báo bảo dưỡng xe: <span class="text-danger font-weight-bolder">{{ upcomingMaintenance.length }} xe</span> sắp đến hạn hoặc quá hạn
+            </h4>
+            <span class="text-muted font-size-xs">Cần theo dõi và sắp xếp bảo dưỡng định kỳ kịp thời để đảm bảo an toàn</span>
+          </div>
+        </div>
+        <router-link to="/maintenance-schedule" class="btn btn-sm btn-outline-danger font-weight-bold ml-auto mt-2 mt-sm-0">
+          Xem tất cả lịch hẹn →
+        </router-link>
+      </div>
+
+      <div class="maintenance-alert-grid mt-3">
+        <div
+          v-for="item in upcomingMaintenance.slice(0, 4)"
+          :key="item.id"
+          class="maintenance-card-mini"
+          :class="`border-severity-${item.severity}`"
+        >
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="license-tag">{{ item.vehicle_license || 'Chưa biển' }}</span>
+            <span :class="`badge-status-${item.severity}`">
+              {{ item.status_text }}
+            </span>
+          </div>
+          <div class="vehicle-mini-name text-dark font-weight-bold mb-1">{{ item.vehicle_name }}</div>
+          <div class="d-flex justify-content-between align-items-center text-muted font-size-xs">
+            <span class="text-truncate mr-2"><i class="fa fa-cog mr-1"></i>{{ item.maintenance_type_name }}</span>
+            <span class="text-nowrap"><i class="fa fa-clock mr-1"></i>{{ item.due_date }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="upcomingMaintenance.length > 4" class="text-center pt-3 border-top mt-3">
+        <router-link to="/maintenance-schedule" class="text-danger font-weight-bold font-size-sm">
+          Xem thêm {{ upcomingMaintenance.length - 4 }} xe khác trong danh sách lịch hẹn bảo dưỡng &rarr;
+        </router-link>
+      </div>
+    </div>
+
     <!-- Financial Breakdown Cards Row -->
     <div class="row mt-4 mb-4">
       <div class="col-lg-6 mb-4">
@@ -314,6 +361,7 @@ import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import { zingChartTheme } from "@/core/config/zingChartTheme";
 import LeadIndex from "@/view/pages/lead/LeadIndex";
 import HimotoPageSkeleton from "@/view/components/himoto/HimotoPageSkeleton.vue";
+import ApiService from "@/core/services/api.service";
 
 const ZingChart = () => import(
   /* webpackChunkName: "dashboard-chart" */ "zingchart/es6"
@@ -333,6 +381,8 @@ export default {
       loading: false,
       hasPermission: true,
       currentPeriod: "day", // 'day' or 'month'
+      upcomingMaintenance: [],
+      loadingMaintenance: false,
       labels: [],
       values: [],
       chartData: {
@@ -467,6 +517,26 @@ export default {
         })
         .finally(() => {
           this.loading = false;
+        });
+      this.fetchUpcomingMaintenance();
+    },
+    fetchUpcomingMaintenance() {
+      const params = { days: 7 };
+      if (this.selectedStoreId && this.selectedStoreId !== "all") {
+        params.store_id = this.selectedStoreId;
+      }
+      this.loadingMaintenance = true;
+      ApiService.query("/api/auth/maintenance-schedules/upcoming", params)
+        .then(({ data }) => {
+          const res = data?.data || data;
+          this.upcomingMaintenance = Array.isArray(res) ? res : [];
+        })
+        .catch((err) => {
+          console.warn("Failed to fetch upcoming maintenance for dashboard:", err);
+          this.upcomingMaintenance = [];
+        })
+        .finally(() => {
+          this.loadingMaintenance = false;
         });
     },
     applyChartData() {
@@ -907,5 +977,109 @@ export default {
   padding: 10px 24px;
   font-weight: 600;
   font-size: 0.95rem;
+}
+
+/* Upcoming Maintenance Alert Banner */
+.maintenance-alert-banner {
+  background: #ffffff;
+  border: 1px solid #fee2e2;
+  border-left: 5px solid #ed1c24;
+  border-radius: var(--radius-lg, 16px);
+  padding: 18px 20px;
+  box-shadow: 0 4px 14px rgba(237, 28, 36, 0.06);
+}
+
+.maintenance-alert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alert-icon-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fef2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.maintenance-alert-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #17202a;
+}
+
+.maintenance-alert-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.maintenance-card-mini {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+}
+
+.maintenance-card-mini:hover {
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.border-severity-danger {
+  border-left: 3px solid #ed1c24;
+}
+
+.border-severity-warning {
+  border-left: 3px solid #f59e0b;
+}
+
+.border-severity-info {
+  border-left: 3px solid #0284c7;
+}
+
+.license-tag {
+  background: #1e293b;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.badge-status-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.badge-status-warning {
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.badge-status-info {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.vehicle-mini-name {
+  font-size: 13px;
 }
 </style>
