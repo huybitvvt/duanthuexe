@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MaintenanceType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MaintenanceTypeController extends Controller
 {
@@ -32,17 +33,34 @@ class MaintenanceTypeController extends Controller
 
     
     public function putOrPost(Request $request){
- 
         $data = $request->all();
-        $res = $this->putOrPostArr($data);
-        return $res;
+        $items = isset($data['name']) ? [$data] : $data;
+        if (!is_array($items)) {
+            return $this->errorResponse('Dữ liệu hình thức bảo dưỡng không hợp lệ.', 422);
+        }
+        return DB::transaction(function () use ($items) {
+            foreach ($items as $attributes) {
+                if (!is_array($attributes)) continue;
+                $name = trim((string) ($attributes['name'] ?? ''));
+                $note = trim((string) ($attributes['note'] ?? ''));
+                if ($name === '' || $note === '') {
+                    return $this->errorResponse('Vui lòng nhập tên và ghi chú hình thức bảo dưỡng.', 422);
+                }
+                $values = ['name' => $name, 'note' => $note];
+                $item = !empty($attributes['id']) ? MaintenanceType::find($attributes['id']) : null;
+                if ($item) $item->update($values);
+                else MaintenanceType::create($values);
+            }
+            return $this->successResponse('', 'Cập nhật hình thức bảo dưỡng thành công.');
+        });
     }
 
     public function putOrPostArr($data){
         foreach ($data as $key=>$attributes){
             if (isset($attributes['id'])){
                 $item = MaintenanceType::find($attributes['id']);
-                $item->update($attributes);
+                if ($item) $item->update($attributes);
+                else MaintenanceType::create($attributes);
             } else {
         
                 MaintenanceType::create($attributes);

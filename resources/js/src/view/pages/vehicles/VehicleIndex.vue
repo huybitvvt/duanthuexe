@@ -712,6 +712,10 @@ export default {
     font-size: 11.5px;
     font-weight: 700;
     line-height: 1;
+    white-space: nowrap;
+    min-width: 78px;
+    justify-content: center;
+    text-align: center;
 }
 .status-badge.ready, .status-badge.success {
     background: rgba(24, 166, 107, 0.12);
@@ -720,6 +724,10 @@ export default {
 .status-badge.repairing, .status-badge.renting, .status-badge.warning {
     background: rgba(245, 158, 11, 0.14);
     color: #d97706;
+}
+.status-badge.using, .status-badge.rent, .status-badge.info {
+    background: rgba(39, 121, 232, 0.12);
+    color: #1f67c1;
 }
 .status-badge.broken, .status-badge.danger {
     background: rgba(237, 28, 36, 0.12);

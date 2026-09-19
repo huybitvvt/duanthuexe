@@ -191,15 +191,21 @@ export default {
 
             })
         },
-        updateType() {
+        async updateType() {
             this.loadingComplete2 = true;
-            let params = this.maintenance_types;
-            this.$store.dispatch(MAINTENANCE_TYPE_UPDATE, params).then(() => {
+            const params = this.maintenance_types.map(({ id, name, note }) => ({ id, name: String(name || '').trim(), note: String(note || '').trim() }));
+            try {
+                if (params.some(item => !item.name || !item.note)) {
+                    throw new Error('Vui lòng nhập tên và ghi chú hình thức bảo dưỡng.');
+                }
+                await this.$store.dispatch(MAINTENANCE_TYPE_UPDATE, params);
                 this.getMaintenanceTypes();
                 this.noticeMessage('success', 'Thành công', 'Cập nhật hình thức bảo dưỡng thành công');
-            }).catch((err) => {
+            } catch (err) {
                 this.noticeMessage('error', 'Thất bại', getApiMessage(err));
-            }).finally(() => this.loadingComplete2 = false);
+            } finally {
+                this.loadingComplete2 = false;
+            }
         },
         deleteType(ruleId, index) {
             this.$swal.fire({
