@@ -38,14 +38,16 @@ class MaintenanceTypeController extends Controller
         if (!is_array($items)) {
             return $this->errorResponse('Dữ liệu hình thức bảo dưỡng không hợp lệ.', 422);
         }
+        foreach ($items as $attributes) {
+            if (!is_array($attributes) || trim((string) ($attributes['name'] ?? '')) === '' || trim((string) ($attributes['note'] ?? '')) === '') {
+                return $this->errorResponse('Vui lòng nhập tên và ghi chú hình thức bảo dưỡng.', 422);
+            }
+        }
         return DB::transaction(function () use ($items) {
             foreach ($items as $attributes) {
                 if (!is_array($attributes)) continue;
                 $name = trim((string) ($attributes['name'] ?? ''));
                 $note = trim((string) ($attributes['note'] ?? ''));
-                if ($name === '' || $note === '') {
-                    return $this->errorResponse('Vui lòng nhập tên và ghi chú hình thức bảo dưỡng.', 422);
-                }
                 $values = ['name' => $name, 'note' => $note];
                 $item = !empty($attributes['id']) ? MaintenanceType::find($attributes['id']) : null;
                 if ($item) $item->update($values);
