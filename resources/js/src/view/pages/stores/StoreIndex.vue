@@ -84,6 +84,7 @@ export default {
             customers: [],
             page: +this.$route?.query?.page || 1,
             last_page: 1,
+            isFirstActivated: true,
         }
     },
     computed: {
@@ -91,6 +92,14 @@ export default {
     },
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{title: "Quản lý cửa hàng"}]);
+        this.getList();
+    },
+    activated() {
+        if (this.isFirstActivated) {
+            this.isFirstActivated = false;
+            return;
+        }
+        this.page = +this.$route?.query?.page || 1;
         this.getList();
     },
     methods: {

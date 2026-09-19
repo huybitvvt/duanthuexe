@@ -396,6 +396,7 @@ export default {
                 }
             ],
             lastFetchedAt: 0,
+            isFirstActivated: true,
         };
     },
     computed: {
@@ -409,23 +410,21 @@ export default {
         this.getReport();
     },
     activated() {
+        if (this.isFirstActivated) {
+            this.isFirstActivated = false;
+            return;
+        }
         const queryPage = +this.$route?.query?.page || 1;
         const queryName = this.$route?.query?.name || this.$route?.query?.keyword || '';
         const currentName = this.query.name || this.query.keyword || '';
-        const paramsChanged = queryPage !== this.page || queryName !== currentName;
-        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
-
-        if (paramsChanged) {
+        if (queryPage !== this.page || queryName !== currentName) {
             this.page = queryPage;
             if (this.$route?.query?.name !== undefined) {
                 this.query.name = this.$route.query.name;
             }
-            this.getList();
-            this.getReport();
-        } else if (isTtlExpired) {
-            this.getList();
-            this.getReport();
         }
+        this.getList();
+        this.getReport();
     },
     methods: {
 		getFirstImage(item) {

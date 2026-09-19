@@ -184,7 +184,7 @@ const actions = {
     },
     [MAINTENANCE_RULE_UPDATE](context, payload) {
         return new Promise((resolve, reject) => {
-            ApiService.post(`/api/auth/maintenance-rules/`, payload)
+            ApiService.post(`/api/auth/maintenance-rules`, payload)
                 .then(({ data }) => {
                     resolve(data);
                 })
@@ -240,7 +240,7 @@ const actions = {
 
     [MAINTENANCE_TYPE_GET_ALL](context, credentials) {
         return new Promise((resolve, reject) => {
-            ApiService.query("/api/auth/maintenance-types/", credentials)
+            ApiService.query("/api/auth/maintenance-types", credentials)
                 .then(({ data }) => {
                     resolve(data);
                 })
@@ -273,7 +273,7 @@ const actions = {
     },
     [MAINTENANCE_TYPE_UPDATE](context, payload) {
         return new Promise((resolve, reject) => {
-            ApiService.post(`/api/auth/maintenance-types/`, payload)
+            ApiService.post(`/api/auth/maintenance-types`, payload)
                 .then(({ data }) => {
                     resolve(data);
                 })
@@ -297,7 +297,7 @@ const actions = {
 
     [MAINTENANCE_SCHEDULE_GET_ALL](context, credentials) {
         return new Promise((resolve, reject) => {
-            ApiService.query("/api/auth/maintenance-schedules/", credentials)
+            ApiService.query("/api/auth/maintenance-schedules", credentials)
                 .then(({ data }) => {
                     resolve(data);
                 })
@@ -330,7 +330,7 @@ const actions = {
     },
     [MAINTENANCE_SCHEDULE_UPDATE](context, payload) {
         return new Promise((resolve, reject) => {
-            ApiService.post(`/api/auth/maintenance-schedules/`, payload)
+            ApiService.post(`/api/auth/maintenance-schedules`, payload)
                 .then(({ data }) => {
                     resolve(data);
                 })

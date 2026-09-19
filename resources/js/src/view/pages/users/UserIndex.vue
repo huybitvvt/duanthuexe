@@ -280,6 +280,7 @@ export default {
             item_current: null,
             pickerStartOptions: {},
             pickerEndOptions: {},
+            isFirstActivated: true,
         };
     },
     computed: {
@@ -293,6 +294,14 @@ export default {
     },
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Quản lý nhân sự" }]);
+    },
+    activated() {
+        if (this.isFirstActivated) {
+            this.isFirstActivated = false;
+            return;
+        }
+        this.page = +this.$route?.query?.page || 1;
+        this.getList();
     },
     methods: {
         getRole() {

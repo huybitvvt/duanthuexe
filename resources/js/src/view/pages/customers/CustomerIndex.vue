@@ -130,7 +130,8 @@ export default {
             query: {
                 keyword: '',
                 ...(this.$route?.query || {})
-            }
+            },
+            isFirstActivated: true
         }
     },
     components: {
@@ -147,18 +148,17 @@ export default {
         this.getList();
     },
     activated() {
+        if (this.isFirstActivated) {
+            this.isFirstActivated = false;
+            return;
+        }
         const queryPage = +this.$route?.query?.page || 1;
         const queryKeyword = this.$route?.query?.keyword || '';
-        const paramsChanged = queryPage !== this.page || queryKeyword !== (this.query.keyword || '');
-        const isTtlExpired = !this.lastFetchedAt || (Date.now() - this.lastFetchedAt > 60000);
-
-        if (paramsChanged) {
+        if (queryPage !== this.page || queryKeyword !== (this.query.keyword || '')) {
             this.page = queryPage;
             this.query.keyword = queryKeyword;
-            this.getList();
-        } else if (isTtlExpired) {
-            this.getList();
         }
+        this.getList();
     },
     methods: {
         showPopup(item) {
