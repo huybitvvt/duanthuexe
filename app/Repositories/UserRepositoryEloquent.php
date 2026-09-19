@@ -48,7 +48,7 @@ class UserRepositoryEloquent extends BaseRepository implements UserRepository
             $this->where(function ($query) use ($keyword) {
                 $query->where('name', 'LIKE', '%' . $keyword . '%')
                 ->orWhere('email', 'LIKE', '%' . $keyword .'%')
-                ->orWhere('phone', $keyword);
+                ->orWhere('phone', 'LIKE', '%' . $keyword . '%');
             });
         }
 

@@ -22,8 +22,8 @@
                                 <div class=" ">
 
 
-                                    <el-input clearable placeholder="Tên khách hàng, SĐT"
-                                        v-model="query.keyword"></el-input>
+                                    <search-suggest endpoint="/api/auth/leads" :params="query" query-key="keyword" fields="customer_name,customer_phone,vehicle_name" @select="search" @submit="search" clearable placeholder="Tên khách hàng, SĐT, loại xe"
+                                        v-model="query.keyword"></search-suggest>
 
                                 </div>
                                 <div class=" ">

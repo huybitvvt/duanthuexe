@@ -197,7 +197,10 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
                 })
                 ->orWhereHas('orderItems', function ($items) use ($keyword) {
                     $items->whereHas('vehicle', function ($vehicle) use ($keyword) {
-                        $vehicle->where('license', 'LIKE', '%' . $keyword . '%');
+                        $vehicle->where(function ($match) use ($keyword) {
+                            $match->where('license', 'LIKE', '%' . $keyword . '%')
+                                ->orWhere('name', 'LIKE', '%' . $keyword . '%');
+                        });
                     });
                 });
         });

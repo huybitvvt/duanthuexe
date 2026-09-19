@@ -9,8 +9,8 @@
                 <!-- Start Search box -->
                 <div class="d-flex pr-6 justify-content-between w-100" style="flex:1;">
                     <div class="w-100 mr-3">
-                        <el-input clearable placeholder="Nhập địa chỉ cửa hàng" v-model="query.keyword"
-                            @change="handleKeywordChange($event)"></el-input>
+                        <search-suggest endpoint="/api/auth/cash" :params="query" query-key="keyword" fields="store_address" @select="search" @submit="search" clearable placeholder="Nhập địa chỉ cửa hàng" v-model="query.keyword"
+                            @change="handleKeywordChange($event)"></search-suggest>
                     </div>
                     <el-button :loading="loading" class="btn btn-primary font-weight-bold"
                         @click="search">Tìm kiếm</el-button>

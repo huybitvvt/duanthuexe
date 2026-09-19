@@ -38,14 +38,14 @@
                     <div class="col-md-2">
                         <div class="form-group">
                             <label>Tên xe, biển số</label>
-                            <el-input clearable placeholder="Tên xe, biển số" v-model="query.vehicle"></el-input>
+                            <search-suggest endpoint="/api/auth/order-sell" :params="query" query-key="vehicle" fields="order_items.vehicle.name,order_items.vehicle.license,orderItems.vehicle.name,orderItems.vehicle.license" @select="search" @submit="search" clearable placeholder="Tên xe, biển số" v-model="query.vehicle"></search-suggest>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="form-group">
                             <label>Tên khách, phone, cccd</label>
-                            <el-input clearable placeholder="Tên khách, phone, cccd"
-                                v-model="query.customer"></el-input>
+                            <search-suggest endpoint="/api/auth/order-sell" :params="query" query-key="customer" fields="customer.name,customer.phone,customer.email,customer.id_card" @select="search" @submit="search" clearable placeholder="Tên khách, phone, cccd"
+                                v-model="query.customer"></search-suggest>
                         </div>
                     </div>
                     <div class="col-md-2">

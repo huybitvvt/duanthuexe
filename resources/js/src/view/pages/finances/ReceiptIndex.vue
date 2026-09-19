@@ -18,8 +18,8 @@
 
 
                             <div class="col-md-2">
-                                <el-input clearable placeholder="Nhập ghi chú" v-model="query.keyword"
-                                    @change="handleKeywordChange($event)"></el-input>
+                                <search-suggest endpoint="/api/auth/receipt" :params="query" query-key="keyword" fields="note" @select="search" @submit="search" clearable placeholder="Nhập ghi chú" v-model="query.keyword"
+                                    @change="handleKeywordChange($event)"></search-suggest>
                             </div>
                             <div v-if="currentUser.role_id === 1" class="col-md-2">
                                 <el-select v-model="query.store_id" filterable clearable placeholder="Chọn cửa hàng"

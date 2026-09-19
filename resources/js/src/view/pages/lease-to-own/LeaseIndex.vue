@@ -142,11 +142,10 @@
       <div class="card-body p-4">
         <div class="row align-items-center">
           <div class="col-md-5 mb-2 mb-md-0">
-            <el-input
+            <search-suggest endpoint="/api/auth/lease-contracts" :params="query" query-key="search" fields="contract_code,customer.name,customer.phone,customer.id_card,vehicle.name,vehicle.license" @select="handleSearch" @submit="handleSearch"
               v-model="query.search"
               placeholder="Tìm theo Mã HĐ, Tên KH, Số điện thoại, Biển số xe..."
               clearable
-              @keyup.enter.native="handleSearch"
             />
           </div>
           <div class="col-md-3 mb-2 mb-md-0">

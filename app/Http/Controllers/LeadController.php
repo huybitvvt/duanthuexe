@@ -81,7 +81,8 @@ class LeadController extends Controller
             $keyword = $params['keyword'];
             $items->where(function ($query) use ($keyword) {
                 $query->where('leads.customer_name', 'LIKE', '%' . $keyword . '%')
-                    ->orWhere('leads.customer_phone', 'LIKE', '%' . $keyword . '%');
+                    ->orWhere('leads.customer_phone', 'LIKE', '%' . $keyword . '%')
+                    ->orWhere('leads.vehicle_name', 'LIKE', '%' . $keyword . '%');
             });
         }
           

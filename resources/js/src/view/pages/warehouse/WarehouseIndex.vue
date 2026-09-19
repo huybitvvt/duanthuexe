@@ -195,12 +195,11 @@
         <!-- Bộ lọc -->
         <div class="row mb-4">
           <div class="col-md-4 mb-2">
-            <el-input
+            <search-suggest :endpoint="selectedStoreId ? `/api/auth/warehouses/${selectedStoreId}/vehicles` : ''" :params="filters" query-key="keyword" fields="name,license,chassis" @select="fetchVehicles" @submit="fetchVehicles"
               v-model="filters.keyword"
               placeholder="Tìm theo biển số, tên xe, số khung..."
               clearable
               @clear="fetchVehicles"
-              @keyup.enter.native="fetchVehicles"
             />
           </div>
           <div class="col-md-3 mb-2">

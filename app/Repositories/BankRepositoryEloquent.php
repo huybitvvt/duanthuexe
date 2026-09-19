@@ -103,7 +103,7 @@ class BankRepositoryEloquent extends BaseRepository implements BankRepository
             $keyword = $params['keyword'];
             $banks->where(function ($query) use ($keyword) {
                 $query->where('banks.owner_name', 'LIKE', '%' . $keyword . '%')
-                    ->orWhere('banks.account_number', $keyword);
+                    ->orWhere('banks.account_number', 'LIKE', '%' . $keyword . '%');
             });
         }
 		

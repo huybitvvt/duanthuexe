@@ -55,11 +55,10 @@
         <div class="row align-items-end">
           <div class="col-lg-5 col-md-12 mb-3 mb-lg-0">
             <label class="filter-label">Tìm khách hàng</label>
-            <el-input
+            <search-suggest endpoint="/api/auth/customer-reminders/action-list" :params="filters" query-key="search" fields="recipient_name,recipient_phone,message_content" @select="applyFilters" @submit="applyFilters"
               v-model.trim="filters.search"
               clearable
               placeholder="Tên khách, số điện thoại hoặc nội dung nhắc"
-              @keyup.enter.native="applyFilters"
               @clear="applyFilters"
             />
           </div>

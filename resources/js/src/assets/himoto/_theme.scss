@@ -1,0 +1,94 @@
+/* Shared colors also cover Element UI popups mounted directly under body. */
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --page-bg: #111827;
+  --surface: #1f2937;
+  --surface-hover: #283548;
+  --surface-alt: #293548;
+  --text-primary: #f3f4f6;
+  --text-secondary: #e2e8f0;
+  --text-muted: #cbd5e1;
+  --border: #475569;
+  --border-light: #374151;
+  --info: #93c5fd;
+  --shadow-card: 0 4px 18px rgba(0, 0, 0, .2);
+
+  body, .himoto-app-shell { background: var(--page-bg); color: var(--text-primary); }
+  .himoto-app-shell .himoto-sidebar, .himoto-app-shell .nav-group {
+    background: var(--surface) !important; border-color: var(--border) !important;
+  }
+  .himoto-app-shell .nav-group-heading { color: #ffb4b9; border-color: var(--border); }
+  .himoto-app-shell .global-search-input:focus,
+  .himoto-app-shell .search-kbd-hint, .himoto-app-shell .search-dropdown-menu,
+  .himoto-app-shell .search-tabs, .himoto-app-shell .mobile-search-bar,
+  .himoto-app-shell .sidebar-operator-footer {
+    background: var(--surface) !important; color: var(--text-primary) !important;
+  }
+  .himoto-app-shell .sidebar-nav-item, .himoto-app-shell .nav-item-icon,
+  .himoto-app-shell .op-name, .himoto-app-shell .op-status { color: var(--text-primary) !important; }
+  .himoto-app-shell .sidebar-nav-item.active, .himoto-app-shell .sidebar-nav-item:hover {
+    background: #442932 !important; color: #ffb4b9 !important; border-color: #80404a !important;
+  }
+  .card, .card-header, .card-body, .card-footer, .modal-content, .modal-header, .modal-footer,
+  .dropdown-menu, .el-dialog, .el-message-box, .el-select-dropdown, .el-picker-panel,
+  .el-autocomplete-suggestion, .el-popover, .el-table, .el-table th, .el-table tr,
+  .el-table td, .el-table__empty-block, .search-suggest-menu, .swal2-popup {
+    background-color: var(--surface) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+  }
+  .form-control, .el-input__inner, .el-textarea__inner, .el-range-input, .el-input-number,
+  .el-pagination button, .el-pager li, .el-button--default, .btn-logout-header, select option {
+    background-color: var(--surface) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+  }
+  .table, .table th, .table td, .card-title, .card-label, .modal-title,
+  .el-select-dropdown__item, .el-form-item__label, .el-radio__label, .el-checkbox__label,
+  .el-date-picker__header-label, .el-picker-panel__icon-btn, .el-range-separator,
+  .el-pagination, .el-pagination__total, .el-pagination__jump,
+  .search-suggest-menu li, .search-suggest-status, .swal2-title, .swal2-content {
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+  }
+  .bg-white, .bg-light, .bg-light-primary, .bg-gray-100, .bg-gray-200,
+  .table thead th, .el-table th, .el-table__row:hover > td,
+  .el-select-dropdown__item.hover, .el-select-dropdown__item:hover,
+  .search-suggest-menu li:hover, .search-suggest-menu li.active {
+    background-color: var(--surface-alt) !important;
+  }
+  .text-dark, .text-dark-50, .text-dark-75, .text-gray-800, .text-gray-900 { color: var(--text-primary) !important; }
+  .el-input.is-disabled .el-input__inner, .form-control:disabled { background: var(--surface-alt) !important; color: var(--text-muted) !important; }
+}
+
+html[data-theme="light"] { color-scheme: light; }
+
+.himoto-app-shell {
+  .text-muted, .text-secondary, .text-gray-500, .text-gray-600,
+  .user-role-name, .search-result-sub, .page-subtitle, .store-label-text,
+  .btn-logout-header, .el-input__inner::placeholder, .form-control::placeholder,
+  .global-search-input::placeholder, .el-textarea__inner::placeholder {
+    color: var(--text-secondary) !important;
+    font-size: 14px !important;
+    opacity: 1;
+  }
+  .user-display-name { font-size: 14px !important; }
+  .el-input__inner, .el-select-dropdown__item, .table { font-size: 15px; }
+  .app-header { gap: 12px; }
+  .header-search-wrapper { min-width: 140px; flex: 1 1 260px; margin: 0 8px; }
+  .header-left, .header-right { flex-shrink: 0; }
+}
+
+@media (min-width: 769px) and (max-width: 1250px) {
+  .himoto-app-shell .header-user-badge .user-info-text { display: none !important; }
+  .himoto-app-shell .store-label-text { display: none; }
+  .himoto-app-shell .store-select { max-width: 180px; }
+}
+@media (max-width: 768px) {
+  :root { --header-height: 108px; }
+  .himoto-app-shell .app-header { height: 108px; padding-bottom: 52px; }
+  .himoto-app-shell .header-preferences { position: absolute; bottom: 6px; right: 12px; left: 12px; justify-content: space-between; }
+  .himoto-app-shell .header-clock { flex-direction: row; align-items: center; gap: 12px; }
+  .himoto-app-shell .header-left { flex: 1 1 auto; }
+  .himoto-app-shell .mobile-search-bar { top: 100%; }
+}

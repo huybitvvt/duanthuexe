@@ -6,6 +6,9 @@ import ApiService from "@/core/services/api.service";
 import {VERIFY_AUTH} from "@/core/services/store/auth.module";
 import {RESET_LAYOUT_CONFIG} from "@/core/services/store/config.module";
 import Element from 'element-ui';
+import SearchSuggest from "@/view/components/SearchSuggest.vue";
+import { initTheme } from "@/core/services/theme";
+initTheme();
 import Paginate from 'vuejs-paginate';
 import * as filters from '../src/filters'; // global filters
 import {ValidationObserver, ValidationProvider, extend, localize, configure} from 'vee-validate';
@@ -41,6 +44,7 @@ Vue.use(money, {precision: 4})
 Vue.use(Notifications)
 Vue.use(VueMask);
 Vue.use(Element, {locale})
+Vue.component('search-suggest', SearchSuggest);
 Vue.component('paginate', Paginate);
 Vue.component('date-picker', DatePicker);
 Vue.config.productionTip = false;

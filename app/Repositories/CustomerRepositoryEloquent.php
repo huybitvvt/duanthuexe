@@ -45,8 +45,8 @@ class CustomerRepositoryEloquent extends BaseRepository implements CustomerRepos
          if ($keyword) {
              $customers->where(function ($query) use ($keyword) {
                  $query->where('name', 'LIKE', '%' . $keyword . '%')
-                     ->orWhere('phone', $keyword)
-                     ->orWhere('id_card', $keyword);
+                     ->orWhere('phone', 'LIKE', '%' . $keyword . '%')
+                     ->orWhere('id_card', 'LIKE', '%' . $keyword . '%');
              });
          }
 

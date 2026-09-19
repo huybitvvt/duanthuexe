@@ -19,7 +19,7 @@
                     <div class="col-md-3">
                         <div class="form-group">
                             <label>Tên xe, biển số</label>
-                            <el-input clearable placeholder="Tên xe, biển số" v-model="query.name"></el-input>
+                            <search-suggest endpoint="/api/auth/vehicle/vehicles" :params="query" query-key="name" fields="name,license" @select="search" @submit="search" clearable placeholder="Tên xe, biển số" v-model="query.name"></search-suggest>
                         </div>
                     </div>
                     <div class="col-md-3">

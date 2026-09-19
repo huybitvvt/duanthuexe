@@ -175,12 +175,11 @@
           <div class="row align-items-center mb-6 bg-light rounded p-4">
             <div class="col-md-4 mb-2 mb-md-0">
               <label class="font-weight-bold text-muted font-size-sm">TÌM KIẾM NHÂN SỰ:</label>
-              <el-input
+              <search-suggest endpoint="/api/auth/hr/staff" :params="staffFilter" query-key="keyword" fields="full_name,staff_code,phone,email" @select="fetchStaffList" @submit="fetchStaffList"
                 v-model="staffFilter.search"
                 placeholder="Tên, mã NV, SĐT, email..."
                 clearable
                 class="w-100"
-                @keyup.enter.native="fetchStaffList"
               />
             </div>
             <div class="col-md-3 mb-2 mb-md-0">

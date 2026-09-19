@@ -9,8 +9,8 @@
                 <!-- Start Search box -->
                 <div class="d-flex pr-6 justify-content-between w-100" style="flex:1;">
                     <div class="w-100 mr-3">
-                        <el-input clearable placeholder="Nhập Tên hoặc SĐT" v-model="query.keyword"
-                            @change="handleKeywordChange($event)" @keyup.enter.native="search"></el-input>
+                        <search-suggest endpoint="/api/auth/customers" :params="query" query-key="keyword" fields="name,phone,id_card" @select="search" @submit="search" clearable placeholder="Nhập Tên hoặc SĐT" v-model="query.keyword"
+                            @change="handleKeywordChange($event)"></search-suggest>
                     </div>
                     <el-button :loading="loading" class="btn btn-primary font-weight-bold"
                         @click="search">Tìm kiếm</el-button>

@@ -159,6 +159,7 @@
 
     <!-- Header Right Controls -->
     <div class="header-right">
+      <HeaderPreferences />
       <!-- Mobile Search Button -->
       <button
         type="button"
@@ -257,6 +258,7 @@
 
 <script>
 import { mapGetters } from "vuex";
+import HeaderPreferences from "./HeaderPreferences.vue";
 import { LOGOUT } from "@/core/services/store/auth.module";
 import { STORE_GET_ALL, SET_SELECTED_STORE_ID } from "@/core/services/store/store.module";
 import ApiService from "@/core/services/api.service";
@@ -318,6 +320,7 @@ const adaptVehicle = (v) => {
 
 export default {
   name: "HimotoHeader",
+  components: { HeaderPreferences },
   props: {
     drawerActive: {
       type: Boolean,
@@ -726,7 +729,7 @@ export default {
   transition: all var(--transition-fast, 150ms);
 }
 .global-search-input:focus {
-  background: #ffffff;
+  background: var(--surface, #ffffff);
   border-color: var(--brand-red, #ed1c24);
   box-shadow: 0 0 0 3px var(--brand-red-subtle, rgba(237, 28, 36, 0.08));
 }
@@ -737,7 +740,7 @@ export default {
   font-size: 10px;
   font-weight: 700;
   color: var(--text-muted, #9aa4b2);
-  background: #ffffff;
+  background: var(--surface, #ffffff);
   border: 1px solid var(--border, #e7ebf0);
   border-radius: 4px;
 }
@@ -755,7 +758,7 @@ export default {
   top: calc(100% + 6px);
   left: 0;
   right: 0;
-  background: #ffffff;
+  background: var(--surface, #ffffff);
   border-radius: var(--radius-md, 12px);
   border: 1px solid var(--border, #e7ebf0);
   box-shadow: var(--shadow-dropdown, 0 12px 32px rgba(23, 32, 42, 0.12));
@@ -782,7 +785,7 @@ export default {
   transition: all var(--transition-fast, 150ms);
 }
 .search-tab-btn.active {
-  background: #ffffff;
+  background: var(--surface, #ffffff);
   color: var(--brand-red, #ed1c24);
   box-shadow: var(--shadow-sm, 0 2px 6px rgba(23, 32, 42, 0.04));
 }
@@ -886,7 +889,7 @@ export default {
   top: 100%;
   left: 0;
   right: 0;
-  background: #ffffff;
+  background: var(--surface, #ffffff);
   padding: 10px 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border-bottom: 1px solid var(--border, #e7ebf0);
@@ -961,7 +964,7 @@ export default {
     padding: 0 7px;
     border: 1px solid var(--border, #e7ebf0);
     font-size: 11px;
-    background: #ffffff;
+    background: var(--surface, #ffffff);
   }
 }
 </style>

@@ -80,7 +80,7 @@
 
                     <div class="row filter-row-2">
                         <div class="col-md-3 ">
-                            <el-input clearable placeholder="#ID, Số HĐ, tên, SĐT, biển số" v-model="query.keyword"></el-input>
+                            <search-suggest endpoint="/api/auth/order/car-rental" :params="query" query-key="keyword" fields="id,contract_number,customer.name,customer.phone,vehicles.name,vehicles.license,order_items.vehicle.name,order_items.vehicle.license" @select="search" @submit="search" clearable placeholder="#ID, Số HĐ, tên, SĐT, tên xe, biển số" v-model="query.keyword"></search-suggest>
                         </div>
                         <div class="col-md-3 ">
                             <el-select v-model="query.store_id" filterable clearable placeholder="Cửa hàng"

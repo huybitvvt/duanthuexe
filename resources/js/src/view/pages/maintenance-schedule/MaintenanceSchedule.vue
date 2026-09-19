@@ -17,8 +17,8 @@
                             <div class="col-md-3">
                                 <div class="form-group">
                                     <label>Xe</label>
-                                    <el-input clearable placeholder="Tên xe, biển số"
-                                        v-model="query.keyword"></el-input>
+                                    <search-suggest endpoint="/api/auth/maintenance-schedules" :params="query" query-key="keyword" fields="vehicle.name,vehicle.license" @select="search" @submit="search" clearable placeholder="Tên xe, biển số"
+                                        v-model="query.keyword"></search-suggest>
                                 </div>
                             </div>
                             <div class="col-md-3">

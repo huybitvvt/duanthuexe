@@ -115,8 +115,8 @@
                 <div class="example mb-10">
                     <div class="row mb-10">
                         <div class="col-md-2">
-                            <el-input class="w-100" clearable placeholder="Tên, Email hoặc SĐT" v-model="query.keyword">
-                            </el-input>
+                            <search-suggest endpoint="/api/auth/users" :params="query" query-key="keyword" fields="name,email,phone" @select="search" @submit="search" class="w-100" clearable placeholder="Tên, Email hoặc SĐT" v-model="query.keyword">
+                            </search-suggest>
                         </div>
                         <div class="col-md-2">
                             <el-select v-model="query.store_id" filterable clearable placeholder="Chọn cửa hàng"
