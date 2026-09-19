@@ -48,6 +48,7 @@ use App\Http\Controllers\NotificationController;
 */
 
 Route::get('/health', function () {
+	$commit = getenv('RENDER_GIT_COMMIT') ?: null;
 	try {
 		DB::select('SELECT 1');
 
@@ -55,12 +56,14 @@ Route::get('/health', function () {
 			'status' => 'ok',
 			'service' => 'himoto-api',
 			'database' => 'ok',
+			'commit' => $commit,
 		]);
 	} catch (\Throwable $exception) {
 		return response()->json([
 			'status' => 'error',
 			'service' => 'himoto-api',
 			'database' => 'unavailable',
+			'commit' => $commit,
 		], 503);
 	}
 });

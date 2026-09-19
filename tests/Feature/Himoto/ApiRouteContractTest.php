@@ -20,6 +20,20 @@ class ApiRouteContractTest extends TestCase
         ]);
     }
 
+    public function testHealthEndpointIdentifiesTheDeployedCommit()
+    {
+        $previousCommit = getenv('RENDER_GIT_COMMIT');
+        putenv('RENDER_GIT_COMMIT=0123456789abcdef0123456789abcdef01234567');
+
+        try {
+            $this->get('/api/health')->assertJson([
+                'commit' => '0123456789abcdef0123456789abcdef01234567',
+            ]);
+        } finally {
+            putenv($previousCommit === false ? 'RENDER_GIT_COMMIT' : 'RENDER_GIT_COMMIT=' . $previousCommit);
+        }
+    }
+
     /**
      * Test verify-token and auth-guarded endpoints return HTTP 401 when accessed without JWT token.
      */
