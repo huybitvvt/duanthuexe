@@ -54,10 +54,10 @@
                         </div>
                     </div>
 
-                    <div class="row align-items-end">
+                    <div class="row align-items-start filter-row">
                         <!-- CHẾ ĐỘ 1: CHỌN LẺ 1 NGÀY -->
-                        <div v-if="dateMode === 'single'" class="col-lg-4 col-md-5 mb-2">
-                            <label class="font-weight-bold text-dark d-block">
+                        <div v-if="dateMode === 'single'" class="col-lg-4 col-md-4 mb-3">
+                            <label class="filter-label">
                                 <i class="flaticon2-calendar-9 text-primary mr-1"></i> Chọn ngày cần xem:
                             </label>
                             <el-date-picker 
@@ -69,13 +69,13 @@
                                 class="w-100"
                                 :clearable="false"
                                 @change="onSingleDateChange"
+                                @keyup.enter.native="confirmAndSearch"
                             ></el-date-picker>
-                            <small class="text-muted d-block mt-1">Chọn lẻ 1 ngày sẽ hiển thị báo cáo chính xác của ngày đó.</small>
                         </div>
 
                         <!-- CHẾ ĐỘ 2: CHỌN KHOẢNG NGÀY -->
-                        <div v-else class="col-lg-6 col-md-7 mb-2">
-                            <label class="font-weight-bold text-dark d-block">
+                        <div v-else class="col-lg-6 col-md-5 mb-3">
+                            <label class="filter-label">
                                 <i class="flaticon2-calendar-8 text-primary mr-1"></i> Khoảng ngày (Từ ngày ~ Đến ngày):
                             </label>
                             <div class="d-flex align-items-center">
@@ -85,34 +85,29 @@
                                     format="dd-MM-yyyy" 
                                     value-format="yyyy-MM-dd" 
                                     placeholder="Từ ngày" 
-                                    class="w-100 mr-2"
+                                    style="flex: 1; min-width: 0;"
                                     :clearable="false"
+                                    @keyup.enter.native="confirmAndSearch"
                                 ></el-date-picker>
-                                <span class="font-weight-bolder text-muted mr-2">~</span>
+                                <span class="mx-2 font-weight-bolder text-muted font-size-lg">~</span>
                                 <el-date-picker 
                                     v-model="rangeEndDate" 
                                     type="date" 
                                     format="dd-MM-yyyy" 
                                     value-format="yyyy-MM-dd" 
                                     placeholder="Đến ngày" 
-                                    class="w-100 mr-2"
+                                    style="flex: 1; min-width: 0;"
                                     :clearable="false"
+                                    @keyup.enter.native="confirmAndSearch"
                                 ></el-date-picker>
-                                <button 
-                                    class="btn btn-success font-weight-bolder text-nowrap"
-                                    :class="{ 'spinner spinner-white spinner-right': is_loading_search }"
-                                    @click="confirmAndSearch"
-                                    title="Xác nhận khoảng ngày đã chọn"
-                                >
-                                    <i class="fa fa-check mr-1"></i> Xác nhận
-                                </button>
                             </div>
-                            <small class="text-muted d-block mt-1">Chọn từ ngày nào đến ngày nào rồi bấm "Xác nhận" để ra đúng khoảng ngày đó.</small>
                         </div>
 
                         <!-- LỌC THEO CỬA HÀNG -->
-                        <div class="col-lg-3 col-md-4 mb-2">
-                            <label class="font-weight-bold text-dark">Cửa hàng:</label>
+                        <div :class="dateMode === 'single' ? 'col-lg-6 col-md-5 mb-3' : 'col-lg-4 col-md-4 mb-3'">
+                            <label class="filter-label">
+                                Cửa hàng:
+                            </label>
                             <el-select filterable class="w-100" placeholder="Toàn hệ thống (Tất cả)" v-model="query.store_id" clearable @change="search">
                                 <el-option v-for="item in stores" :key="item.id" :label="item.store_name" :value="item.id">
                                     <span>{{ item.store_name }}</span>
@@ -120,14 +115,17 @@
                             </el-select>
                         </div>
 
-                        <!-- NÚT TÌM KIẾM -->
-                        <div class="col-lg-2 col-md-3 mb-2" v-if="dateMode === 'single'">
+                        <!-- NÚT TÌM KIẾM (CẢ 2 CHẾ ĐỘ ĐỀU CÓ Ở BÊN PHẢI NGOÀI CÙNG) -->
+                        <div class="col-lg-2 col-md-3 mb-3">
+                            <label class="filter-label filter-label-spacer" aria-hidden="true">&nbsp;</label>
                             <button 
-                                class="btn btn-primary font-weight-bolder w-100" 
+                                type="button"
+                                class="btn btn-primary font-weight-bolder w-100 btn-search" 
                                 :class="{ 'spinner spinner-white spinner-right': is_loading_search }" 
+                                :disabled="is_loading_search"
                                 @click="confirmAndSearch"
                             >
-                                <i class="fa fa-search mr-1"></i> Tìm kiếm
+                                <i class="fa fa-search mr-1" v-if="!is_loading_search"></i> Tìm kiếm
                             </button>
                         </div>
                     </div>
@@ -884,6 +882,29 @@ export default {
     animation: fadeIn 0.25s ease-in-out;
 }
 
+.filter-row .filter-label {
+    display: block;
+    font-weight: 600;
+    color: #181C32;
+    margin-bottom: 0.5rem;
+    height: 18px;
+    line-height: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.filter-row .filter-label-spacer {
+    visibility: hidden;
+    user-select: none;
+}
+
+@media (max-width: 767.98px) {
+    .filter-row .filter-label-spacer {
+        display: none !important;
+    }
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -893,5 +914,27 @@ export default {
         opacity: 1;
         transform: translateY(0);
     }
+}
+</style>
+
+<style>
+.filter-row .el-input__inner {
+    height: 38px !important;
+    line-height: 38px !important;
+}
+
+.filter-row .el-date-editor.el-input {
+    height: 38px !important;
+}
+
+.filter-row .el-input__icon {
+    line-height: 38px !important;
+}
+
+.filter-row .btn-search {
+    height: 38px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 </style>
