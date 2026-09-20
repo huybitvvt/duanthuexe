@@ -1,0 +1,1578 @@
+[
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@index",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting/accounts",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@getAccounts",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/assets",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@saveAsset",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.post"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/accounting/assets/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@deleteAsset",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.reverse"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting/general-ledger/{accountId}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@getGeneralLedger",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting/journal-entries",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@getJournalEntries",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/journal-entries",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@postJournalEntry",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.post"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting/journal-entries/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@getJournalEntry",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/journal-entries/{id}/reverse",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@reverseJournalEntry",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.reverse"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting/legacy-shadow-analysis",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@legacyShadowAnalysis",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting/periods",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@getPeriods",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/periods/close",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@closePeriod",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.close_period"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/periods/reopen",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@reopenPeriod",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.close_period"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting/reconciliations",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@getReconciliations",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/reconciliations/bank",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@reconcileBank",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.reconcile"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/reconciliations/cash",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@reconcileCash",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.reconcile"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/reconciliations/{id}/approve",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@approveReconciliation",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.reconcile"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/accounting/trial-balance",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@getTrialBalance",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/accounting/vat-documents",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@saveVatDocument",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.post"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/accounting/vat-documents/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountingController@deleteVatDocument",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:accounting,schema.ready:audit,schema.ready:rbac,permission:accounting.reverse"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/banks",
+    "name": null,
+    "action": "App\\Http\\Controllers\\BankController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/banks",
+    "name": null,
+    "action": "App\\Http\\Controllers\\BankController@store",
+    "middleware": "api,auth.jwt,admin"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/banks/all",
+    "name": null,
+    "action": "App\\Http\\Controllers\\BankController@all",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/banks/update/{bank}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\BankController@update",
+    "middleware": "api,auth.jwt,admin"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/banks/{bank}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\BankController@show",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/banks/{bank}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\BankController@destroy",
+    "middleware": "api,auth.jwt,admin"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/cash",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CashController@store",
+    "middleware": "api,auth.jwt,admin"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/cash",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CashController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/cash/all",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CashController@all",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/cash/update/{cash}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CashController@update",
+    "middleware": "api,auth.jwt,admin"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/cash/{cash}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CashController@destroy",
+    "middleware": "api,auth.jwt,admin"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/cash/{cash}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CashController@show",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/change-pass",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@changePassWord",
+    "middleware": "api,check.status,auth.jwt,auth:api"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/customer-reminders/action-list",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CustomerReminderController@actionList",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:reminder,schema.ready:audit,schema.ready:rbac,permission:reminder.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/customer-reminders/dispatch",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CustomerReminderController@dispatchOutbox",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:reminder,schema.ready:audit,schema.ready:rbac,permission:reminder.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/customer-reminders/scan",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CustomerReminderController@scan",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:reminder,schema.ready:audit,schema.ready:rbac,permission:reminder.manage"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/customers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Customer\\CustomerController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/customers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Customer\\CustomerController@store",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/customers/search-by-id-card",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Customer\\CustomerController@searchCustomerByIdCard",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/customers/{customer}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Customer\\CustomerController@update",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/customers/{customer}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Customer\\CustomerController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/customers/{customer}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Customer\\CustomerController@show",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/daily-cash-registers/close",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DailyCashRegisterController@close",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:cash_register"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/daily-cash-registers/entries",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DailyCashRegisterController@storeEntry",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:cash_register"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/daily-cash-registers/exchanges",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DailyCashRegisterController@storeExchange",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:cash_register"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/daily-cash-registers/history",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DailyCashRegisterController@history",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:cash_register"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/daily-cash-registers/reopen",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DailyCashRegisterController@reopen",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:cash_register"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/daily-cash-registers/sources",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DailyCashRegisterController@sources",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:cash_register"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/daily-cash-registers/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DailyCashRegisterController@summary",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:cash_register"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/daily-cash-registers/transactions",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DailyCashRegisterController@transactions",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:cash_register"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/dashboard/overview",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DashboardController@overview",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/dashboard/report",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DashboardController@report",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/dashboard/report-chart",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DashboardController@reportChart",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/export/banks",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ExportsController@banks",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/export/cash",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ExportsController@cash",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/export/customers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ExportsController@customers",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/export/general_reports",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ExportsController@generalReports",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/export/orders",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ExportsController@orders",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/export/transactions",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ExportsController@transactions",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/export/vehicle_revenue",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ExportsController@vehicleRevenue",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/export/vehicles",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ExportsController@vehicles",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/file/upload-images",
+    "name": null,
+    "action": "App\\Http\\Controllers\\FileController@uploadImages",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/file/{file_id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\FileController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/gps/devices/{deviceId}/history",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CustomerReminderController@gpsDeviceHistory",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:gps,schema.ready:audit,schema.ready:rbac,permission:gps.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/gps/devices/{deviceId}/sync",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CustomerReminderController@gpsSyncDevice",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:gps,schema.ready:audit,schema.ready:rbac,permission:gps.manage_devices"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/gps/overview",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CustomerReminderController@gpsOverview",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:gps,schema.ready:audit,schema.ready:rbac,permission:gps.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/gps/recovery-actions",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CustomerReminderController@gpsRecoveryAction",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:gps,schema.ready:audit,schema.ready:rbac,permission:gps.recovery_action"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/hr/attendance",
+    "name": null,
+    "action": "App\\Http\\Controllers\\HrController@attendanceStore",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:audit,schema.ready:rbac,schema.ready:attendance,permission:hr.manage_attendance"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/hr/attendance",
+    "name": null,
+    "action": "App\\Http\\Controllers\\HrController@attendanceIndex",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:audit,schema.ready:rbac,schema.ready:attendance,permission:hr.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/hr/duty-schedules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\HrController@dutySchedules",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:audit,schema.ready:rbac,permission:hr.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/hr/duty-schedules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\HrController@saveDutySchedule",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:audit,schema.ready:rbac,permission:hr.manage_schedule"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/hr/duty-schedules/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\HrController@deleteDutySchedule",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:audit,schema.ready:rbac,permission:hr.manage_schedule"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/hr/organization-chart",
+    "name": null,
+    "action": "App\\Http\\Controllers\\HrController@organizationChart",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:audit,schema.ready:rbac,permission:hr.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/hr/staff",
+    "name": null,
+    "action": "App\\Http\\Controllers\\HrController@staffStore",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:audit,schema.ready:rbac,permission:hr.manage_staff"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/hr/staff",
+    "name": null,
+    "action": "App\\Http\\Controllers\\HrController@staffIndex",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:audit,schema.ready:rbac,permission:hr.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/leads",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeadController@index",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/leads",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeadController@create",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/leads/unique-users",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeadController@uniqueUsers",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/leads/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeadController@show",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/leads/{lead}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeadController@destroy",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/leads/{lead}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeadController@update",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-contracts",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@store",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,schema.ready:lease_document,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/lease-contracts",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@index",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/lease-contracts/export",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@export",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,permission:lease.export"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-contracts/reverse-allocation/{allocationId}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@reverse",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,permission:lease.reverse_payment"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/lease-contracts/stats",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@stats",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/lease-contracts/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@show",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/lease-contracts/{id}/debt-statement.pdf",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@debtStatementPdf",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,schema.ready:lease_document,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-contracts/{id}/notes",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@addNote",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-contracts/{id}/ownership-requests",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseOwnershipController@createDraft",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,schema.ready:ownership,permission:lease.ownership_request"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-contracts/{id}/payments",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@allocatePayment",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,permission:lease.collect"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/lease-contracts/{id}/pdf",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@pdf",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,schema.ready:lease_document,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-contracts/{id}/settle",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseContractController@settle",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:lease,schema.ready:audit,schema.ready:rbac,permission:lease.collect"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/lease-ownership-requests",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseOwnershipController@index",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:ownership,schema.ready:audit,schema.ready:rbac,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/lease-ownership-requests/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseOwnershipController@show",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:ownership,schema.ready:audit,schema.ready:rbac,permission:lease.view"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-ownership-requests/{id}/approve",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseOwnershipController@approve",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:ownership,schema.ready:audit,schema.ready:rbac,permission:lease.ownership_approve"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-ownership-requests/{id}/execute",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseOwnershipController@executeTransfer",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:ownership,schema.ready:audit,schema.ready:rbac,permission:lease.ownership_execute"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-ownership-requests/{id}/reject",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseOwnershipController@reject",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:ownership,schema.ready:audit,schema.ready:rbac,permission:lease.ownership_approve"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/lease-ownership-requests/{id}/submit",
+    "name": null,
+    "action": "App\\Http\\Controllers\\LeaseOwnershipController@submit",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:ownership,schema.ready:audit,schema.ready:rbac,permission:lease.ownership_request"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/login",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@login",
+    "middleware": "api,check.status"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/logout",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@logout",
+    "middleware": "api,check.status,auth.jwt,auth:api"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/maintenance-log",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceLogController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT|POST",
+    "uri": "api/auth/maintenance-log/{maintenanceLogs?}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceLogController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/maintenance-log/{maintenanceLog}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceLogController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/maintenance-rules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceRuleController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/maintenance-rules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceRuleController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/maintenance-rules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceRuleController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/maintenance-rules/{maintenanceRule}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceRuleController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/maintenance-schedules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceScheduleController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/maintenance-schedules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceScheduleController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/maintenance-schedules/upcoming",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceScheduleController@upcoming",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/maintenance-schedules/{maintenanceSchedule}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceScheduleController@show",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/maintenance-schedules/{maintenanceSchedule}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceScheduleController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/maintenance-types",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceTypeController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/maintenance-types",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceTypeController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/maintenance-types",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceTypeController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/maintenance-types/{maintenanceType}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceTypeController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/maintenance-vehicle",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceVehicleController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT|POST",
+    "uri": "api/auth/maintenance-vehicle/{maintenanceVehicle?}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceVehicleController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/maintenance-vehicle/{maintenanceVehicle}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\MaintenanceVehicleController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/notifications/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\NotificationController@summary",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/order-sell",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderSellController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/order-sell/report",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderSellController@report",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order-sell/store",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderSellController@store",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order-sell/update",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderSellController@update",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/order-sell/{sellOrder}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderSellController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order/add-on-price",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@addOnPrice",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order/calc_order_before_complete",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@calc_order_before_complete",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order/calc_return_early_amount",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@calc_return_early_amount",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/order/car-rental",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order/car-rental",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@store",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/order/car-rental/complete/{order}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@complete",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/order/car-rental/deposit/{order}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@deposit",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order/car-rental/lock-contract/{order}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@lockContract",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order/car-rental/preview",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@preview",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/order/car-rental/{data}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/order/car-rental/{order}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@show",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/order/car-rental/{order}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@update",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/order/car-rental/{order}/document",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@document",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order/close-deposit-order",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@closeDeposit",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/order/start-contract",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@startContract",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/priceVehicles",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\PriceVehicleController@storeOrUpdate",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/priceVehicles",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\PriceVehicleController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/priceVehicles/{priceVehicle}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\PriceVehicleController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/receipt",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReceiptController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT|POST",
+    "uri": "api/auth/receipt/{receipt?}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReceiptController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/receipt/{transaction}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReceiptController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/receipt/{transaction}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReceiptController@show",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/register",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@register",
+    "middleware": "api,check.status,auth.jwt,admin"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/report/detail-report",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Report\\ReportController@detailReport",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/report/detail-report-day-by-day",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Report\\ReportController@detailReportDayByDay",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/report/detail-report-new",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Report\\ReportController@detailReportNew",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/report/kpi",
+    "name": null,
+    "action": "App\\Http\\Controllers\\KpiReportController@index",
+    "middleware": "api,auth.jwt,non.sale,schema.ready:kpi,schema.ready:rbac"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/report/quick-report",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Report\\ReportController@quickReport",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/role/all",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Users\\RoleController@all",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/stores",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Store\\StoreController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/stores",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Store\\StoreController@store",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/stores/all",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Store\\StoreController@all",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/stores/{store}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Store\\StoreController@show",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/auth/stores/{store}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Store\\StoreController@update",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/stores/{store}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Store\\StoreController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/transactions",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Transaction\\TransactionController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/transactions/stats",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Transaction\\TransactionController@stats",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/transactions/update",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Transaction\\TransactionController@updateNew",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "PUT|POST",
+    "uri": "api/auth/transactions/{transaction?}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Transaction\\TransactionController@putOrPost",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/transactions/{transaction}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Transaction\\TransactionController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/users",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@index",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/users/change-my-password",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@changeMyPassword",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/users/change-password",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@changePassword",
+    "middleware": "api,auth.jwt,non.sale,admin"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/users/get-staff-by-store",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@getStaffByStore",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/users/store",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@store",
+    "middleware": "api,auth.jwt,non.sale,admin"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/users/update",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@update",
+    "middleware": "api,auth.jwt,non.sale,admin"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/users/{user}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@destroy",
+    "middleware": "api,auth.jwt,non.sale,admin"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/vehicle/vehicles",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\VehicleController@index",
+    "middleware": "api,check.status,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/vehicle/vehicles/report",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\VehicleController@report",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/vehicle/vehicles/store",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\VehicleController@store",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/vehicle/vehicles/update",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\VehicleController@update",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/auth/vehicle/vehicles/{vehicle}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\VehicleController@destroy",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/vehicle/vehicles_with_revenue",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Vehicle\\VehicleController@indexWithRevenue",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/vehicles/{vehicleId}/movement-history",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@movementHistory",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/warehouses/return-different-store",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@returnDifferentStore",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/warehouses/return-lookup",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@lookupReturnByLicense",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/warehouses/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@summary",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/warehouses/transfers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@transfers",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/warehouses/transfers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@dispatchTransfer",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/warehouses/transfers/{id}/cancel",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@cancelTransfer",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/warehouses/transfers/{id}/receive",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@receiveTransfer",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/auth/warehouses/vehicle-exchange",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@exchangeVehicle",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/auth/warehouses/{storeId}/vehicles",
+    "name": null,
+    "action": "App\\Http\\Controllers\\WarehouseController@vehicles",
+    "middleware": "api,auth.jwt,non.sale"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/check-timezone",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Order\\OrderController@check_timezone",
+    "middleware": "api,auth.jwt"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/customer-reminders/webhook/{provider}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CustomerReminderController@webhook",
+    "middleware": "api,schema.ready:reminder,schema.ready:audit"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/forgot-password",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@forgotPassword",
+    "middleware": "api,check.status"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/get-list-user",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@getListUser",
+    "middleware": "api,auth.jwt,non.sale,auth:api"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/health",
+    "name": null,
+    "action": "Closure",
+    "middleware": "api"
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/reset-password",
+    "name": null,
+    "action": "App\\Http\\Controllers\\UserController@resetPassword",
+    "middleware": "api,check.status"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/verify-token",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@verifyToken",
+    "middleware": "api,check.status,auth.jwt,auth:api"
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "{any}",
+    "name": null,
+    "action": "Closure",
+    "middleware": "web"
+  }
+]

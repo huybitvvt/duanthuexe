@@ -1,0 +1,34 @@
+services:
+  # HIMOTO Next.js Web Service (Node.js runtime)
+  - type: web
+    name: himoto-web-next
+    env: node
+    plan: free
+    region: singapore
+    buildCommand: cd apps/web && npm install && npm run build
+    startCommand: cd apps/web && npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 24.14.0
+      - key: NEXT_PUBLIC_API_URL
+        value: https://himoto-api-node.onrender.com/api
+      - key: NEXT_PUBLIC_COMMIT
+        value: 2b49116
+
+  # HIMOTO NestJS API Service (Node.js runtime)
+  - type: web
+    name: himoto-api-node
+    env: node
+    plan: free
+    region: singapore
+    buildCommand: cd apps/api && npm install && npm run build
+    startCommand: cd apps/api && npm run start:prod
+    envVars:
+      - key: NODE_VERSION
+        value: 24.14.0
+      - key: PORT
+        value: 8000
+      - key: DB_SCHEMA
+        value: himoto
+      - key: RENDER_GIT_COMMIT
+        value: 2b49116
