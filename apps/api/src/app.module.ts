@@ -19,6 +19,8 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { LeaseModule } from './modules/lease/lease.module';
 import { ReminderModule } from './modules/reminder/reminder.module';
+import { CronModule } from './modules/cron/cron.module';
+import { ExportModule } from './modules/export/export.module';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { ReminderModule } from './modules/reminder/reminder.module';
     WarehouseModule,
     LeaseModule,
     ReminderModule,
+    CronModule,
+    ExportModule,
   ],
 })
 export class AppModule {}
