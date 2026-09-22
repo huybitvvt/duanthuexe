@@ -678,4 +678,12 @@ export default {
   font-size: 0.85rem !important;
   letter-spacing: 0.5px;
 }
+
+.table th,
+.table td,
+.table-responsive {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
+}
 </style>

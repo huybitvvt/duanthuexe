@@ -3,7 +3,7 @@
     <div class="page-heading mb-5">
       <div>
         <p class="eyebrow mb-2">CHĂM SÓC CÔNG NỢ</p>
-        <h2 class="font-weight-bolder text-dark mb-2">Nhắc nợ khách</h2>
+        <h2 class="font-weight-bolder text-dark mb-2">Nhắc nợ khách hàng</h2>
         <p class="text-muted mb-0">
           Theo dõi các khoản đến hạn, quá hạn và lịch trả xe cần liên hệ khách hàng.
         </p>
@@ -28,68 +28,100 @@
       </div>
     </div>
 
-    <div class="notice-box mb-5">
+    <div class="notice-box mb-4">
       Hệ thống đang ở chế độ kiểm tra nội bộ. Nút “Kiểm tra hàng đợi” không gửi SMS, Zalo hoặc email cho khách.
     </div>
 
-    <div class="summary-grid mb-5">
-      <div class="summary-card">
-        <span class="summary-label">TỔNG VIỆC NHẮC</span>
-        <strong>{{ pagination.total }}</strong>
-        <small>Theo bộ lọc hiện tại</small>
-      </div>
-      <div class="summary-card summary-card-danger">
-        <span class="summary-label">ĐANG CHỜ XỬ LÝ</span>
-        <strong>{{ pendingOnPage }}</strong>
-        <small>Trong trang đang xem</small>
-      </div>
-      <div class="summary-card summary-card-muted">
-        <span class="summary-label">CẦN KIỂM TRA</span>
-        <strong>{{ attentionOnPage }}</strong>
-        <small>Lỗi hoặc chưa gửi được</small>
+    <!-- Mốc thời gian nhắc nợ / Aging Bucket Tabs -->
+    <div class="card card-custom gutter-b aging-tabs-card">
+      <div class="card-body py-3 px-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between">
+          <div class="d-flex flex-wrap align-items-center mb-2 mb-md-0">
+            <span class="font-weight-bold mr-3 text-dark font-size-sm">Mốc nhắc nợ:</span>
+            <button
+              type="button"
+              class="btn btn-sm mr-2 mb-1"
+              :class="filters.debt_group === '' ? 'btn-primary' : 'btn-light'"
+              @click="setDebtGroup('')"
+            >
+              Tất cả ({{ stats.total || pagination.total }})
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm mr-2 mb-1 font-weight-bold"
+              :class="filters.debt_group === 'due_today' ? 'btn-info' : 'btn-light-info'"
+              @click="setDebtGroup('due_today')"
+            >
+              Đến hạn hôm nay ({{ stats.due_today || 0 }})
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm mr-2 mb-1 font-weight-bold"
+              :class="filters.debt_group === 'overdue_1_5' ? 'btn-warning' : 'btn-light-warning'"
+              @click="setDebtGroup('overdue_1_5')"
+            >
+              Nợ sớm 1-5 ngày ({{ stats.overdue_1_5 || 0 }})
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm mr-2 mb-1 font-weight-bold"
+              :class="filters.debt_group === 'overdue_6_30' ? 'btn-danger' : 'btn-light-danger'"
+              @click="setDebtGroup('overdue_6_30')"
+            >
+              Nợ muộn 6-30 ngày ({{ stats.overdue_6_30 || 0 }})
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm mr-2 mb-1 font-weight-bold"
+              :class="filters.debt_group === 'overdue_30_plus' ? 'btn-dark' : 'btn-light-dark'"
+              @click="setDebtGroup('overdue_30_plus')"
+            >
+              Cần thu hồi >30 ngày ({{ stats.overdue_30_plus || 0 }})
+            </button>
+          </div>
+          <div class="text-muted font-size-xs">
+            Dữ liệu dạng chữ có thể kéo chuột để trỏ vào <strong>COPY</strong>
+          </div>
+        </div>
       </div>
     </div>
 
+    <!-- Thanh tìm kiếm & bộ lọc -->
     <div class="card card-custom gutter-b filter-card">
       <div class="card-body p-4">
         <div class="row align-items-end">
-          <div class="col-lg-5 col-md-12 mb-3 mb-lg-0">
-            <label class="filter-label">Tìm khách hàng</label>
-            <search-suggest endpoint="/api/auth/customer-reminders/action-list" :params="filters" query-key="search" fields="recipient_name,recipient_phone,message_content" @select="applyFilters" @submit="applyFilters"
+          <div class="col-lg-4 col-md-12 mb-3 mb-lg-0">
+            <label class="filter-label">Tìm khách hàng / Xe</label>
+            <search-suggest
+              endpoint="/api/auth/customer-reminders/action-list"
+              :params="filters"
+              query-key="search"
+              fields="recipient_name,recipient_phone,message_content"
               v-model.trim="filters.search"
               clearable
-              placeholder="Tên khách, số điện thoại hoặc nội dung nhắc"
+              placeholder="Tên khách, SĐT, biển số hoặc ghi chú"
+              @select="applyFilters"
+              @submit="applyFilters"
               @clear="applyFilters"
             />
           </div>
           <div class="col-lg-2 col-md-4 mb-3 mb-lg-0">
             <label class="filter-label">Loại hợp đồng</label>
             <el-select v-model="filters.contract_type" class="w-100" @change="applyFilters">
-              <el-option label="Tất cả" value="" />
+              <el-option label="Tất cả loại HĐ" value="" />
               <el-option label="Thuê sở hữu" value="lease" />
-              <el-option label="Thuê xe" value="rental" />
+              <el-option label="Thuê xe truyền thống" value="rental_order" />
             </el-select>
           </div>
-          <div class="col-lg-2 col-md-4 mb-3 mb-lg-0">
+          <div class="col-lg-3 col-md-4 mb-3 mb-lg-0">
             <label class="filter-label">Phòng giao dịch</label>
             <el-select v-model="filters.store_id" class="w-100" clearable placeholder="Tất cả phòng GD" @change="applyFilters">
               <el-option label="Tất cả phòng GD" value="" />
               <el-option v-for="store in stores" :key="store.id" :label="store.store_name" :value="store.id" />
             </el-select>
           </div>
-          <div class="col-lg-2 col-md-4 mb-3 mb-lg-0">
-            <label class="filter-label">Trạng thái</label>
-            <el-select v-model="filters.status" class="w-100" @change="applyFilters">
-              <el-option label="Tất cả" value="" />
-              <el-option label="Đang chờ" value="pending" />
-              <el-option label="Đã gửi" value="sent" />
-              <el-option label="Thất bại" value="failed" />
-              <el-option label="Đã bỏ qua" value="skipped" />
-              <el-option label="Đã hủy" value="cancelled" />
-            </el-select>
-          </div>
           <div class="col-lg-3 col-md-4 d-flex filter-actions">
-            <button type="button" class="btn btn-danger font-weight-bold mr-2" @click="applyFilters">
+            <button type="button" class="btn btn-primary font-weight-bold mr-2" @click="applyFilters">
               Lọc danh sách
             </button>
             <button type="button" class="btn btn-light font-weight-bold" @click="resetFilters">
@@ -100,11 +132,12 @@
       </div>
     </div>
 
+    <!-- Bảng danh sách nhắc nợ / Quản lý công nợ -->
     <div class="card card-custom result-card" v-loading="loading">
       <div class="card-header border-0 result-header">
         <div>
-          <h3 class="card-label font-weight-bolder text-dark mb-1">Danh sách cần liên hệ</h3>
-          <span class="text-muted">Ưu tiên các khoản quá hạn và lịch trả xe đã trễ.</span>
+          <h3 class="card-label font-weight-bolder text-dark mb-1">Danh sách cần liên hệ nhắc nợ</h3>
+          <span class="text-muted">Ưu tiên các khoản nợ muộn (6-30 ngày) và xe cần thu hồi (>30 ngày).</span>
         </div>
         <button type="button" class="btn btn-sm btn-light font-weight-bold" :disabled="loading" @click="fetchReminders">
           Làm mới
@@ -112,63 +145,164 @@
       </div>
 
       <div v-if="!loading && reminders.length === 0" class="empty-state">
-        <strong>Chưa có việc nhắc phù hợp</strong>
-        <span>Hãy đổi bộ lọc hoặc quét các khoản đến hạn để cập nhật danh sách.</span>
+        <strong>Chưa có việc nhắc nợ phù hợp</strong>
+        <span>Hãy đổi bộ lọc hoặc bấm “Quét khoản đến hạn” để hệ thống tự động cập nhật danh sách.</span>
       </div>
 
       <div v-else class="table-responsive">
-        <table class="table reminder-table mb-0">
+        <table class="table reminder-table mb-0 table-hover table-striped">
           <thead>
             <tr>
-              <th>Khách hàng</th>
-              <th>Hợp đồng</th>
-              <th>Mức nhắc</th>
-              <th>Nội dung liên hệ</th>
-              <th>Thời điểm</th>
-              <th>Trạng thái</th>
-              <th>Liên hệ hôm nay</th>
+              <th style="min-width: 110px;">Ngày thuê</th>
+              <th style="min-width: 170px;">Tên KH</th>
+              <th style="min-width: 110px;">Gói thuê</th>
+              <th style="min-width: 140px;">Loại xe</th>
+              <th style="min-width: 120px;">Biển số</th>
+              <th style="min-width: 110px;">Ngày đến hạn</th>
+              <th style="min-width: 110px;" class="text-center">Ngày chậm</th>
+              <th style="min-width: 130px;" class="text-right">Số tiền nợ</th>
+              <th style="min-width: 130px;" class="text-center">Nhóm nợ tự động</th>
+              <th style="min-width: 170px;" class="text-center">Hành Động</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="item in reminders" :key="item.id">
+              <!-- Ngày thuê -->
               <td>
-                <strong class="d-block text-dark">{{ item.recipient_name || "Chưa có tên" }}</strong>
-                <span class="text-muted">{{ item.recipient_phone || "Chưa có số điện thoại" }}</span>
+                <span class="copyable-text text-dark font-weight-bold">
+                  {{ item.rental_start_date ? formatDateOnly(item.rental_start_date) : formatDateOnly(item.created_at) }}
+                </span>
               </td>
+
+              <!-- Tên KH -->
               <td>
-                <span class="type-label">{{ contractTypeLabel(item.contract_type) }}</span>
-                <button type="button" class="btn btn-link btn-sm p-0 d-block mt-1" @click="openContract(item)">
-                  Mở đơn #{{ item.contract_id }}
+                <span class="copyable-text font-weight-bolder text-dark d-block">
+                  {{ item.customer_name || item.recipient_name || "Chưa có tên" }}
+                </span>
+                <div class="d-flex align-items-center mt-1">
+                  <a :href="'tel:' + (item.customer_phone || item.recipient_phone)" class="text-primary font-weight-bold copyable-text font-size-xs mr-2">
+                    {{ item.customer_phone || item.recipient_phone }}
+                  </a>
+                  <button type="button" class="btn btn-xs btn-icon btn-light-primary" title="Copy số điện thoại" @click="copyText(item.customer_phone || item.recipient_phone)">
+                    <i class="flaticon2-copy font-size-xs"></i>
+                  </button>
+                </div>
+                <button type="button" class="btn btn-link btn-xs p-0 text-muted d-block mt-1 font-weight-bold" @click="openContract(item)">
+                  {{ item.contract_code || ('Đơn #' + item.contract_id) }} ↗
                 </button>
               </td>
+
+              <!-- Gói thuê -->
               <td>
-                <span class="stage-label" :class="stageClass(item.stage)">
-                  {{ stageLabel(item.stage) }}
+                <span class="badge badge-light-primary font-weight-bold copyable-text">
+                  {{ item.package_label || (item.contract_type === 'lease' ? 'Thuê sở hữu' : 'Thuê xe') }}
                 </span>
               </td>
-              <td class="message-cell">
-                <span :title="item.message_content">{{ item.message_content || "Chưa có nội dung" }}</span>
-                <small v-if="item.error_message" class="d-block error-text mt-2">
-                  Lỗi: {{ item.error_message }}
-                </small>
-              </td>
+
+              <!-- Loại xe -->
               <td>
-                <span class="d-block">{{ formatDate(item.scheduled_at) }}</span>
-                <small class="text-muted">Tạo: {{ formatDate(item.created_at) }}</small>
-              </td>
-              <td>
-                <span class="status-label" :class="statusClass(item.status)">
-                  {{ statusLabel(item.status) }}
+                <span class="copyable-text text-dark font-weight-bold">
+                  {{ item.vehicle_type || 'Xe máy' }}
                 </span>
               </td>
+
+              <!-- Biển số -->
               <td>
-                <span :class="item.contacted_today ? 'text-success' : 'text-warning'" class="d-block font-weight-bold">
-                  {{ item.contacted_today ? 'Đã liên hệ' : 'Chưa liên hệ' }}
+                <span class="badge badge-light-dark font-weight-bolder copyable-text font-size-sm">
+                  {{ item.plate_number || 'Chưa gán' }}
                 </span>
-                <small v-if="item.last_contact_note" class="d-block text-muted" :title="item.last_contact_note">
+              </td>
+
+              <!-- Ngày đến hạn -->
+              <td>
+                <span class="copyable-text font-weight-bold text-dark">
+                  {{ item.due_date ? formatDateOnly(item.due_date) : formatDateOnly(item.scheduled_at) }}
+                </span>
+              </td>
+
+              <!-- Ngày chậm -->
+              <td class="text-center">
+                <span v-if="item.overdue_days > 0" class="text-danger font-weight-bolder font-size-h6 copyable-text">
+                  {{ item.overdue_days }} ngày
+                </span>
+                <span v-else-if="item.overdue_days === 0" class="text-warning font-weight-bold copyable-text">
+                  Hôm nay
+                </span>
+                <span v-else class="text-success font-weight-bold copyable-text">
+                  Chưa chậm
+                </span>
+              </td>
+
+              <!-- Số tiền nợ -->
+              <td class="text-right">
+                <span class="text-danger font-weight-bolder font-size-h6 copyable-text">
+                  {{ formatMoney(item.debt_amount) }}
+                </span>
+              </td>
+
+              <!-- Nhóm nợ tự động (1-5: Nợ sớm, 6-30: Nợ muộn, >30: Cần thu hồi) -->
+              <td class="text-center">
+                <span v-if="item.auto_debt_group === 'Cần thu hồi'" class="badge badge-dark font-weight-bolder px-2 py-1">
+                  Cần thu hồi
+                </span>
+                <span v-else-if="item.auto_debt_group === 'Nợ muộn'" class="badge badge-danger font-weight-bolder px-2 py-1">
+                  Nợ muộn
+                </span>
+                <span v-else-if="item.auto_debt_group === 'Nợ sớm'" class="badge badge-warning font-weight-bold px-2 py-1">
+                  Nợ sớm
+                </span>
+                <span v-else class="badge badge-light-warning font-weight-bold px-2 py-1">
+                  Đến hạn
+                </span>
+              </td>
+
+              <!-- Hành Động: Dropdown with 9 specific action items -->
+              <td class="text-center">
+                <el-dropdown trigger="click" @command="handleQuickAction(item, $event)">
+                  <button
+                    type="button"
+                    class="btn btn-sm font-weight-bold dropdown-toggle d-inline-flex align-items-center"
+                    :class="item.contacted_today ? 'btn-light-success' : 'btn-outline-danger'"
+                  >
+                    <span>{{ getActionBtnLabel(item) }}</span>
+                  </button>
+                  <el-dropdown-menu slot="dropdown" class="action-dropdown-menu">
+                    <el-dropdown-item command="contacted">
+                      <span class="text-success font-weight-bold">✓ Đã liên hệ</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="promise">
+                      <span class="text-primary font-weight-bold">📅 Hứa thanh toán</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="no_answer">
+                      <span class="text-warning font-weight-bold">📵 Ko nghe máy</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="lost_contact">
+                      <span class="text-danger font-weight-bold">❌ Mất liên lạc</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="uncooperative">
+                      <span class="text-danger font-weight-bold">🚫 Không hợp tác</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="paid">
+                      <span class="text-success font-weight-bolder">💰 Đã thanh toán</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="recall_vehicle">
+                      <span class="text-danger font-weight-bolder">🚨 Cần thu hồi xe</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="check_vehicle">
+                      <span class="text-info font-weight-bold">🔍 Cần check xe</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item command="collect_money">
+                      <span class="text-dark font-weight-bold">🏃 Đi thu tiền</span>
+                    </el-dropdown-item>
+                    <el-dropdown-item divided command="open_modal">
+                      <span class="text-primary font-weight-bolder">💬 Chi tiết & Người thân...</span>
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </el-dropdown>
+
+                <div v-if="item.last_contact_note" class="font-size-xs text-muted mt-1 text-truncate" style="max-width: 170px;" :title="item.last_contact_note">
                   {{ item.last_contact_note }}
-                </small>
-                <button type="button" class="btn btn-sm btn-link p-0" @click="recordContact(item)">Ghi chú</button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -189,14 +323,21 @@
         />
       </div>
     </div>
+
+    <!-- Modal Chi tiết người thân & Ghi chú đôn đốc -->
+    <modal-debt-note ref="modalDebtNote" @success="fetchReminders" />
   </div>
 </template>
 
 <script>
 import ApiService from "@/core/services/api.service";
+import ModalDebtNote from "@/view/pages/lease-to-own/components/ModalDebtNote.vue";
 
 export default {
   name: "CustomerReminderIndex",
+  components: {
+    ModalDebtNote,
+  },
   data() {
     return {
       loading: false,
@@ -206,8 +347,16 @@ export default {
       filters: {
         search: "",
         contract_type: "",
+        debt_group: "",
         status: "",
         store_id: "",
+      },
+      stats: {
+        total: 0,
+        overdue_1_5: 0,
+        overdue_6_30: 0,
+        overdue_30_plus: 0,
+        due_today: 0,
       },
       stores: [],
       pagination: {
@@ -218,14 +367,6 @@ export default {
       },
     };
   },
-  computed: {
-    pendingOnPage() {
-      return this.reminders.filter(item => item.status === "pending").length;
-    },
-    attentionOnPage() {
-      return this.reminders.filter(item => ["failed", "pending"].includes(item.status)).length;
-    },
-  },
   created() {
     if (this.$route.query.search) {
       this.filters.search = this.$route.query.search;
@@ -233,31 +374,110 @@ export default {
     if (this.$route.query.store_id) {
       this.filters.store_id = Number(this.$route.query.store_id);
     }
+    if (this.$route.query.debt_group) {
+      this.filters.debt_group = this.$route.query.debt_group;
+    }
     this.fetchStores();
     this.fetchReminders();
   },
   methods: {
-    async recordContact(item) {
+    setDebtGroup(group) {
+      this.filters.debt_group = group;
+      this.applyFilters();
+    },
+    getActionBtnLabel(item) {
+      if (item.last_action) {
+        return this.getActionLabel(item.last_action);
+      }
+      if (item.contacted_today) {
+        return "Đã liên hệ ✓";
+      }
+      return "Hành động ▾";
+    },
+    getActionLabel(action) {
+      const map = {
+        contacted: "Đã liên hệ",
+        promise: "Hứa thanh toán",
+        no_answer: "Ko nghe máy",
+        lost_contact: "Mất liên lạc",
+        uncooperative: "Không hợp tác",
+        paid: "Đã thanh toán",
+        recall_vehicle: "Cần thu hồi xe",
+        check_vehicle: "Cần check xe",
+        collect_money: "Đi thu tiền",
+      };
+      return map[action] || action || "";
+    },
+    async handleQuickAction(item, action) {
+      if (action === "open_modal" || action === "paid") {
+        this.openDetailModal(item, action === "open_modal" ? null : action);
+        return;
+      }
+      const label = this.getActionLabel(action);
       try {
-        const { value } = await this.$prompt('Đã trao đổi gì với khách hôm nay?', `Liên hệ đơn #${item.contract_id}`, {
-          inputType: 'textarea',
-          confirmButtonText: 'Lưu ghi chú',
-          cancelButtonText: 'Hủy',
-          inputValidator: note => note && note.trim() ? true : 'Vui lòng nhập nội dung liên hệ',
+        const { value } = await this.$prompt(
+          `Ghi nhận: [${label}]? Có thể nhập thêm ghi chú (hoặc bấm OK để lưu ngay):`,
+          `Cập nhật đôn đốc - ${item.customer_name || 'Khách hàng'}`,
+          {
+            inputValue: "",
+            confirmButtonText: "Lưu hành động",
+            cancelButtonText: "Hủy",
+          }
+        );
+        await ApiService.post(`/api/auth/customer-reminders/${item.id}/contact`, {
+          action,
+          note: value ? value.trim() : label,
         });
-        await ApiService.post(`/api/auth/customer-reminders/${item.id}/contact`, { note: value.trim() });
+        this.$message.success(`Đã cập nhật: [${label}]`);
         await this.fetchReminders();
-      } catch (error) {
-        if (error !== 'cancel' && error !== 'close') {
-          this.$message.error(this.errorMessage(error, 'Không lưu được ghi chú liên hệ'));
+      } catch (e) {
+        if (e !== "cancel" && e !== "close") {
+          this.$message.error(this.errorMessage(e, "Không lưu được hành động"));
         }
       }
     },
-    openContract(item) {
-      if (item.contract_type === 'rental_order') {
-        this.$router.push({ name: 'car-rental', query: { open_order: item.contract_id } });
+    openDetailModal(item, defaultAction = null) {
+      const contractPayload = {
+        id: item.contract_details?.id || item.contract_id,
+        reminder_id: item.id,
+        is_rental: item.contract_type === "rental_order",
+        contract_code: item.contract_code || ("#" + item.contract_id),
+        overdue_days: item.overdue_days || 0,
+        outstanding_balance: item.debt_amount || 0,
+        customer: item.contract_details?.customer || {
+          name: item.customer_name || item.recipient_name,
+          phone: item.customer_phone || item.recipient_phone,
+          relatives: item.customer_relatives || [],
+        },
+        vehicle: item.contract_details?.vehicle || {
+          license: item.plate_number,
+          name: item.vehicle_type,
+        },
+        debt_notes: item.contract_details?.debt_notes || [],
+        contact_logs: item.contact_logs || [],
+      };
+      this.$refs.modalDebtNote.open(contractPayload, defaultAction);
+    },
+    copyText(text) {
+      if (!text) return;
+      if (navigator && navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        this.$message.success(`Đã copy: ${text}`);
       } else {
-        this.$router.push({ name: 'lease-to-own', query: { open_contract: item.contract_id } });
+        const input = document.createElement("input");
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+        this.$message.success(`Đã copy: ${text}`);
+      }
+    },
+    openContract(item) {
+      if (item.contract_type === "rental_order") {
+        this.$router.push({ name: "car-rental", query: { open_order: item.contract_id } });
+      } else {
+        this.$router.push({ name: "lease-to-own", query: { open_contract: item.contract_id } });
       }
     },
     async fetchReminders(page = this.pagination.current_page) {
@@ -268,11 +488,15 @@ export default {
           per_page: this.pagination.per_page,
           search: this.filters.search || undefined,
           contract_type: this.filters.contract_type || undefined,
+          debt_group: this.filters.debt_group || undefined,
           status: this.filters.status || undefined,
           store_id: this.filters.store_id || undefined,
         });
         const payload = response.data.data || response.data || {};
         this.reminders = Array.isArray(payload.data) ? payload.data : [];
+        if (payload.stats) {
+          this.stats = payload.stats;
+        }
         this.pagination = {
           current_page: Number(payload.current_page || page || 1),
           per_page: Number(payload.per_page || 20),
@@ -300,7 +524,7 @@ export default {
       }
     },
     resetFilters() {
-      this.filters = { search: "", contract_type: "", status: "", store_id: "" };
+      this.filters = { search: "", contract_type: "", debt_group: "", status: "", store_id: "" };
       this.applyFilters();
     },
     changePage(page) {
@@ -346,52 +570,18 @@ export default {
       }
       return fallback;
     },
-    contractTypeLabel(type) {
-      return type === "lease" ? "Thuê sở hữu" : "Thuê xe";
+    formatMoney(val) {
+      if (!val && val !== 0) return "0đ";
+      return Number(val).toLocaleString("vi-VN") + "đ";
     },
-    stageLabel(stage) {
-      const labels = {
-        due_soon_3d: "Còn 3 ngày",
-        due_soon_1d: "Còn 1 ngày",
-        due_today: "Đến hạn hôm nay",
-        overdue_1_7d: "Quá hạn 1–7 ngày",
-        overdue_8_30d: "Quá hạn 8–30 ngày",
-        overdue_1_5d: "Nợ sớm 1–5 ngày",
-        overdue_6_30d: "Nợ muộn 6–30 ngày",
-        overdue_30_plus: "Quá hạn trên 30 ngày",
-        return_tomorrow: "Trả xe ngày mai",
-        return_today: "Trả xe hôm nay",
-        overdue_return: "Quá hạn trả xe",
-      };
-      return labels[stage] || stage || "Chưa phân loại";
-    },
-    stageClass(stage) {
-      if (["overdue_8_30d", "overdue_6_30d", "overdue_30_plus", "overdue_return"].includes(stage)) {
-        return "stage-danger";
+    formatDateOnly(val) {
+      if (!val) return "Chưa xác định";
+      const str = String(val).split("T")[0].split(" ")[0];
+      const parts = str.split("-");
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
       }
-      if (["overdue_1_7d", "overdue_1_5d", "due_today", "return_today"].includes(stage)) {
-        return "stage-warning";
-      }
-      return "stage-neutral";
-    },
-    statusLabel(status) {
-      const labels = {
-        pending: "Đang chờ",
-        sent: "Đã gửi",
-        failed: "Thất bại",
-        skipped: "Đã bỏ qua",
-        cancelled: "Đã hủy",
-      };
-      return labels[status] || status || "Chưa xác định";
-    },
-    statusClass(status) {
-      return `status-${status || "unknown"}`;
-    },
-    formatDate(value) {
-      if (!value) return "Chưa xác định";
-      const parsed = new Date(value);
-      if (Number.isNaN(parsed.getTime())) return value;
-      return parsed.toLocaleString("vi-VN");
+      return val;
     },
   },
 };
@@ -425,64 +615,20 @@ export default {
 }
 
 .notice-box {
-  padding: 13px 16px;
+  padding: 11px 16px;
   border: 1px solid #efc3c6;
   border-radius: 8px;
   background: #fff7f7;
   color: #7d2026;
   font-weight: 500;
+  font-size: 13px;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.summary-card {
-  min-height: 118px;
-  padding: 20px;
-  border: 1px solid #e5e9ef;
-  border-top: 4px solid #b30f18;
-  border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 8px 24px rgba(31, 41, 55, 0.06);
-}
-
-.summary-card-danger {
-  background: #fff7f7;
-}
-
-.summary-card-muted {
-  border-top-color: #6b7280;
-}
-
-.summary-card strong {
-  display: block;
-  margin: 5px 0 2px;
-  color: #1f2937;
-  font-size: 28px;
-  line-height: 1.1;
-}
-
-.summary-card small,
-.summary-label {
-  color: #6b7280;
-}
-
-.summary-label,
-.filter-label {
-  display: block;
-  margin-bottom: 7px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-}
-
+.aging-tabs-card,
 .filter-card,
 .result-card {
   border: 1px solid #e5e9ef;
-  box-shadow: 0 8px 26px rgba(31, 41, 55, 0.05);
+  box-shadow: 0 4px 18px rgba(31, 41, 55, 0.04);
 }
 
 .filter-actions {
@@ -490,12 +636,21 @@ export default {
 }
 
 .result-header {
-  min-height: 78px;
+  min-height: 70px;
   padding: 16px 24px;
 }
 
+/* User-select: text and cursor: text across all table cells for COPY (Row 20) */
+.reminder-table th,
+.reminder-table td,
+.copyable-text {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
+}
+
 .reminder-table th {
-  padding: 14px 18px;
+  padding: 12px 14px;
   border-top: 0;
   border-bottom: 1px solid #e5e9ef;
   background: #f7f8fa;
@@ -507,56 +662,9 @@ export default {
 }
 
 .reminder-table td {
-  padding: 16px 18px;
+  padding: 12px 14px;
   border-color: #edf0f3;
   vertical-align: middle;
-}
-
-.message-cell {
-  min-width: 280px;
-  max-width: 420px;
-  line-height: 1.5;
-}
-
-.type-label,
-.stage-label,
-.status-label {
-  display: inline-block;
-  padding: 5px 9px;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.type-label,
-.stage-neutral,
-.status-skipped,
-.status-cancelled,
-.status-unknown {
-  background: #f0f2f5;
-  color: #4b5563;
-}
-
-.stage-warning,
-.status-pending {
-  background: #fff4dc;
-  color: #8b5a00;
-}
-
-.stage-danger,
-.status-failed {
-  background: #fff0f1;
-  color: #b30f18;
-}
-
-.status-sent {
-  background: #e9f8ef;
-  color: #22643a;
-}
-
-.error-text {
-  color: #b30f18;
 }
 
 .empty-state {
@@ -577,7 +685,7 @@ export default {
 }
 
 .pagination-row {
-  padding: 18px 24px;
+  padding: 16px 24px;
   border-top: 1px solid #edf0f3;
 }
 
@@ -604,14 +712,6 @@ export default {
   .page-actions .btn,
   .filter-actions .btn {
     margin-right: 0 !important;
-  }
-
-  .summary-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .pagination-row {
-    align-items: center;
   }
 }
 </style>

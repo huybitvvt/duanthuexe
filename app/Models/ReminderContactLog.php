@@ -6,5 +6,5 @@ use Illuminate\Database\Eloquent\Model;
 
 class ReminderContactLog extends Model
 {
-    protected $fillable = ['reminder_id', 'user_id', 'contact_date', 'note'];
+    protected $fillable = ['reminder_id', 'user_id', 'contact_date', 'note', 'action', 'paid_amount', 'appointment_date'];
 }

@@ -15,6 +15,9 @@ class CreateReminderContactLogs extends Migration
                 $table->unsignedBigInteger('user_id')->index();
                 $table->date('contact_date')->index();
                 $table->text('note');
+                $table->string('action', 50)->nullable();
+                $table->decimal('paid_amount', 14, 2)->nullable()->default(0);
+                $table->date('appointment_date')->nullable();
                 $table->timestamps();
             });
         }

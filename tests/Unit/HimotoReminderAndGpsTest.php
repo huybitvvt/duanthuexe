@@ -373,4 +373,65 @@ class HimotoReminderAndGpsTest extends TestCase
         $this->assertContains('HĐ-TODAY-01', $results);
         $this->assertNotContains('HĐ-YESTERDAY-01', $results);
     }
+
+    public function test_staff_action_list_returns_all_required_debt_columns_and_supports_actions()
+    {
+        require_once __DIR__ . '/../../database/migrations/2026_09_22_000004_create_reminder_contact_logs.php';
+        (new \CreateReminderContactLogs())->up();
+        require_once __DIR__ . '/../../database/migrations/2026_09_14_000003_add_contract_fields_to_customers_table.php';
+        (new \AddContractFieldsToCustomersTable())->up();
+
+        $store = Store::create(['store_name' => 'Kho sở hữu']);
+        $customer = Customer::create([
+            'name' => 'Nguyễn Văn Test',
+            'phone' => '0988776655',
+            'relatives' => [
+                ['name' => 'Nguyễn Thị Vợ', 'phone' => '0912345678', 'relationship' => 'Vợ'],
+            ],
+        ]);
+        $order = Order::create([
+            'store_id' => $store->id,
+            'customer_id' => $customer->id,
+            'contract_number' => 'HĐ-TEST-OVERDUE-01',
+            'order_status' => 'renting',
+        ]);
+        $reminder = CustomerReminderOutbox::create([
+            'contract_type' => 'rental_order',
+            'contract_id' => $order->id,
+            'customer_id' => $customer->id,
+            'recipient_name' => 'Nguyễn Văn Test',
+            'recipient_phone' => '0988776655',
+            'stage' => 'overdue_1_5d',
+            'message_content' => 'Nhắc nợ sớm',
+            'status' => 'pending',
+            'scheduled_at' => Carbon::now(),
+            'idempotency_key' => 'test-action-list-item-1',
+        ]);
+
+        $admin = User::create(['name' => 'Quản trị viên', 'role_id' => 1]);
+
+        // Record an action with payment & promise
+        $this->reminderService->recordContact($reminder->id, 'Khách đã chuyển 500k, hứa mai chuyển nốt', $admin, [
+            'action' => 'promise',
+            'paid_amount' => 500000,
+            'appointment_date' => '2026-09-25',
+        ]);
+
+        $list = $this->reminderService->getStaffActionList([], $admin);
+        $this->assertNotEmpty($list['data']);
+        $item = $list['data'][0];
+
+        $this->assertSame('Nguyễn Văn Test', $item['customer_name']);
+        $this->assertSame('0988776655', $item['customer_phone']);
+        $this->assertCount(1, $item['customer_relatives']);
+        $this->assertSame('Nguyễn Thị Vợ', $item['customer_relatives'][0]['name']);
+        $this->assertSame('Nợ sớm', $item['auto_debt_group']);
+        $this->assertIsNumeric($item['debt_amount']);
+        $this->assertTrue($item['contacted_today']);
+        $this->assertStringContainsString('Hứa thanh toán', $item['last_contact_note']);
+        $this->assertStringContainsString('500.000đ', $item['last_contact_note']);
+        $this->assertArrayHasKey('stats', $list);
+        $this->assertGreaterThanOrEqual(1, $list['stats']['overdue_1_5']);
+    }
 }
+

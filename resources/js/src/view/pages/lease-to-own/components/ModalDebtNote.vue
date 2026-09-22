@@ -158,33 +158,33 @@
           </div>
         </div>
         <div class="card-body p-3" style="max-height: 250px; overflow-y: auto;">
-          <div v-if="!contract || !contract.debt_notes || contract.debt_notes.length === 0" class="text-center text-muted py-3">
+          <div v-if="!contract || (!contract.debt_notes || !contract.debt_notes.length) && (!contract.contact_logs || !contract.contact_logs.length)" class="text-center text-muted py-3">
             Chưa có ghi chú đôn đốc nào cho hợp đồng này.
           </div>
           <div v-else class="timeline timeline-3">
             <div
-              v-for="item in contract.debt_notes"
+              v-for="item in ((contract.debt_notes && contract.debt_notes.length) ? contract.debt_notes : (contract.contact_logs || []))"
               :key="item.id"
               class="timeline-item d-flex align-items-start mb-3 pb-2 border-bottom"
             >
               <div class="timeline-badge mr-3">
                 <span class="badge badge-light-primary px-2 py-1 font-weight-bold">
-                  Nhắc nợ
+                  {{ item.action ? getStatusLabel(item.action) : 'Nhắc nợ' }}
                 </span>
               </div>
               <div class="timeline-content flex-grow-1">
                 <div class="d-flex justify-content-between align-items-center">
                   <span class="font-weight-bold text-dark">{{ getClassificationLabel(item.debt_classification) }}</span>
-                  <span class="text-muted font-size-xs">{{ item.created_at | formatDateTime }}</span>
+                  <span class="text-muted font-size-xs">{{ (item.created_at || item.contact_date) | formatDateTime }}</span>
                 </div>
                 <div v-if="item.appointment_date" class="text-primary font-size-xs my-1 font-weight-bold">
                   Hẹn thanh toán: {{ item.appointment_date | formatDate }}
                 </div>
                 <div class="text-dark-75 font-size-sm mt-1 bg-light rounded p-2">
-                  {{ item.note_content }}
+                  {{ item.note_content || item.note }}
                 </div>
-                <div v-if="item.created_by_user" class="text-muted font-size-xs text-right mt-1">
-                  Nhân viên: {{ item.created_by_user.name }}
+                <div v-if="item.created_by_user || item.user" class="text-muted font-size-xs text-right mt-1">
+                  Nhân viên: {{ (item.created_by_user ? item.created_by_user.name : (item.user ? item.user.name : '')) }}
                 </div>
               </div>
             </div>
@@ -200,6 +200,7 @@
 </template>
 
 <script>
+import ApiService from "@/core/services/api.service";
 import { LEASE_ADD_NOTE, LEASE_GET_SHOW } from "@/core/services/store/lease.module";
 import Swal from "sweetalert2";
 
@@ -263,11 +264,11 @@ export default {
       }
     },
     refreshContract() {
-      if (!this.contract?.id) return;
+      if (!this.contract?.id || this.contract.reminder_id) return;
       this.$store
         .dispatch(LEASE_GET_SHOW, this.contract.id)
         .then((res) => {
-          this.contract = res?.data || this.contract;
+          this.contract = Object.assign({}, this.contract, res?.data || {});
         })
         .catch(() => {});
     },
@@ -285,26 +286,35 @@ export default {
       }
       noteText += this.form.notes.trim();
 
-      this.$store
-        .dispatch(LEASE_ADD_NOTE, {
-          contractId: this.contract.id,
-          payload: {
-            call_status: this.form.call_status,
+      const savePromise = this.contract.reminder_id
+        ? ApiService.post(`/api/auth/customer-reminders/${this.contract.reminder_id}/contact`, {
+            action: this.form.call_status,
+            paid_amount: this.form.paid_today || 0,
             appointment_date: this.form.promised_date,
-            debt_classification: this.form.debt_classification,
-            note_content: noteText,
-          },
-        })
+            note: this.form.notes.trim(),
+          })
+        : this.$store.dispatch(LEASE_ADD_NOTE, {
+            contractId: this.contract.id,
+            payload: {
+              call_status: this.form.call_status,
+              appointment_date: this.form.promised_date,
+              debt_classification: this.form.debt_classification,
+              note_content: noteText,
+            },
+          });
+
+      savePromise
         .then((res) => {
-          Swal.fire("Thành công", res?.message || "Đã lưu ghi chú đôn đốc.", "success");
+          Swal.fire("Thành công", res?.data?.message || res?.message || "Đã lưu ghi chú đôn đốc.", "success");
           this.form.notes = "";
           this.form.promised_date = null;
           this.form.paid_today = 0;
           this.refreshContract();
           this.$emit("success");
+          this.visible = false;
         })
         .catch((err) => {
-          const msg = err?.data?.message || err?.message || "Lỗi khi lưu ghi chú.";
+          const msg = err?.response?.data?.message || err?.data?.message || err?.message || "Lỗi khi lưu ghi chú.";
           Swal.fire("Lỗi", msg, "error");
         })
         .finally(() => {
