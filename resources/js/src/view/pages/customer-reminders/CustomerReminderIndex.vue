@@ -71,6 +71,13 @@
             </el-select>
           </div>
           <div class="col-lg-2 col-md-4 mb-3 mb-lg-0">
+            <label class="filter-label">Phòng giao dịch</label>
+            <el-select v-model="filters.store_id" class="w-100" clearable placeholder="Tất cả phòng GD" @change="applyFilters">
+              <el-option label="Tất cả phòng GD" value="" />
+              <el-option v-for="store in stores" :key="store.id" :label="store.store_name" :value="store.id" />
+            </el-select>
+          </div>
+          <div class="col-lg-2 col-md-4 mb-3 mb-lg-0">
             <label class="filter-label">Trạng thái</label>
             <el-select v-model="filters.status" class="w-100" @change="applyFilters">
               <el-option label="Tất cả" value="" />
@@ -200,7 +207,9 @@ export default {
         search: "",
         contract_type: "",
         status: "",
+        store_id: "",
       },
+      stores: [],
       pagination: {
         current_page: 1,
         per_page: 20,
@@ -218,6 +227,13 @@ export default {
     },
   },
   created() {
+    if (this.$route.query.search) {
+      this.filters.search = this.$route.query.search;
+    }
+    if (this.$route.query.store_id) {
+      this.filters.store_id = Number(this.$route.query.store_id);
+    }
+    this.fetchStores();
     this.fetchReminders();
   },
   methods: {
@@ -253,6 +269,7 @@ export default {
           search: this.filters.search || undefined,
           contract_type: this.filters.contract_type || undefined,
           status: this.filters.status || undefined,
+          store_id: this.filters.store_id || undefined,
         });
         const payload = response.data.data || response.data || {};
         this.reminders = Array.isArray(payload.data) ? payload.data : [];
@@ -274,8 +291,16 @@ export default {
       this.pagination.current_page = 1;
       this.fetchReminders(1);
     },
+    async fetchStores() {
+      try {
+        const res = await ApiService.query("/api/auth/store/all");
+        this.stores = res.data?.data || res.data || [];
+      } catch (e) {
+        this.stores = [];
+      }
+    },
     resetFilters() {
-      this.filters = { search: "", contract_type: "", status: "" };
+      this.filters = { search: "", contract_type: "", status: "", store_id: "" };
       this.applyFilters();
     },
     changePage(page) {

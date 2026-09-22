@@ -162,7 +162,19 @@
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Cửa hàng xe</strong> <span class="text-danger">(*)</span></label>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="mb-0"><strong>Cửa hàng xe</strong> <span class="text-danger">(*)</span></label>
+                                <router-link
+                                    v-if="order.store_id"
+                                    :to="{ name: 'warehouse', query: { store_id: order.store_id } }"
+                                    target="_blank"
+                                    class="text-primary font-weight-bold"
+                                    style="font-size: 12px;"
+                                    title="Mở xem tồn kho xe của cơ sở này"
+                                >
+                                    <i class="fas fa-warehouse mr-1"></i>Kho xe PGD này &rarr;
+                                </router-link>
+                            </div>
                             <ValidationProvider vid="store_id" name="Cửa hàng xe" rules="required" v-slot="{ errors }">
                                 <el-select name="store_id" v-model="order.store_id" clearable filterable class="w-100"
                                     placeholder="Chọn cửa hàng" @change="onStoreChange($event)">
@@ -402,7 +414,7 @@
 											<div class="form-group col-md-3">
 									<label for="paid"><strong>Tổng phí thuê xe</strong></label>
 									<ValidationProvider name="Tổng phí thuê xe" rules="min_value:0" mode="lazy" v-slot="{ errors }" vid="amount">
-										<money id="paid" :value="totalFeeAllOrderItems" v-bind="money" class="form-control" disabled></money>
+										<money id="paid" v-model="totalFeeAllOrderItems" @input="onManualRentalFeeInput" v-bind="money" class="form-control"></money>
 										<error-message :errors="errors" field="amount"></error-message>
 									</ValidationProvider>
 								</div>
@@ -472,9 +484,26 @@
                     <div class="row">
                         <div class="col-md-12 form-group">
                             <label for="contract_collateral"><strong>Tài sản thế chấp / Đặt cọc tài sản</strong></label>
+                            <div class="mb-2">
+                                <el-select
+                                    v-model="selectedCollateralTypes"
+                                    multiple
+                                    filterable
+                                    class="w-100"
+                                    placeholder="Chọn tài sản đặt cọc: CCCD, BLX, Hộ Chiếu, Xe máy, Laptop, Khác..."
+                                    @change="onCollateralTypeSelectChange"
+                                >
+                                    <el-option label="CCCD (Căn cước công dân gốc)" value="CCCD"></el-option>
+                                    <el-option label="BLX (Bằng lái xe)" value="BLX"></el-option>
+                                    <el-option label="Hộ Chiếu (Hộ chiếu gốc)" value="Hộ Chiếu"></el-option>
+                                    <el-option label="Xe máy (Xe máy & Đăng ký xe)" value="Xe máy"></el-option>
+                                    <el-option label="Laptop (Laptop)" value="Laptop"></el-option>
+                                    <el-option label="Khác (tự điền chi tiết)" value="Khác"></el-option>
+                                </el-select>
+                            </div>
                             <el-input
                                 class="w-100"
-                                placeholder="VD: 01 Đăng ký xe mô tô BKS 29X1-..., 01 CCCD gốc, v.v."
+                                placeholder="Chi tiết tài sản cọc (VD: 01 Đăng ký xe BKS 29X1-..., CCCD gốc, Laptop Dell...)"
                                 id="contract_collateral"
                                 type="textarea"
                                 :rows="2"
@@ -698,6 +727,7 @@ export default {
             otherFeeAllOrderItems: 0,
             totalFeeAllOrderItems: 0,
             customerSearchSeq: 0,
+            selectedCollateralTypes: [],
 
             order: {
 				created_at: new Date(),
@@ -1309,6 +1339,8 @@ export default {
 			let totalFees = parseInt(this.hiringFeeAllItems) + parseInt(this.otherFeeAllOrderItems);
 			if (this.order.custom_refund_amount != null) { // Case contract custom_refund_amount is set.
 				totalFees = parseInt(this.order.total);
+			} else if (this.order.custom_total_rental_fees != null && this.order.custom_total_rental_fees > 0) {
+				totalFees = parseInt(this.order.custom_total_rental_fees);
 			}
 
             this.totalFeeAllOrderItems = totalFees;
@@ -1321,6 +1353,40 @@ export default {
                     (accu, fee) => accu + fee.value,
                     0,
                 );
+            }
+        },
+        onManualRentalFeeInput(val) {
+            const numericVal = parseInt(val) || 0;
+            this.totalFeeAllOrderItems = numericVal;
+            this.order.custom_total_rental_fees = numericVal;
+            if (this.order.order_items && this.order.order_items.length === 1) {
+                this.order.order_items[0].custom_hiring_fee = numericVal;
+                this.order.order_items[0].hiringFee = numericVal;
+            }
+            this.$set(this.order, "total", numericVal);
+            this.$set(this.order, "total_rental_fees", numericVal);
+        },
+        onCollateralTypeSelectChange(types) {
+            const labelsMap = {
+                'CCCD': '01 CCCD gốc',
+                'BLX': '01 Bằng lái xe',
+                'Hộ Chiếu': '01 Hộ chiếu',
+                'Xe máy': '01 Xe máy kèm ĐK',
+                'Laptop': '01 Laptop',
+            };
+            const standardItems = (types || []).filter(t => t !== 'Khác').map(t => labelsMap[t] || t);
+            let current = (this.order.contract_collateral_description || '').trim();
+            if (standardItems.length > 0) {
+                if (!current || Object.values(labelsMap).some(l => current.includes(l))) {
+                    this.order.contract_collateral_description = standardItems.join(', ');
+                } else {
+                    standardItems.forEach(item => {
+                        if (!current.includes(item)) {
+                            current += (current ? ', ' : '') + item;
+                        }
+                    });
+                    this.order.contract_collateral_description = current;
+                }
             }
         },
         addOnSuccess() {
@@ -1495,6 +1561,15 @@ export default {
                     this.getBankByStoreId(this.order.store_id);
                     this.getBankOutByStoreId(this.order.store_id);
 					this.getStaffByStore(this.order.store_id);
+
+                    const desc = res.data.contract_collateral_description || "";
+                    const detectedTypes = [];
+                    if (desc.includes("CCCD")) detectedTypes.push("CCCD");
+                    if (desc.includes("BLX") || desc.includes("Bằng lái")) detectedTypes.push("BLX");
+                    if (desc.includes("Hộ chiếu") || desc.includes("Hộ Chiếu")) detectedTypes.push("Hộ Chiếu");
+                    if (desc.includes("Xe máy")) detectedTypes.push("Xe máy");
+                    if (desc.includes("Laptop")) detectedTypes.push("Laptop");
+                    this.selectedCollateralTypes = detectedTypes;
                 })
                 .finally(() => (this.loadingComponent = false));
         },

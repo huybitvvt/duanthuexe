@@ -210,6 +210,23 @@ class CustomerReminderService
         if (!empty($params['contract_type'])) {
             $query->where('contract_type', $params['contract_type']);
         }
+        if (!empty($params['store_id'])) {
+            $storeId = (int) $params['store_id'];
+            $query->where(function ($sub) use ($storeId) {
+                $sub->where(function ($lease) use ($storeId) {
+                    $contracts = LeaseContract::select('id');
+                    if (Schema::hasColumn('lease_contracts', 'origin_store_id')) {
+                        $contracts->where('origin_store_id', $storeId);
+                    } else {
+                        $contracts->where('store_id', $storeId);
+                    }
+                    $lease->where('contract_type', 'lease')->whereIn('contract_id', $contracts);
+                })->orWhere(function ($rental) use ($storeId) {
+                    $rental->where('contract_type', 'rental_order')
+                        ->whereIn('contract_id', Order::select('id')->where('store_id', $storeId));
+                });
+            });
+        }
         if (!empty($params['search'])) {
             $search = trim($params['search']);
             $query->where(function ($q) use ($search) {

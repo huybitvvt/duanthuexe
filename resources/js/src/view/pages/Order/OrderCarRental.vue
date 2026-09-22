@@ -25,7 +25,10 @@
                         <div><dt>Tổng số hợp đồng</dt><dd>{{ order_stats.total_order }}</dd></div>
                         <div><dt>Hoàn thành</dt><dd>{{ order_stats.total_contracts_completed }}</dd></div>
                         <div><dt>Đang thuê</dt><dd>{{ order_stats.total_contracts_renting }}</dd></div>
-                        <div class="text-danger"><dt>Quá hạn</dt><dd>{{ order_stats.total_out_of_date }}</dd></div>
+                        <div class="text-danger cursor-pointer" style="cursor: pointer;" title="Bấm để lọc danh sách khách quá hạn" @click="filterOverdueOnly">
+                            <dt>Quá hạn <i class="fas fa-filter ml-1" style="font-size: 11px;"></i></dt>
+                            <dd>{{ order_stats.total_out_of_date }}</dd>
+                        </div>
                     </dl></div>
                     <div class="contract-overview-card"><h4>Thu thực tế</h4><dl>
                         <div><dt>Tổng thu</dt><dd>{{ totalIn | formatPrice }}</dd></div>
@@ -238,7 +241,17 @@
 													</span>
 													<br />
 													<div class="badge badge-info mb-1">{{ countDateAndHours(orderItem) }} ngày </div>
-													<span v-if="item.out_date && item.orderItems.length == key + 1" class="badge badge-danger"><span v-if="item.out_date !== 'Đến giờ trả xe'">Quá hạn:</span> {{ item.out_date }}</span>
+													<span
+														v-if="item.out_date && item.orderItems.length == key + 1"
+														class="badge badge-danger cursor-pointer ml-1"
+														style="cursor: pointer;"
+														title="Bấm để chuyển sang trang Nhắc nợ / Xử lý nợ khách này"
+														@click.stop="openCustomerReminder(item)"
+													>
+														<i class="fas fa-bell mr-1"></i>
+														<span v-if="item.out_date !== 'Đến giờ trả xe'">Quá hạn:</span> {{ item.out_date }}
+														<i class="fas fa-arrow-right ml-1"></i>
+													</span>
 												</div>
 												<div v-else>
 													<div class="contract-date-line">Ngày cọc: {{ (orderItem.rent_at) | formatDate }}</div>
@@ -606,6 +619,20 @@ export default {
                     ...this.query
                 }
             }).catch(() => {});
+        },
+        filterOverdueOnly() {
+            this.query.is_out_of_date = 1;
+            this.search();
+        },
+        openCustomerReminder(item) {
+            const searchVal = item.customer_phone || item.contract_number || ('#' + item.id);
+            this.$router.push({
+                path: '/customer-reminders',
+                query: {
+                    search: searchVal,
+                    store_id: item.store_id || undefined,
+                }
+            });
         },
         openModalCreate(mode = 'standard') {
             this.createMode = mode;

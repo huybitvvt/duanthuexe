@@ -39,7 +39,7 @@
 					<el-select
 						filterable
 						class="w-100"
-						:placeholder="hasBankTransfer ? 'Chọn tài khoản' : 'Không có chuyển khoản'"
+						:placeholder="hasBankTransfer ? 'Chọn tài khoản ngân hàng' : 'Không có chuyển khoản'"
 						v-model="settings.bank_id"
 						:disabled="!hasBankTransfer"
 						clearable
@@ -50,6 +50,9 @@
 								<span v-if="item.owner_type === 'company'" class="badge badge-light-primary ml-1" style="font-size: 10px;">Công ty</span>
 								<span v-else-if="item.owner_type === 'personal'" class="badge badge-light-info ml-1" style="font-size: 10px;">Cá nhân</span>
 							</span>
+						</el-option>
+						<el-option label="-- Khác / Chuyển khoản ví khác (tự điền) --" :value="'other'">
+							<span class="text-primary font-weight-bold">+ Khác / Chuyển khoản ví khác (tự điền)</span>
 						</el-option>
 					</el-select>
 					<error-message :errors="errors" field="bank_id"></error-message>
