@@ -340,9 +340,9 @@ CREATE TEMP TABLE _purge_rows (
 -- Every himoto table directly carrying an old store ID is in scope. Users are
 -- handled separately so a staff account is not silently deleted with its shop.
 DO $capture_direct$
-DECLARE c record; matches bigint;
+DECLARE col record; matches bigint;
 BEGIN
-    FOR c IN
+    FOR col IN
         SELECT table_name, column_name
         FROM information_schema.columns
         WHERE table_schema = 'himoto'
@@ -350,28 +350,28 @@ BEGIN
           AND table_name NOT IN ('stores','users')
         ORDER BY table_name, column_name
     LOOP
-        EXECUTE format('SELECT count(*) FROM himoto.%I WHERE %I IN (SELECT id FROM _extra_stores)', c.table_name, c.column_name)
+        EXECUTE format('SELECT count(*) FROM himoto.%I WHERE %I IN (SELECT id FROM _extra_stores)', col.table_name, col.column_name)
             INTO matches;
         IF matches > 0 AND NOT EXISTS (
             SELECT 1 FROM information_schema.columns
-            WHERE table_schema='himoto' AND table_name=c.table_name AND column_name='id'
+            WHERE table_schema='himoto' AND table_name=col.table_name AND column_name='id'
         ) THEN
-            RAISE EXCEPTION '%.% has old-store data but no id column; refusing an incomplete purge.', c.table_name, c.column_name;
+            RAISE EXCEPTION '%.% has old-store data but no id column; refusing an incomplete purge.', col.table_name, col.column_name;
         END IF;
         IF matches > 0 THEN
-            IF c.table_name = 'transactions' AND to_regclass('himoto.orders') IS NOT NULL THEN
+            IF col.table_name = 'transactions' AND to_regclass('himoto.orders') IS NOT NULL THEN
                 EXECUTE format(
                     'INSERT INTO _purge_rows (table_name,id) ' ||
                     'SELECT %L, t.id FROM himoto.transactions t ' ||
                     'WHERE t.%I IN (SELECT id FROM _extra_stores) ' ||
                     '  AND NOT (t.order_id IS NOT NULL AND EXISTS (SELECT 1 FROM himoto.orders o WHERE o.id = t.order_id AND o.store_id IN (SELECT id FROM _kept_stores))) ' ||
                     'ON CONFLICT DO NOTHING',
-                    c.table_name, c.column_name
+                    col.table_name, col.column_name
                 );
             ELSE
                 EXECUTE format(
                     'INSERT INTO _purge_rows (table_name,id) SELECT %L,id FROM himoto.%I WHERE %I IN (SELECT id FROM _extra_stores) ON CONFLICT DO NOTHING',
-                    c.table_name, c.table_name, c.column_name
+                    col.table_name, col.table_name, col.column_name
                 );
             END IF;
         END IF;
@@ -546,16 +546,16 @@ $capture_children$;
 -- Shared-customer candidates are identified before their orders are removed.
 CREATE TEMP TABLE _candidate_customers (id bigint PRIMARY KEY) ON COMMIT DROP;
 DO $candidate_customers$
-DECLARE c record;
+DECLARE col record;
 BEGIN
-    FOR c IN SELECT table_name FROM information_schema.columns
+    FOR col IN SELECT table_name FROM information_schema.columns
              WHERE table_schema='himoto' AND column_name='customer_id' AND table_name <> 'customers'
     LOOP
         IF EXISTS (SELECT 1 FROM information_schema.columns
-                   WHERE table_schema='himoto' AND table_name=c.table_name AND column_name='id') THEN
+                   WHERE table_schema='himoto' AND table_name=col.table_name AND column_name='id') THEN
             EXECUTE format(
                 'INSERT INTO _candidate_customers(id) SELECT DISTINCT t.customer_id FROM himoto.%I t JOIN _purge_rows p ON p.table_name=%L AND p.id=t.id WHERE t.customer_id IS NOT NULL ON CONFLICT DO NOTHING',
-                c.table_name, c.table_name
+                col.table_name, col.table_name
             );
         END IF;
     END LOOP;
@@ -876,20 +876,20 @@ $detach_users$;
 -- Delete customer profiles that were used only by removed warehouse data.
 CREATE TEMP TABLE _still_used_customers (id bigint PRIMARY KEY) ON COMMIT DROP;
 DO $cleanup_customers$
-DECLARE c record; n bigint;
+DECLARE col record; n bigint;
 BEGIN
-    FOR c IN SELECT table_name FROM information_schema.columns
+    FOR col IN SELECT table_name FROM information_schema.columns
              WHERE table_schema='himoto' AND column_name='customer_id' AND table_name <> 'customers'
     LOOP
         EXECUTE format(
             'INSERT INTO _still_used_customers(id) SELECT DISTINCT t.customer_id FROM himoto.%I t JOIN _candidate_customers k ON k.id=t.customer_id WHERE t.customer_id IS NOT NULL ON CONFLICT DO NOTHING',
-            c.table_name
+            col.table_name
         );
     END LOOP;
     IF to_regclass('himoto.customers') IS NOT NULL THEN
-        DELETE FROM himoto.customers c
-        WHERE c.id IN (SELECT id FROM _candidate_customers)
-          AND c.id NOT IN (SELECT id FROM _still_used_customers);
+        DELETE FROM himoto.customers cust
+        WHERE cust.id IN (SELECT id FROM _candidate_customers)
+          AND cust.id NOT IN (SELECT id FROM _still_used_customers);
         GET DIAGNOSTICS n = ROW_COUNT;
         INSERT INTO _deleted_counts(table_name,deleted) VALUES ('customers',n)
         ON CONFLICT (table_name) DO UPDATE SET deleted = _deleted_counts.deleted + EXCLUDED.deleted;
@@ -899,20 +899,20 @@ $cleanup_customers$;
 
 CREATE TEMP TABLE _still_used_files (id bigint PRIMARY KEY) ON COMMIT DROP;
 DO $cleanup_files$
-DECLARE c record; n bigint;
+DECLARE col record; n bigint;
 BEGIN
-    FOR c IN SELECT table_name FROM information_schema.columns
+    FOR col IN SELECT table_name FROM information_schema.columns
              WHERE table_schema='himoto' AND column_name='file_id' AND table_name <> 'files'
     LOOP
         EXECUTE format(
             'INSERT INTO _still_used_files(id) SELECT DISTINCT t.file_id FROM himoto.%I t JOIN _candidate_files k ON k.id=t.file_id WHERE t.file_id IS NOT NULL ON CONFLICT DO NOTHING',
-            c.table_name
+            col.table_name
         );
     END LOOP;
     IF to_regclass('himoto.files') IS NOT NULL THEN
-        DELETE FROM himoto.files f
-        WHERE f.id IN (SELECT id FROM _candidate_files)
-          AND f.id NOT IN (SELECT id FROM _still_used_files);
+        DELETE FROM himoto.files fil
+        WHERE fil.id IN (SELECT id FROM _candidate_files)
+          AND fil.id NOT IN (SELECT id FROM _still_used_files);
         GET DIAGNOSTICS n = ROW_COUNT;
         INSERT INTO _deleted_counts(table_name,deleted) VALUES ('files',n)
         ON CONFLICT (table_name) DO UPDATE SET deleted = _deleted_counts.deleted + EXCLUDED.deleted;
@@ -924,7 +924,7 @@ DELETE FROM himoto.stores WHERE id IN (SELECT id FROM _extra_stores);
 INSERT INTO _deleted_counts(table_name,deleted) VALUES ('stores', (SELECT count(*) FROM _extra_stores));
 
 DO $verify$
-DECLARE c record; n bigint;
+DECLARE chk record; n bigint;
 BEGIN
     IF (SELECT count(*) FROM himoto.stores) <> 6
        OR EXISTS (
@@ -935,18 +935,18 @@ BEGIN
        ) THEN
         RAISE EXCEPTION 'Final warehouse catalogue is not exactly CS1..CS6. Entire purge rolled back.';
     END IF;
-    FOR c IN SELECT table_name, column_name FROM information_schema.columns
+    FOR chk IN SELECT table_name, column_name FROM information_schema.columns
              WHERE table_schema='himoto'
                AND column_name IN ('store_id','current_store_id','origin_store_id','from_store_id','to_store_id')
                AND table_name <> 'stores'
     LOOP
-        EXECUTE format('SELECT count(*) FROM himoto.%I WHERE %I IN (SELECT id FROM _extra_stores)', c.table_name, c.column_name)
+        EXECUTE format('SELECT count(*) FROM himoto.%I WHERE %I IN (SELECT id FROM _extra_stores)', chk.table_name, chk.column_name)
             INTO n;
-        IF n > 0 THEN RAISE EXCEPTION '%.% still has % deleted-store references. Entire purge rolled back.', c.table_name, c.column_name, n; END IF;
+        IF n > 0 THEN RAISE EXCEPTION '%.% still has % deleted-store references. Entire purge rolled back.', chk.table_name, chk.column_name, n; END IF;
     END LOOP;
     RAISE NOTICE 'Verified: exactly six stores remain, with no direct references to deleted store IDs.';
-    FOR c IN SELECT table_name, deleted FROM _deleted_counts ORDER BY table_name LOOP
-        RAISE NOTICE 'Deleted %: %', c.table_name, c.deleted;
+    FOR chk IN SELECT table_name, deleted FROM _deleted_counts ORDER BY table_name LOOP
+        RAISE NOTICE 'Deleted %: %', chk.table_name, chk.deleted;
     END LOOP;
 END;
 $verify$;
