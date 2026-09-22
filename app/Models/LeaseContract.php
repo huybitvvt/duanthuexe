@@ -23,6 +23,7 @@ class LeaseContract extends Model
         'customer_id',
         'vehicle_id',
         'store_id',
+        'origin_store_id',
         'start_date',
         'end_date',
         'total_amount',
@@ -61,6 +62,11 @@ class LeaseContract extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class, 'store_id', 'id');
+    }
+
+    public function originStore(): BelongsTo
+    {
+        return $this->belongsTo(Store::class, 'origin_store_id', 'id');
     }
 
     public function installments(): HasMany

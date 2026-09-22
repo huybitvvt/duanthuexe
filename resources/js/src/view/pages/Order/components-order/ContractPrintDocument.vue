@@ -2,7 +2,7 @@
 	<div class="contract-print-wrapper" :class="{ 'is-preview-mode': doc.is_preview }">
 		<!-- Watermark khi xem trước / in nháp -->
 		<div v-if="doc.is_preview" class="contract-watermark">
-			BẢN XEM TRƯỚC - CHƯA CẤP SỐ
+			{{ doc.contract_number_label || 'BẢN XEM TRƯỚC - CHƯA CẤP SỐ' }}
 		</div>
 
 		<!-- Trang 1: A4 Ngang gồm Hợp đồng (Trái) & Phụ lục + Bảng trả xe (Phải) -->

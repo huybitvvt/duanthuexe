@@ -12,6 +12,7 @@ use App\Console\Commands\SettingCommand;
 use App\Console\Commands\SyncCustomerCommand;
 use App\Console\Commands\TestCrontab;
 use App\Console\Commands\UpdateTransactionTableData;
+use App\Console\Commands\ScanCustomerReminders;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -32,6 +33,7 @@ class Kernel extends ConsoleKernel
         TestCrontab::class,
         SettingCommand::class,
         DeleteOrderItemNotExistOrder::class,
+        ScanCustomerReminders::class,
         
     ];
 
@@ -47,6 +49,7 @@ class Kernel extends ConsoleKernel
          $schedule->command('feature:calculate-minute-late-orders')->everyMinute();
          $schedule->command('feature:maintenance-schedule')->everyMinute();
          $schedule->command('feature:get-lead')->cron('*/15 * * * *');
+         $schedule->command('himoto:scan-reminders')->dailyAt('08:00')->timezone('Asia/Ho_Chi_Minh')->withoutOverlapping();
         //  $schedule->command('feature:get-lead')->everyMinute(); // For testing
     }
 

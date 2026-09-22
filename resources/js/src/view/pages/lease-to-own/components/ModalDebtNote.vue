@@ -17,7 +17,43 @@
         <div class="text-dark font-size-sm">
           <div><strong>Khách hàng:</strong> {{ contract.customer?.name }} | <strong>SĐT:</strong> <a :href="'tel:' + contract.customer?.phone" class="text-primary font-weight-bold">{{ contract.customer?.phone }}</a></div>
           <div><strong>Xe bàn giao:</strong> {{ contract.vehicle?.license }} - {{ contract.vehicle?.name }}</div>
-          <div><strong>Tổng dư nợ còn lại:</strong> <span class="text-danger font-weight-bold">{{ contract.remaining_debt | formatPrice }}</span></div>
+          <div><strong>Tổng dư nợ còn lại:</strong> <span class="text-danger font-weight-bold">{{ contract.outstanding_balance | formatPrice }}</span></div>
+        </div>
+
+        <!-- Mở rộng thông tin người thân để đôn đốc / sự cố -->
+        <div class="mt-3 pt-2 border-top border-danger-subtle">
+          <div class="d-flex justify-content-between align-items-center cursor-pointer" @click="showRelatives = !showRelatives">
+            <span class="font-weight-bolder text-dark">
+              <i class="flaticon-users mr-1 text-primary"></i> Thông tin người thân (để liên hệ khi xe gặp sự cố hoặc nhắc nợ):
+              <span class="badge badge-secondary ml-1">{{ relativesList.length }} người thân</span>
+            </span>
+            <span class="btn btn-xs btn-outline-primary font-weight-bold">
+              {{ showRelatives ? 'Thu gọn ▲' : 'Xem chi tiết ▼' }}
+            </span>
+          </div>
+
+          <div v-if="showRelatives" class="mt-2">
+            <div v-if="relativesList.length === 0" class="text-muted font-italic font-size-xs bg-white p-2 rounded border">
+              Chưa lưu thông tin người thân trong hồ sơ khách hàng.
+            </div>
+            <div v-else class="row">
+              <div v-for="(rel, idx) in relativesList" :key="idx" class="col-md-6 mb-2">
+                <div class="bg-white p-2 rounded border shadow-sm h-100">
+                  <div class="font-weight-bold text-dark font-size-sm">
+                    <span class="badge badge-light-primary mr-1">#{{ idx + 1 }}</span>
+                    {{ rel.name || '(Chưa nhập tên)' }}
+                    <span v-if="rel.relationship" class="text-muted font-size-xs font-weight-normal">({{ rel.relationship }})</span>
+                  </div>
+                  <div class="mt-1 d-flex align-items-center justify-content-between">
+                    <span class="font-size-xs text-dark">SĐT: <strong>{{ rel.phone || 'N/A' }}</strong></span>
+                    <a v-if="rel.phone" :href="'tel:' + rel.phone" class="btn btn-xs btn-outline-success font-weight-bold">
+                      Gọi ngay
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -33,15 +69,32 @@
         <div class="card-body p-3">
           <div class="row">
             <div class="col-md-6 form-group">
-              <label class="font-weight-bold">Kết quả liên hệ <span class="text-danger">*</span></label>
-              <el-select v-model="form.call_status" class="w-100" placeholder="Chọn trạng thái">
-                <el-option label="Đã nghe máy - Đồng ý thanh toán" value="connected" />
-                <el-option label="Khách hẹn ngày thanh toán" value="promise" />
-                <el-option label="Không nghe máy / Thuê bao" value="no_answer" />
-                <el-option label="Máy bận / Gọi lại sau" value="busy" />
-                <el-option label="Khiếu nại / Khó đòi" value="dispute" />
-                <el-option label="Khác" value="other" />
+              <label class="font-weight-bold">Hành động đôn đốc <span class="text-danger">*</span></label>
+              <el-select v-model="form.call_status" class="w-100" placeholder="Chọn hành động" @change="handleActionChange">
+                <el-option label="Đã liên hệ" value="contacted" />
+                <el-option label="Hứa thanh toán" value="promise" />
+                <el-option label="Ko nghe máy" value="no_answer" />
+                <el-option label="Mất liên lạc" value="lost_contact" />
+                <el-option label="Không hợp tác" value="uncooperative" />
+                <el-option label="Đã thanh toán" value="paid" />
+                <el-option label="Cần thu hồi xe" value="recall_vehicle" />
+                <el-option label="Cần check xe" value="check_vehicle" />
+                <el-option label="Đi thu tiền" value="collect_money" />
               </el-select>
+            </div>
+            <div class="col-md-6 form-group">
+              <label class="font-weight-bold">Số tiền đã thanh toán hôm nay (VNĐ)</label>
+              <el-input-number
+                v-model="form.paid_today"
+                :min="0"
+                :step="100000"
+                class="w-100"
+                placeholder="Nhập số tiền đã thanh toán..."
+                controls-position="right"
+              />
+              <span v-if="form.paid_today > 0" class="form-text text-success font-weight-bold font-size-xs">
+                Đã nhận hôm nay: {{ form.paid_today | formatPrice }}
+              </span>
             </div>
             <div class="col-md-6 form-group">
               <label class="font-weight-bold">Ngày hẹn thanh toán (nếu có)</label>
@@ -54,7 +107,7 @@
                 class="w-100"
               />
             </div>
-            <div class="col-12 form-group">
+            <div class="col-md-6 form-group">
               <label class="font-weight-bold">Phân loại công nợ</label>
               <el-select v-model="form.debt_classification" class="w-100">
                 <el-option label="Bình thường" value="normal" />
@@ -69,11 +122,20 @@
                 type="textarea"
                 :rows="2"
                 v-model="form.notes"
-                placeholder="Khách hứa chuyển khoản trước 17h, lý do chậm trễ, yêu cầu hỗ trợ..."
+                placeholder="Khách hẹn mấy giờ, lý do chậm trễ, yêu cầu hỗ trợ, thỏa thuận thanh toán..."
               />
             </div>
           </div>
-          <div class="text-right mt-3">
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <button
+              v-if="form.paid_today > 0 || form.call_status === 'paid'"
+              type="button"
+              class="btn btn-sm btn-outline-success font-weight-bold"
+              @click="forwardToPayment"
+            >
+              Chuyển sang lập phiếu thu tiền
+            </button>
+            <span v-else></span>
             <button
               type="button"
               class="btn btn-sm btn-primary font-weight-bold"
@@ -106,23 +168,23 @@
               class="timeline-item d-flex align-items-start mb-3 pb-2 border-bottom"
             >
               <div class="timeline-badge mr-3">
-                <span :class="getStatusBadgeClass(item.call_status)" class="badge px-2 py-1 font-weight-bold">
-                  {{ item.call_status }}
+                <span class="badge badge-light-primary px-2 py-1 font-weight-bold">
+                  Nhắc nợ
                 </span>
               </div>
               <div class="timeline-content flex-grow-1">
                 <div class="d-flex justify-content-between align-items-center">
-                  <span class="font-weight-bold text-dark">{{ item.debt_classification }}</span>
+                  <span class="font-weight-bold text-dark">{{ getClassificationLabel(item.debt_classification) }}</span>
                   <span class="text-muted font-size-xs">{{ item.created_at | formatDateTime }}</span>
                 </div>
-                <div v-if="item.promised_date" class="text-primary font-size-xs my-1 font-weight-bold">
-                  Hẹn thanh toán: {{ item.promised_date | formatDate }}
+                <div v-if="item.appointment_date" class="text-primary font-size-xs my-1 font-weight-bold">
+                  Hẹn thanh toán: {{ item.appointment_date | formatDate }}
                 </div>
                 <div class="text-dark-75 font-size-sm mt-1 bg-light rounded p-2">
-                  {{ item.notes }}
+                  {{ item.note_content }}
                 </div>
-                <div v-if="item.user" class="text-muted font-size-xs text-right mt-1">
-                  Nhân viên: {{ item.user.name }}
+                <div v-if="item.created_by_user" class="text-muted font-size-xs text-right mt-1">
+                  Nhân viên: {{ item.created_by_user.name }}
                 </div>
               </div>
             </div>
@@ -148,19 +210,57 @@ export default {
       visible: false,
       loading: false,
       contract: null,
+      showRelatives: true,
       form: {
-        call_status: "connected",
+        call_status: "contacted",
         debt_classification: "normal",
         promised_date: null,
+        paid_today: 0,
         notes: "",
       },
     };
   },
+  computed: {
+    relativesList() {
+      if (!this.contract || !this.contract.customer) return [];
+      let rels = this.contract.customer.relatives;
+      if (typeof rels === "string") {
+        try {
+          rels = JSON.parse(rels);
+        } catch (e) {
+          rels = [];
+        }
+      }
+      if (!Array.isArray(rels)) return [];
+      return rels.filter((r) => r && (r.name || r.phone || r.relationship));
+    },
+  },
   methods: {
-    open(contract) {
+    open(contract, defaultAction = null) {
       this.contract = contract;
       this.visible = true;
+      this.showRelatives = true;
+      if (defaultAction) {
+        this.form.call_status = defaultAction;
+        this.handleActionChange(defaultAction);
+      }
       this.refreshContract();
+    },
+    handleActionChange(action) {
+      const mapClass = {
+        contacted: "normal",
+        promise: "reminder",
+        no_answer: "reminder",
+        lost_contact: "warning",
+        uncooperative: "warning",
+        paid: "normal",
+        recall_vehicle: "bad_debt",
+        check_vehicle: "warning",
+        collect_money: "bad_debt",
+      };
+      if (mapClass[action]) {
+        this.form.debt_classification = mapClass[action];
+      }
     },
     refreshContract() {
       if (!this.contract?.id) return;
@@ -178,6 +278,13 @@ export default {
       }
 
       this.loading = true;
+      let noteText = "[" + this.getStatusLabel(this.form.call_status) + "] ";
+      if (this.form.paid_today && Number(this.form.paid_today) > 0) {
+        const formatted = Number(this.form.paid_today).toLocaleString("vi-VN");
+        noteText += "[Đã thanh toán hôm nay: " + formatted + "đ] ";
+      }
+      noteText += this.form.notes.trim();
+
       this.$store
         .dispatch(LEASE_ADD_NOTE, {
           contractId: this.contract.id,
@@ -185,13 +292,14 @@ export default {
             call_status: this.form.call_status,
             appointment_date: this.form.promised_date,
             debt_classification: this.form.debt_classification,
-            note_content: '[' + this.getStatusLabel(this.form.call_status) + '] ' + this.form.notes,
+            note_content: noteText,
           },
         })
         .then((res) => {
           Swal.fire("Thành công", res?.message || "Đã lưu ghi chú đôn đốc.", "success");
           this.form.notes = "";
           this.form.promised_date = null;
+          this.form.paid_today = 0;
           this.refreshContract();
           this.$emit("success");
         })
@@ -203,35 +311,42 @@ export default {
           this.loading = false;
         });
     },
+    forwardToPayment() {
+      const amount = this.form.paid_today || null;
+      this.visible = false;
+      this.$emit("open-payment", { contract: this.contract, amount });
+    },
     getStatusLabel(status) {
       const map = {
-        connected: "Đã nghe máy - Đồng ý thanh toán",
-        promise: "Khách hẹn ngày thanh toán",
-        no_answer: "Không nghe máy / Thuê bao",
-        busy: "Máy bận / Gọi lại sau",
-        dispute: "Khiếu nại / Khó đòi",
-        other: "Khác",
+        contacted: "Đã liên hệ",
+        promise: "Hứa thanh toán",
+        no_answer: "Ko nghe máy",
+        lost_contact: "Mất liên lạc",
+        uncooperative: "Không hợp tác",
+        paid: "Đã thanh toán",
+        recall_vehicle: "Cần thu hồi xe",
+        check_vehicle: "Cần check xe",
+        collect_money: "Đi thu tiền",
       };
       return map[status] || status;
     },
-    getStatusBadgeClass(status) {
+    getClassificationLabel(classification) {
       const map = {
-        connected: "badge badge-success",
-        promise: "badge badge-primary",
-        no_answer: "badge badge-warning",
-        busy: "badge badge-secondary",
-        dispute: "badge badge-danger",
-        other: "badge badge-info",
+        normal: "Bình thường",
+        reminder: "Cần nhắc",
+        warning: "Cảnh báo",
+        bad_debt: "Nợ xấu",
       };
-      return map[status] || "badge badge-light";
+      return map[classification] || classification || "Đôn đốc";
     },
-
     resetForm() {
       this.contract = null;
+      this.showRelatives = true;
       this.form = {
-        call_status: "connected",
+        call_status: "contacted",
         debt_classification: "normal",
         promised_date: null,
+        paid_today: 0,
         notes: "",
       };
     },

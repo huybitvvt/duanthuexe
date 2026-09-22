@@ -43,9 +43,9 @@ class HimotoLeaseDebtTest extends TestCase
         Schema::create('cash', function ($t) { $t->increments('id'); $t->integer('store_id'); $t->string('status'); });
 
         $this->store = Store::create([
-            'store_name' => 'Kho Thuê sở hữu',
+            'store_name' => 'Kho sở hữu',
             'kind' => Store::KIND_LEASE_TO_OWN,
-            'code' => 'KHO-TSH',
+            'code' => 'CS6',
             'status' => 'active',
         ]);
 
@@ -81,7 +81,7 @@ class HimotoLeaseDebtTest extends TestCase
         $contract = $this->leaseService->createContract([
             'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
             'store_id' => $this->store->id, 'start_date' => '2026-01-31',
-            'total_amount' => 3000000, 'deposit_amount' => 1000000, 'installment_count' => 2,
+            'total_amount' => 3000000, 'deposit_amount' => 1000000, 'installment_count' => 6,
         ], $this->user);
         $this->assertEquals(3000000, $contract->installments->sum('amount_due'));
         $this->assertEquals('2026-02-28', $contract->installments[1]->due_date->format('Y-m-d'));
@@ -98,11 +98,45 @@ class HimotoLeaseDebtTest extends TestCase
         $this->leaseService->allocatePayment($contract->id, $data, $this->user);
     }
 
+    public function testPhysicalBranchStaffCanCreateAtOwnershipWarehouseButOnlySeeOwnContracts()
+    {
+        Schema::table('lease_contracts', function ($table) {
+            $table->integer('origin_store_id')->nullable();
+        });
+        $branch = Store::create([
+            'code' => 'CS1', 'store_name' => 'CS 1', 'kind' => Store::KIND_PHYSICAL,
+        ]);
+        $staff = User::create([
+            'name' => 'Sale CS 1', 'email' => 'sale-cs1@example.test',
+            'password' => 'secret', 'role_id' => 3, 'store_id' => $branch->id,
+        ]);
+        $colleague = User::create([
+            'name' => 'Sale khác', 'email' => 'sale-cs1-other@example.test',
+            'password' => 'secret', 'role_id' => 3, 'store_id' => $branch->id,
+        ]);
+        $manager = User::create([
+            'name' => 'Trưởng phòng', 'email' => 'manager-cs1@example.test',
+            'password' => 'secret', 'role_id' => 2, 'store_id' => $branch->id,
+        ]);
+
+        $contract = $this->leaseService->createContract([
+            'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
+            'store_id' => $this->store->id, 'total_amount' => 6000000,
+            'installment_count' => 6, 'assigned_user_id' => $colleague->id,
+        ], $staff);
+
+        $this->assertSame((int) $branch->id, (int) $contract->origin_store_id);
+        $this->assertSame((int) $staff->id, (int) $contract->assigned_user_id);
+        $this->assertSame(1, $this->leaseService->index([], $staff)->total());
+        $this->assertSame(0, $this->leaseService->index([], $colleague)->total());
+        $this->assertSame(1, $this->leaseService->index([], $manager)->total());
+    }
+
     public function test_branch_cannot_read_or_collect_another_branches_debt()
     {
         $contract = $this->leaseService->createContract([
             'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
-            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 2,
+            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 6,
         ], $this->user);
         $this->user->role_id = 3;
         $this->user->store_id = $this->store->id + 100;
@@ -116,7 +150,7 @@ class HimotoLeaseDebtTest extends TestCase
     {
         $contract = $this->leaseService->createContract([
             'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
-            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 2,
+            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 6,
         ], $this->user);
         try {
             $this->leaseService->allocatePayment($contract->id, ['amount' => 4000000], $this->user);
@@ -132,12 +166,12 @@ class HimotoLeaseDebtTest extends TestCase
         $old = $this->leaseService->createContract([
             'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
             'store_id' => $this->store->id, 'start_date' => Carbon::today()->subMonths(3)->format('Y-m-d'),
-            'total_amount' => 3000000, 'installment_count' => 2,
+            'total_amount' => 3000000, 'installment_count' => 6,
         ], $this->user);
         $anotherVehicle = Vehicle::create(['name' => 'Test', 'license' => 'TEST-2', 'status' => 'ready', 'store_id' => $this->store->id]);
         $this->leaseService->createContract([
             'customer_id' => $this->customer->id, 'vehicle_id' => $anotherVehicle->id,
-            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 2,
+            'store_id' => $this->store->id, 'total_amount' => 3000000, 'installment_count' => 6,
         ], $this->user);
         $page = $this->leaseService->index(['aging_bucket' => 'overdue_30_plus', 'per_page' => 1], $this->user);
         $this->assertEquals(1, $page->total());
@@ -421,8 +455,8 @@ class HimotoLeaseDebtTest extends TestCase
         $this->assertLessThan(12000000, $loadedContract->overdue_amount);
         $this->assertGreaterThan(0, $loadedContract->overdue_days);
 
-        // Overdue bucket should be overdue_8_30 or overdue_30_plus
-        $this->assertContains($loadedContract->aging_bucket, ['overdue_8_30', 'overdue_30_plus']);
+        // Overdue bucket should be overdue_6_30 or overdue_30_plus
+        $this->assertContains($loadedContract->aging_bucket, ['overdue_6_30', 'overdue_30_plus']);
     }
 
     /**
@@ -467,8 +501,8 @@ class HimotoLeaseDebtTest extends TestCase
             'store_id' => $this->store->id,
             'start_date' => '2026-01-01',
             'total_amount' => 10000000,
-            'installment_count' => 5,
-            'period_amount' => 2000000,
+            'installment_count' => 6,
+            'period_amount' => 1666666,
         ], $this->user);
 
         $note = $this->leaseService->addDebtNote($contract->id, [

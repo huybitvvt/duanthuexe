@@ -70,3 +70,51 @@
   color: #181C32 !important;
   font-weight: 700 !important;
 }
+
+/* Product requirement: Các thông tin trên web có dạng chữ có thể kéo (cursor: text) để trỏ vào COPY */
+body,
+.table,
+.table td,
+.table th,
+.card,
+.card-body,
+.card-title,
+.card-header,
+.modal-content,
+.alert,
+.timeline-content,
+.font-size-sm,
+.font-size-xs,
+.contract-overview,
+.contract-overview-card,
+p, span, div, strong, b, dt, dd {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Ensure data text cells and labels show text cursor (⌶) */
+.table td,
+.table td span,
+.table td div,
+.card-body,
+.contract-overview-card dd,
+.contract-overview-card dt,
+.timeline-content {
+  cursor: text;
+}
+
+/* Keep buttons, links, clickable items with pointer cursor */
+button,
+.btn,
+a,
+.dropdown-item,
+.cursor-pointer,
+.nav-link,
+[role="button"],
+.el-button,
+.el-select,
+.el-date-editor {
+  cursor: pointer;
+}

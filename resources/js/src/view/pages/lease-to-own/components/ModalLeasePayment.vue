@@ -17,7 +17,7 @@
         <div class="text-dark font-size-sm">
           <div><strong>Khách hàng:</strong> {{ contract.customer?.name }} - {{ contract.customer?.phone }}</div>
           <div><strong>Xe bàn giao:</strong> {{ contract.vehicle?.license }} - {{ contract.vehicle?.name }}</div>
-          <div><strong>Tổng dư nợ còn lại:</strong> <span class="text-danger font-weight-bold">{{ contract.remaining_debt | formatPrice }}</span></div>
+          <div><strong>Tổng dư nợ còn lại:</strong> <span class="text-danger font-weight-bold">{{ contract.outstanding_balance | formatPrice }}</span></div>
         </div>
       </div>
 
@@ -39,12 +39,12 @@
             1 kỳ ({{ contract.period_amount | formatPrice }})
           </button>
           <button
-            v-if="contract && contract.remaining_debt"
+            v-if="contract && contract.outstanding_balance"
             type="button"
             class="btn btn-xs btn-outline-success"
-            @click="form.amount = contract.remaining_debt"
+            @click="form.amount = contract.outstanding_balance"
           >
-            Tất toán hết ({{ contract.remaining_debt | formatPrice }})
+            Tất toán hết ({{ contract.outstanding_balance | formatPrice }})
           </button>
         </div>
       </div>
@@ -162,7 +162,7 @@ export default {
     open(contract, suggestedAmount = null) {
       this.contract = contract;
       this.requestKey = window.crypto.randomUUID ? window.crypto.randomUUID() : Array.from(window.crypto.getRandomValues(new Uint32Array(4))).join('-');
-      this.form.amount = suggestedAmount !== null ? suggestedAmount : (contract?.period_amount || contract?.remaining_debt || 0);
+      this.form.amount = suggestedAmount !== null ? suggestedAmount : (contract?.period_amount || contract?.outstanding_balance || 0);
       this.form.paid_at = new Date().toISOString().substring(0, 10);
       this.form.payment_method = "cash";
       this.form.bank_id = null;

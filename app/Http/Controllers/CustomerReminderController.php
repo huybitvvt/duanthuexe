@@ -33,6 +33,18 @@ class CustomerReminderController extends Controller
         return $this->successResponse($data);
     }
 
+    public function contact(Request $request, int $id): JsonResponse
+    {
+        $request->validate(['note' => 'required|string|max:2000']);
+        $user = Auth::user();
+        PermissionAccess::can($user, 'reminder.view');
+
+        return $this->successResponse(
+            $this->reminderService->recordContact($id, trim($request->input('note')), $user),
+            'Đã ghi lại lượt liên hệ với khách.'
+        );
+    }
+
     /**
      * Scan due and overdue contracts.
      */

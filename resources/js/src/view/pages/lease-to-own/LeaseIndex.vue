@@ -44,7 +44,7 @@
           <div>
             <span class="text-dark font-weight-bolder font-size-sm d-block">TỔNG DƯ NỢ CÒN LẠI</span>
             <span class="font-size-h3 font-weight-bolder text-danger">
-              {{ (stats ? stats.total_remaining_debt : 0) | formatPrice }}
+              {{ (stats ? stats.total_outstanding : 0) | formatPrice }}
             </span>
             <span class="text-dark font-size-xs d-block mt-1 font-weight-bold">
               Tổng thu dự kiến từ các kỳ
@@ -58,7 +58,7 @@
           <div>
             <span class="text-dark font-weight-bolder font-size-sm d-block">HỢP ĐỒNG QUÁ HẠN</span>
             <span class="font-size-h3 font-weight-bolder text-warning">
-              {{ stats ? stats.overdue_contracts : 0 }}
+              {{ overdueContracts }}
             </span>
             <span class="text-dark font-size-xs d-block mt-1 font-weight-bold">
               Chiếm <strong class="text-danger">{{ overduePercentage }}%</strong> tổng hợp đồng
@@ -102,23 +102,23 @@
               :class="query.aging_bucket === 'current' ? 'btn-success' : 'btn-light-success'"
               @click="setAgingBucket('current')"
             >
-              Đúng hạn ({{ stats?.aging_buckets?.current || 0 }})
+              Đúng hạn ({{ stats?.buckets?.counts?.current || 0 }})
             </button>
             <button
               type="button"
               class="btn btn-sm mr-2 font-weight-bold"
-              :class="query.aging_bucket === 'overdue_1_7' ? 'btn-warning' : 'btn-light-warning'"
-              @click="setAgingBucket('overdue_1_7')"
+              :class="query.aging_bucket === 'overdue_1_5' ? 'btn-warning' : 'btn-light-warning'"
+              @click="setAgingBucket('overdue_1_5')"
             >
-              Quá hạn 1-7 ngày ({{ stats?.aging_buckets?.overdue_1_7 || 0 }})
+              Nợ sớm 1-5 ngày ({{ stats?.buckets?.counts?.overdue_1_5 || 0 }})
             </button>
             <button
               type="button"
               class="btn btn-sm mr-2 font-weight-bold"
-              :class="query.aging_bucket === 'overdue_8_30' ? 'btn-danger' : 'btn-light-danger'"
-              @click="setAgingBucket('overdue_8_30')"
+              :class="query.aging_bucket === 'overdue_6_30' ? 'btn-danger' : 'btn-light-danger'"
+              @click="setAgingBucket('overdue_6_30')"
             >
-              Quá hạn 8-30 ngày ({{ stats?.aging_buckets?.overdue_8_30 || 0 }})
+              Nợ muộn 6-30 ngày ({{ stats?.buckets?.counts?.overdue_6_30 || 0 }})
             </button>
             <button
               type="button"
@@ -126,7 +126,7 @@
               :class="query.aging_bucket === 'overdue_30_plus' ? 'btn-dark' : 'btn-light-dark'"
               @click="setAgingBucket('overdue_30_plus')"
             >
-              Quá hạn >30 ngày ({{ stats?.aging_buckets?.overdue_30_plus || 0 }})
+              Cần thu hồi >30 ngày ({{ stats?.buckets?.counts?.overdue_30_plus || 0 }})
             </button>
           </div>
 
@@ -191,7 +191,7 @@
                 <th class="text-right" style="min-width: 130px;">Dư nợ còn lại</th>
                 <th class="text-center" style="min-width: 140px;">Tình trạng nợ</th>
                 <th style="min-width: 160px;">Đôn đốc gần nhất</th>
-                <th class="text-center" style="min-width: 180px;">Thao tác</th>
+                <th class="text-center" style="min-width: 260px;">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -229,7 +229,7 @@
                 <td>
                   <span class="badge badge-light-success font-weight-bold">{{ item.vehicle?.license }}</span>
                   <div class="font-size-xs text-dark mt-1">{{ item.vehicle?.name }}</div>
-                  <div class="font-size-xs text-muted">{{ item.store?.name || 'Kho Thuê sở hữu' }}</div>
+                  <div class="font-size-xs text-muted">{{ item.store?.store_name || 'Kho sở hữu' }}</div>
                 </td>
 
                 <!-- Kỳ hạn -->
@@ -258,8 +258,8 @@
                 </td>
 
                 <!-- Dư nợ còn lại -->
-                <td class="text-right font-weight-bolder" :class="item.remaining_debt > 0 ? 'text-danger' : 'text-muted'">
-                  {{ item.remaining_debt | formatPrice }}
+                <td class="text-right font-weight-bolder" :class="item.outstanding_balance > 0 ? 'text-danger' : 'text-muted'">
+                  {{ item.outstanding_balance | formatPrice }}
                 </td>
 
                 <!-- Tình trạng nợ (Aging badge) -->
@@ -277,12 +277,12 @@
 
                 <!-- Đôn đốc gần nhất -->
                 <td>
-                  <div v-if="item.latest_debt_note">
-                    <span :class="getStatusBadgeClass(item.latest_debt_note.call_status)">
-                      {{ item.latest_debt_note.notes }}
+                  <div v-if="item.latest_note">
+                    <span class="text-dark font-size-xs">
+                      {{ item.latest_note.content }}
                     </span>
-                    <div v-if="item.latest_debt_note.promised_date" class="text-primary font-size-xs mt-1 font-weight-bold">
-                      Hẹn: {{ item.latest_debt_note.promised_date | formatDate }}
+                    <div v-if="item.latest_note.appointment_date" class="text-primary font-size-xs mt-1 font-weight-bold">
+                      Hẹn: {{ item.latest_note.appointment_date }}
                     </div>
                   </div>
                   <div v-else class="text-muted font-size-xs">
@@ -305,7 +305,7 @@
 
                     <!-- Thu tiền kỳ -->
                     <button
-                      v-if="item.remaining_debt > 0"
+                      v-if="item.outstanding_balance > 0"
                       type="button"
                       class="btn btn-sm btn-light-success font-weight-bold mr-1"
                       title="Thu tiền kỳ / Trả góp"
@@ -317,11 +317,50 @@
                     <!-- Nhắc nợ / Ghi chú đôn đốc -->
                     <button
                       type="button"
-                      class="btn btn-sm btn-light-warning font-weight-bold"
+                      class="btn btn-sm btn-light-warning font-weight-bold mr-1"
                       title="Đôn đốc & ghi chú nhắc nợ"
                       @click="openDebtNoteModal(item)"
                     >
                       Nhắc nợ
+                    </button>
+
+                    <!-- Dropdown Hành động đôn đốc nợ -->
+                    <b-dropdown
+                      size="sm"
+                      variant="outline-warning"
+                      class="mr-1"
+                      right
+                    >
+                      <template #button-content>
+                        <span class="font-weight-bold">Hành động</span>
+                      </template>
+                      <b-dropdown-header class="font-size-xs text-uppercase font-weight-bold">
+                        Đôn đốc / Nhắc nợ
+                      </b-dropdown-header>
+                      <b-dropdown-item
+                        v-for="act in debtActions"
+                        :key="act.value"
+                        @click="openDebtNoteModal(item, act.value)"
+                      >
+                        <span :class="['badge mr-2', act.badgeClass]">&bull;</span>
+                        <span class="font-weight-bold">{{ act.label }}</span>
+                      </b-dropdown-item>
+                    </b-dropdown>
+                    <button type="button" class="btn btn-sm btn-light-info font-weight-bold ml-1"
+                      :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'pdf')">
+                      Hợp đồng PDF
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light-info font-weight-bold ml-1"
+                      :disabled="downloadingDoc === item.id" @click="openLegalDocument(item, 'annex')">
+                      Phụ lục SH{{ item.installment_count }}
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light-info font-weight-bold ml-1"
+                      :disabled="downloadingDoc === item.id" @click="openLegalDocument(item, 'handover')">
+                      Biên bản bàn giao
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light-secondary font-weight-bold ml-1"
+                      :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'debt-statement.pdf')">
+                      Đối soát nợ
                     </button>
                   </div>
                 </td>
@@ -349,7 +388,7 @@
     <!-- Modals -->
     <ModalLeaseCreate ref="modalCreate" @success="handleModalSuccess" />
     <ModalLeasePayment ref="modalPayment" @success="handleModalSuccess" />
-    <ModalDebtNote ref="modalDebtNote" @success="handleModalSuccess" />
+    <ModalDebtNote ref="modalDebtNote" @success="handleModalSuccess" @open-payment="handlePayFromSchedule" />
     <ModalInstallmentSchedule
       ref="modalSchedule"
       @pay-installment="handlePayFromSchedule"
@@ -369,6 +408,7 @@ import ModalLeasePayment from "./components/ModalLeasePayment.vue";
 import ModalDebtNote from "./components/ModalDebtNote.vue";
 import ModalInstallmentSchedule from "./components/ModalInstallmentSchedule.vue";
 import Swal from "sweetalert2";
+import ApiService from "@/core/services/api.service";
 
 export default {
   name: "LeaseIndex",
@@ -383,6 +423,18 @@ export default {
       loading: false,
       loadingStats: false,
       exporting: false,
+      downloadingDoc: null,
+      debtActions: [
+        { value: "contacted", label: "Đã liên hệ", badgeClass: "badge-primary" },
+        { value: "promise", label: "Hứa thanh toán", badgeClass: "badge-info" },
+        { value: "no_answer", label: "Ko nghe máy", badgeClass: "badge-warning" },
+        { value: "lost_contact", label: "Mất liên lạc", badgeClass: "badge-danger" },
+        { value: "uncooperative", label: "Không hợp tác", badgeClass: "badge-danger" },
+        { value: "paid", label: "Đã thanh toán", badgeClass: "badge-success" },
+        { value: "recall_vehicle", label: "Cần thu hồi xe", badgeClass: "badge-dark" },
+        { value: "check_vehicle", label: "Cần check xe", badgeClass: "badge-secondary" },
+        { value: "collect_money", label: "Đi thu tiền", badgeClass: "badge-danger" },
+      ],
       contracts: [],
       stats: null,
       pagination: {
@@ -402,16 +454,62 @@ export default {
     };
   },
   computed: {
+    overdueContracts() {
+      const counts = this.stats?.buckets?.counts || {};
+      return Number(counts.overdue_1_5 || 0) + Number(counts.overdue_6_30 || 0) + Number(counts.overdue_30_plus || 0);
+    },
     overduePercentage() {
       if (!this.stats || !this.stats.total_contracts) return 0;
-      return Math.round((this.stats.overdue_contracts / this.stats.total_contracts) * 100);
+      return Math.round((this.overdueContracts / this.stats.total_contracts) * 100);
     },
   },
   created() {
     this.fetchStats();
     this.fetchContracts();
   },
+  mounted() {
+    const contractId = Number(this.$route.query.open_contract || 0);
+    if (contractId) this.$nextTick(() => this.openScheduleModal(contractId));
+  },
+  watch: {
+    '$route.query.open_contract'(value) {
+      const contractId = Number(value || 0);
+      if (contractId) this.openScheduleModal(contractId);
+    },
+  },
   methods: {
+    async openLegalDocument(item, path) {
+      const tab = window.open("", "_blank");
+      this.downloadingDoc = item.id;
+      try {
+        const response = await ApiService.download(`/api/auth/lease-contracts/${item.id}/${path}`);
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: "text/html;charset=utf-8" }));
+        if (tab) tab.location.href = url;
+        else window.open(url, "_blank");
+        setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      } catch (error) {
+        if (tab) tab.close();
+        Swal.fire("Lỗi", error?.data?.message || "Không mở được tài liệu.", "error");
+      } finally {
+        this.downloadingDoc = null;
+      }
+    },
+    async downloadPdf(item, path) {
+      this.downloadingDoc = item.id;
+      try {
+        const response = await ApiService.download(`/api/auth/lease-contracts/${item.id}/${path}`);
+        const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${path === 'pdf' ? 'hop-dong' : 'doi-soat-no'}-${item.contract_code}.pdf`;
+        link.click();
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      } catch (error) {
+        Swal.fire('Lỗi', error?.data?.message || 'Không tải được tài liệu PDF.', 'error');
+      } finally {
+        this.downloadingDoc = null;
+      }
+    },
     fetchStats() {
       this.loadingStats = true;
       this.$store
@@ -485,42 +583,20 @@ export default {
     getAgingLabel(bucket) {
       const map = {
         current: "Đúng hạn",
-        overdue_1_7: "Quá hạn 1-7 ngày",
-        overdue_8_30: "Quá hạn 8-30 ngày",
-        overdue_30_plus: "Quá hạn >30 ngày",
+        overdue_1_5: "Nợ sớm (1-5 ngày)",
+        overdue_6_30: "Nợ muộn (6-30 ngày)",
+        overdue_30_plus: "Cần thu hồi (>30 ngày)",
       };
       return map[bucket] || "Bình thường";
     },
     getAgingBadgeClass(bucket) {
       const map = {
         current: "badge badge-success",
-        overdue_1_7: "badge badge-warning",
-        overdue_8_30: "badge badge-danger",
+        overdue_1_5: "badge badge-warning",
+        overdue_6_30: "badge badge-danger",
         overdue_30_plus: "badge badge-dark font-weight-bolder",
       };
       return map[bucket] || "badge badge-secondary";
-    },
-    getStatusLabel(status) {
-      const map = {
-        connected: "Nghe máy",
-        promise: "Hẹn ngày",
-        no_answer: "Không nghe máy",
-        busy: "Máy bận",
-        dispute: "Khiếu nại",
-        other: "Khác",
-      };
-      return map[status] || status;
-    },
-    getStatusBadgeClass(status) {
-      const map = {
-        connected: "badge badge-light-success font-size-xs",
-        promise: "badge badge-light-primary font-size-xs",
-        no_answer: "badge badge-light-warning font-size-xs",
-        busy: "badge badge-light-secondary font-size-xs",
-        dispute: "badge badge-light-danger font-size-xs",
-        other: "badge badge-light-info font-size-xs",
-      };
-      return map[status] || "badge badge-light font-size-xs";
     },
     openCreateModal() {
       this.$refs.modalCreate.open();
@@ -531,8 +607,8 @@ export default {
     openPaymentModal(contract, suggestedAmount = null) {
       this.$refs.modalPayment.open(contract, suggestedAmount);
     },
-    openDebtNoteModal(contract) {
-      this.$refs.modalDebtNote.open(contract);
+    openDebtNoteModal(contract, defaultAction = null) {
+      this.$refs.modalDebtNote.open(contract, defaultAction);
     },
     handlePayFromSchedule({ contract, amount }) {
       this.openPaymentModal(contract, amount);

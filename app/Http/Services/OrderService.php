@@ -20,6 +20,7 @@ use App\Repositories\CustomerRepository;
 use App\Repositories\OrderRepository;
 use App\Repositories\VehicleRepository;
 use App\Validators\OrderValidator;
+use App\Support\RentalPricing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Repositories\OrderVehicleDetailRepositoryEloquent;
@@ -29,6 +30,7 @@ use App\Helpers\DateTimeHelper;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use App\Http\Services\ContractNumberService;
 
@@ -68,7 +70,7 @@ class OrderService
 
     public function store(Request $request)
     {
-        $isDraft = $request->boolean('save_as_draft');
+        $isDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
         $customer = $this->storeOrUpdateCustomer($request);
         $order = $this->updateOrCreateOrder($request, null, $customer);
         $this->updateVehicles($request, $order);
@@ -91,7 +93,7 @@ class OrderService
             throw ValidationException::withMessages(['contract' => 'Hợp đồng đã chốt. Không thể ghi đè thông tin đã ký; các thao tác trả xe và gia hạn vẫn dùng luồng riêng.']);
         }
 
-        $saveAsDraft = $request->boolean('save_as_draft');
+        $saveAsDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
         $customer = $this->storeOrUpdateCustomer($request, $order);
 
         $this->updateOrCreateOrder($request, $order, null);
@@ -173,6 +175,10 @@ class OrderService
 			'note' => $request->get('note'),
 			'note_payment' => $request->get('note_item'),
 		];
+		$manualNumber = trim((string) $request->get('manual_contract_number', ''));
+		if (Schema::hasColumn('orders', 'draft_reference') && $request->has('draft_reference')) {
+			$dataOrder['draft_reference'] = trim((string) $request->get('draft_reference')) ?: null;
+		}
 
 		// Bổ sung các trường thông tin hợp đồng từ request
 		$contractFields = [
@@ -207,7 +213,7 @@ class OrderService
 
 			$dataOrder['customer_id'] = $customer->id;
 			$dataOrder['order_type'] = OrderValidator::ORDER_TYPE_RENTING;
-			$dataOrder['order_status'] = $request->boolean('save_as_draft')
+			$dataOrder['order_status'] = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
 				? OrderValidator::ORDER_DRAFT
 				: OrderValidator::ORDER_RENTING;
 			$dataOrder['data_version'] = 2;
@@ -240,7 +246,8 @@ class OrderService
 				$dataOrder['contract_issued_at'] = null;
 			} else {
 				// Sinh số HĐ dạng YYYY/MM/DD-0001
-				$dataOrder['contract_number'] = ContractNumberService::generate($dataOrder['contract_signed_on']);
+				$dataOrder['contract_number'] = $manualNumber !== ''
+					? $manualNumber : ContractNumberService::generate($dataOrder['contract_signed_on']);
 				$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
 			}
 
@@ -248,13 +255,17 @@ class OrderService
 		} else { // update existing order
 			$additional_deposit_amount = $request->get('additional_deposit_amount');
 
-			if ($request->boolean('save_as_draft')) {
+			if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)) {
 				$dataOrder['order_status'] = OrderValidator::ORDER_DRAFT;
 			} elseif ($order->order_status === OrderValidator::ORDER_DRAFT) {
 				$dataOrder['order_status'] = OrderValidator::ORDER_RENTING;
 				if (empty($order->contract_number)) {
 					$signDate = $request->get('contract_signed_on') ?: ($order->contract_signed_on ?: Carbon::now('Asia/Ho_Chi_Minh'));
-					$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+					$paperNumber = $manualNumber !== '' ? $manualNumber : trim((string) ($dataOrder['draft_reference'] ?? $order->draft_reference ?? ''));
+					if ($paperNumber !== '' && Order::where('contract_number', $paperNumber)->where('id', '!=', $order->id)->exists()) {
+						throw ValidationException::withMessages(['manual_contract_number' => 'Mã giấy/bản nháp này đã dùng cho hợp đồng khác.']);
+					}
+					$dataOrder['contract_number'] = $paperNumber !== '' ? $paperNumber : ContractNumberService::generate($signDate);
 					$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
 				}
 			}
@@ -280,14 +291,18 @@ class OrderService
 				// Kích hoạt hợp đồng cọc -> cấp Số HĐ nếu chưa có
 				if (empty($order->contract_number)) {
 					$signDate = $request->get('contract_signed_on') ? DateTimeHelper::parse($request->get('contract_signed_on')) : Carbon::now('Asia/Ho_Chi_Minh');
-					$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+					$paperNumber = $manualNumber !== '' ? $manualNumber : trim((string) ($dataOrder['draft_reference'] ?? $order->draft_reference ?? ''));
+					$dataOrder['contract_number'] = $paperNumber !== '' ? $paperNumber : ContractNumberService::generate($signDate);
 					$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
 				}
-			} elseif (!$request->boolean('save_as_draft') && empty($order->contract_number) && !in_array($order->order_status, [OrderValidator::ORDER_DEPOSIT_CONTRACT, OrderValidator::ORDER_DRAFT])) {
+			} elseif (!filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) && empty($order->contract_number) && !in_array($order->order_status, [OrderValidator::ORDER_DEPOSIT_CONTRACT, OrderValidator::ORDER_DRAFT])) {
 				// Đơn thuê cũ chưa có số -> cấp số dựa trên ngày ký hoặc ngày tạo
 				$signDate = $order->contract_signed_on ?: ($order->created_at ?: Carbon::now('Asia/Ho_Chi_Minh'));
-				$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+				$dataOrder['contract_number'] = $manualNumber !== '' ? $manualNumber : ContractNumberService::generate($signDate);
 				$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
+			}
+			if ($manualNumber !== '' && $order->contract_number && $order->contract_number !== $manualNumber) {
+				$dataOrder['contract_number'] = $manualNumber;
 			}
 
 			$order->update($dataOrder);
@@ -509,9 +524,14 @@ class OrderService
 		$sync_data = [];
 		$money_outdate = 0;
 		$need_release_vehicle_ids = [];
+		$hasPricingScheme = Schema::hasColumn('order_vehicle_details', 'pricing_scheme');
+		$existingPricingSchemes = $hasPricingScheme
+			? $order->orderItems()->pluck('pricing_scheme', 'vehicle_id') : collect();
 
 		foreach ($order_items as $order_item) {
 			$vehicle_id = $order_item['vehicle_id'];
+			$pricingScheme = array_key_exists('pricing_scheme', $order_item)
+				? $order_item['pricing_scheme'] : $existingPricingSchemes->get($vehicle_id);
 			if ( isset( $order_item['vehicle'] ) ) {
 				$old_vehicle = $order_item['vehicle'];
 				if ( $old_vehicle && isset( $old_vehicle['id'] ) && $vehicle_id != $old_vehicle['id'] ) { // The vehicle id is changed, so need to release this vehicle.
@@ -528,6 +548,14 @@ class OrderService
 			}
 
 			$total_money = data_get($order_item, 'total_money', 0);
+			$isFlatDaily = $pricingScheme === RentalPricing::FLAT_DAILY_SCHEME
+				&& data_get($order_item, 'type', 'day') === 'day';
+			if ($isFlatDaily) {
+				$total_money = RentalPricing::flatDailyAmount(
+					DateTimeHelper::parse($order_item['rent_at']),
+					DateTimeHelper::parse($order_item['return_at'])
+				);
+			}
 			$custom_total_money = data_get($order_item, 'custom_total_money', 0);
 
 			$hiring_fee = $total_money;
@@ -541,7 +569,7 @@ class OrderService
 				'return_at' => DateTimeHelper::parse($order_item['return_at']),
 				'total_money' => $total_money,
 				'borrow_hats' => data_get($order_item, 'borrow_hats', 0),
-				'type' => $order_item['type'] ?? 'total',
+				'type' => $order_item['type'] ?? ($isFlatDaily ? 'day' : 'total'),
 				'handler_price' => $order_item['handler_price'] ?? 0,
 				'substitute_unit_price' => $order_item['substitute_unit_price'],
 				'hiring_fee' => $hiring_fee,
@@ -550,6 +578,10 @@ class OrderService
 				'driver_license_issued_on' => data_get($order_item, 'driver_license_issued_on') ? DateTimeHelper::parse($order_item['driver_license_issued_on']) : null,
 				'borrow_raincoats' => (int) data_get($order_item, 'borrow_raincoats', 0),
 			];
+			if ($hasPricingScheme) {
+				$item_sync_data['pricing_scheme'] = $pricingScheme === RentalPricing::FLAT_DAILY_SCHEME
+					? RentalPricing::FLAT_DAILY_SCHEME : null;
+			}
 
 			if ( isset( $order_item['odometer_before'] ) && is_numeric( $order_item['odometer_before'] ) ) {
 				$item_sync_data['odometer_before'] = intval( $order_item['odometer_before'] );
@@ -606,7 +638,9 @@ class OrderService
 			return $order->customer;
 		}
 	
-		$customer = Customer::query()->where('id_card', $request->get('customer_id_card'))->first();
+		$customer = $request->filled('customer_id_card')
+			? Customer::query()->where('id_card', $request->get('customer_id_card'))->first()
+			: null;
 		if (!$customer) {
 			$customer = $this->customerRepository->skipPresenter()->create($dataCustomer);
 		} else {
@@ -639,15 +673,13 @@ class OrderService
 		$headOffice = config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN');
 		$repName = $order->contract_signer_a_name
 			?: ($order->responsibleUser ? $order->responsibleUser->name : (Auth::user() ? Auth::user()->name : ''));
-		$repTitle = 'Nhân viên hợp đồng tại ca';
+		$repTitle = 'Nhân viên quầy giao dịch';
 
 		$store = $order->store;
 		$customer = $order->customer;
 
 		$existingSnapshot = is_array($order->contract_snapshot) ? $order->contract_snapshot : [];
-		$contractNumber = !empty($existingSnapshot['contract_number'])
-			? $existingSnapshot['contract_number']
-			: $order->contract_number;
+		$contractNumber = $order->contract_number ?: ($existingSnapshot['contract_number'] ?? null);
 
 		$issuedAt = !empty($existingSnapshot['issued_at'])
 			? $existingSnapshot['issued_at']
@@ -676,7 +708,9 @@ class OrderService
 					$unitPrice = (float) ($item->hiring_fee ?: $item->total_money);
 				}
 			} else {
-				if ($item->substitute_unit_price > 0) {
+				if ($item->pricing_scheme === RentalPricing::FLAT_DAILY_SCHEME) {
+					$unitPrice = RentalPricing::FLAT_DAILY_RATE;
+				} elseif ($item->substitute_unit_price > 0) {
 					$unitPrice = (float) $item->substitute_unit_price;
 				} else {
 					$catalogPrice = 0;
@@ -767,7 +801,7 @@ class OrderService
 				'company_name' => $companyName,
 				'tax_code' => $taxCode,
 				'head_office_address' => $headOffice,
-				'representative_name' => $repName,
+				'representative_name' => mb_strtoupper($repName, 'UTF-8'),
 				'representative_title' => $repTitle,
 				'branch_name' => $store ? $store->store_name : '',
 				'branch_address' => $store ? $store->store_address : '',

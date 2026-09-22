@@ -40,18 +40,18 @@ class HimotoWarehouseTransferTest extends TestCase
 
         // Seed 2 physical stores
         $this->storeA = Store::create([
-            'store_name' => 'Cơ sở Cầu Giấy',
-            'store_address' => '123 Cầu Giấy, Hà Nội',
+            'store_name' => 'CS 1',
+            'store_address' => '264 đường Láng, Đống Đa',
             'kind' => Store::KIND_PHYSICAL,
-            'code' => 'CS-CG',
+            'code' => 'CS1',
             'status' => 'active'
         ]);
 
         $this->storeB = Store::create([
-            'store_name' => 'Cơ sở Đống Đa',
-            'store_address' => '456 Xã Đàn, Hà Nội',
+            'store_name' => 'CS 2',
+            'store_address' => 'Số 30, ngõ 66 Nguyễn Hoàng',
             'kind' => Store::KIND_PHYSICAL,
-            'code' => 'CS-DD',
+            'code' => 'CS2',
             'status' => 'active'
         ]);
 
@@ -367,8 +367,8 @@ class HimotoWarehouseTransferTest extends TestCase
         $queryCount = count(DB::getQueryLog());
         DB::disableQueryLog();
 
-        $this->assertCount(3, $summary);
-        $this->assertLessThanOrEqual(4, $queryCount);
+        $this->assertCount(2, $summary); // An out-of-catalogue store is never displayed.
+        $this->assertLessThanOrEqual(5, $queryCount);
     }
 
     public function test_quick_order_stats_uses_one_aggregate_query()

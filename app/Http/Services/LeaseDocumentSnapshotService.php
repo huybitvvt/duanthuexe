@@ -83,6 +83,7 @@ class LeaseDocumentSnapshotService
                 'end_date' => $contract->end_date ? $contract->end_date->toDateString() : '',
                 'installment_count' => (int) $contract->installment_count,
                 'total_amount' => $totalAmount,
+                'asset_value' => $vehicle && (float) $vehicle->sale_price > 0 ? (float) $vehicle->sale_price : null,
                 'total_amount_in_words' => self::numberToWordsVietnamese($totalAmount),
                 'deposit_amount' => $depositAmount,
                 'deposit_amount_in_words' => self::numberToWordsVietnamese($depositAmount),

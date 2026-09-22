@@ -8,6 +8,7 @@ use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
 use App\Models\Order;
 use App\Models\OrderVehicleDetail;
+use App\Models\ReminderContactLog;
 use App\Models\ReminderDeliveryEvent;
 use App\Models\User;
 use App\Services\Reminders\SandboxReminderProvider;
@@ -16,6 +17,7 @@ use App\Validators\OrderValidator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -65,10 +67,10 @@ class CustomerReminderService
                     $stage = 'due_soon_1d';
                 } elseif ($diffDays === 0) {
                     $stage = 'due_today';
-                } elseif ($diffDays < 0 && $diffDays >= -7) {
-                    $stage = 'overdue_1_7d';
-                } elseif ($diffDays < -7 && $diffDays >= -30) {
-                    $stage = 'overdue_8_30d';
+                } elseif ($diffDays < 0 && $diffDays >= -5) {
+                    $stage = 'overdue_1_5d';
+                } elseif ($diffDays < -5 && $diffDays >= -30) {
+                    $stage = 'overdue_6_30d';
                 } elseif ($diffDays < -30) {
                     $stage = 'overdue_30_plus';
                 }
@@ -120,7 +122,13 @@ class CustomerReminderService
             ->get();
 
         foreach ($rentingOrders as $order) {
-            $endDate = Carbon::parse($order->real_rental_end_date ?: $order->rental_end_date, 'Asia/Ho_Chi_Minh')->toDateString();
+            // Orders have no rental_end_date column. The latest vehicle return
+            // date is the actual due date for a multi-vehicle rental contract.
+            $lastReturnAt = $order->orderItems->max('return_at');
+            if (!$lastReturnAt) {
+                continue;
+            }
+            $endDate = Carbon::parse($lastReturnAt, 'Asia/Ho_Chi_Minh')->toDateString();
             $diffDays = Carbon::parse($today)->diffInDays(Carbon::parse($endDate), false);
 
             $stage = null;
@@ -128,10 +136,12 @@ class CustomerReminderService
                 $stage = 'due_soon_1d';
             } elseif ($diffDays === 0) {
                 $stage = 'due_today';
-            } elseif ($diffDays < 0 && $diffDays >= -3) {
-                $stage = 'overdue_1_7d';
-            } elseif ($diffDays < -3) {
-                $stage = 'overdue_8_30d';
+            } elseif ($diffDays < 0 && $diffDays >= -5) {
+                $stage = 'overdue_1_5d';
+            } elseif ($diffDays < -5 && $diffDays >= -30) {
+                $stage = 'overdue_6_30d';
+            } elseif ($diffDays < -30) {
+                $stage = 'overdue_30_plus';
             }
 
             if (!$stage) {
@@ -154,7 +164,8 @@ class CustomerReminderService
                 $plate = $order->orderItems->first()->vehicle->license ?? $order->orderItems->first()->vehicle->plate_number;
             }
 
-            $message = "Kính gửi {$customerName}, đơn thuê xe {$order->order_code} (xe {$plate}) đến hạn kết thúc thuê ngày {$endDate}. Trạng thái: {$stage}.";
+            $reference = $order->contract_number ?: '#' . $order->id;
+            $message = "Kính gửi {$customerName}, đơn thuê xe {$reference} (xe {$plate}) đến hạn kết thúc thuê ngày {$endDate}. Trạng thái: {$stage}.";
 
             CustomerReminderOutbox::create([
                 'contract_type' => 'rental_order',
@@ -191,22 +202,7 @@ class CustomerReminderService
         $query = CustomerReminderOutbox::with(['customer', 'installment'])
             ->orderBy('id', 'desc');
 
-        // A store-scoped operator must not see reminder recipients from other
-        // stores simply by omitting store_id from the request.
-        if ($user && !PermissionAccess::isAdmin($user)
-            && !PermissionAccess::allows($user, 'kpi.view_company')
-            && $user->store_id) {
-            $storeId = (int) $user->store_id;
-            $query->where(function ($scope) use ($storeId) {
-                $scope->where(function ($lease) use ($storeId) {
-                    $lease->where('contract_type', 'lease')
-                        ->whereIn('contract_id', LeaseContract::select('id')->where('store_id', $storeId));
-                })->orWhere(function ($rental) use ($storeId) {
-                    $rental->where('contract_type', 'rental_order')
-                        ->whereIn('contract_id', Order::select('id')->where('store_id', $storeId));
-                });
-            });
-        }
+        $this->scopeActionList($query, $user);
 
         if (!empty($params['status'])) {
             $query->where('status', $params['status']);
@@ -224,7 +220,68 @@ class CustomerReminderService
         }
 
         $perPage = !empty($params['per_page']) ? (int)$params['per_page'] : 20;
-        return $query->paginate($perPage)->toArray();
+        $page = $query->paginate($perPage);
+        if (Schema::hasTable('reminder_contact_logs')) {
+            $page->getCollection()->load('contactLogs');
+            $today = Carbon::today('Asia/Ho_Chi_Minh')->toDateString();
+            $page->getCollection()->each(function ($item) use ($today) {
+                $item->contacted_today = $item->contactLogs->contains('contact_date', $today);
+                $item->last_contact_note = optional($item->contactLogs->first())->note;
+            });
+        }
+        return $page->toArray();
+    }
+
+    public function recordContact(int $id, string $note, User $user): ReminderContactLog
+    {
+        if ($note === '') {
+            throw ValidationException::withMessages(['note' => 'Cần nhập ghi chú liên hệ.']);
+        }
+        if (!Schema::hasTable('reminder_contact_logs')) {
+            throw ValidationException::withMessages(['note' => 'Chưa tạo bảng lịch sử liên hệ.']);
+        }
+        $query = CustomerReminderOutbox::query();
+        $this->scopeActionList($query, $user);
+        $reminder = $query->findOrFail($id);
+        return ReminderContactLog::create([
+            'reminder_id' => $reminder->id,
+            'user_id' => $user->id,
+            'contact_date' => Carbon::today('Asia/Ho_Chi_Minh')->toDateString(),
+            'note' => $note,
+        ]);
+    }
+
+    private function scopeActionList($query, ?User $user): void
+    {
+
+        // A store-scoped operator must not see reminder recipients from other
+        // stores simply by omitting store_id from the request.
+        if ($user && !PermissionAccess::isAdmin($user)
+            && !PermissionAccess::allows($user, 'kpi.view_company')) {
+            if (!$user->store_id) {
+                $query->whereRaw('1 = 0');
+                return;
+            }
+            $storeId = (int) $user->store_id;
+            $query->where(function ($scope) use ($storeId, $user) {
+                $scope->where(function ($lease) use ($storeId, $user) {
+                    $contracts = LeaseContract::select('id');
+                    if (Schema::hasColumn('lease_contracts', 'origin_store_id')) {
+                        $contracts->where('origin_store_id', $storeId);
+                    } else {
+                        $contracts->where('store_id', $storeId);
+                    }
+                    if (PermissionAccess::getRoleSlug($user) === 'nhan-vien') {
+                        $contracts->where('assigned_user_id', $user->id);
+                    }
+                    $lease->where('contract_type', 'lease')
+                        ->whereIn('contract_id', $contracts);
+                })->orWhere(function ($rental) use ($storeId) {
+                    $rental->where('contract_type', 'rental_order')
+                        ->whereIn('contract_id', Order::select('id')->where('store_id', $storeId));
+                });
+            });
+        }
     }
 
     /**

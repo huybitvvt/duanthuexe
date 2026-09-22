@@ -2,6 +2,30 @@
     <div v-loading="loadingComponent">
         <ValidationObserver v-slot="{ handleSubmit }" ref="form">
             <form class="form" @submit.prevent="handleSubmit(handleFormSubmit)">
+				<div v-if="!id && initialMode === 'draft'" class="alert alert-custom alert-light-success p-3 mb-4">
+					<div class="d-flex align-items-center justify-content-between flex-wrap">
+						<div>
+							<strong class="text-success font-size-h6">&lt;Hợp đồng Nháp&gt;</strong> - Khách ship xe, làm tạm
+							<div class="text-muted font-size-sm mt-1">
+								Không bắt buộc CCCD, SĐT... Có thể in thử mang cho khách. Sau đó bấm <em>"Phát hành hợp đồng chính thức"</em> để ghi nhận doanh thu vào bảng hợp đồng.
+							</div>
+						</div>
+						<div class="mt-2 mt-md-0">
+							<button type="button" class="btn btn-sm btn-success font-weight-bold" :loading="loading" @click="saveDraft">
+								Lưu & In bản nháp
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<div v-if="!id && initialMode === 'handover'" class="alert alert-custom alert-light-warning p-3 mb-4">
+					<div>
+						<strong class="text-warning font-size-h6">&lt;Biên bản bàn giao xe&gt;</strong> - Đối tượng là khách chưa có bằng lái, chưa đủ tuổi chỉ lái được xe 50 CC
+						<div class="text-muted font-size-sm mt-1">
+							Sử dụng kết hợp 2 liên Biên bản bàn giao xe để phòng trường hợp mất điện, ship xe khách xong...
+						</div>
+					</div>
+				</div>
 				
 				<div class="row mb-4 align-items-center">
 					<div class="col-md-6">
@@ -599,6 +623,12 @@ export default {
             type: Number,
             default: () => {
                 return 0;
+            },
+        },
+        initialMode: {
+            type: String,
+            default: () => {
+                return "standard";
             },
         },
     },

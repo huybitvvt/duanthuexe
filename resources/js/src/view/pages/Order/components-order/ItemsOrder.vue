@@ -11,6 +11,10 @@
             </el-switch>
         </div>
 
+        <p v-if="local_order_item.pricing_scheme === 'flat_200k_day' && !local_order_item.is_all_in_one" class="text-muted mb-4">
+            Đơn giá thuê theo ngày: 200.000đ/xe/ngày; thời gian lẻ được làm tròn lên ngày.
+        </p>
+
         <div class="row">
             <div class="col-md-4">
                 <div class="form-group">
@@ -111,18 +115,6 @@
                     </ValidationProvider>
                 </div>
             </div>
-			<div class="col-md-4" v-if="!is_deposit_contract_mode">
-                <div class="form-group">
-					<label for="account">
-						<strong>Phí thuê xe</strong>
-						<span>(mặc định<span v-if="local_order_item.default_unit_price > 0">: <strong>{{ local_order_item.default_unit_price | formatPrice }}</strong></span> <span v-if="local_order_item.rental_days > 0">x <strong>{{ local_order_item.rental_days }}</strong> ngày</span>)</span>
-						<button type="button" class="btn btn-sm btn-link py-0 px-1 font-weight-bold" @click="editingCustomHiringFee">[Sửa giá]</button>
-					</label>
-					<money v-if="editing_custom_hiring_fee" id="account" v-model="custom_hiring_fee" v-bind="money" class="form-control"></money>
-					<!-- <money v-else id="account" :value="(order_id && local_order_item.hiring_fee) ? local_order_item.hiring_fee : local_order_item.hiringFee" v-bind="money" class="form-control" disabled></money> -->
-					<money v-else id="account" :value="local_order_item.hiringFee" v-bind="money" class="form-control" disabled></money>
-                </div>
-            </div>
             
 
             <div v-if="local_order_item.money_out_date !== 0" class="col-md-4">
@@ -135,17 +127,6 @@
 					</label>
 					
 					<money id="money_out_date" v-model="calcItemMoneyOutdate" v-bind="money" class="form-control"></money>
-                </div>
-            </div>
-
-            <div class="col-md-4" v-if="!is_deposit_contract_mode">
-                <div class="form-group">
-                    <label for="handler_price">
-                        <el-tooltip content="Là giá chốt cuối cùng(tổng tiền cuối cùng mà khách phải trả theo thỏa thuận cho hợp đồng này, không tính thêm bất kì khoản phí nào kể cả phí quá giờ), quá hạn cũng không tính thêm tiền.">
-							<span><strong>Giá Tổng Khác</strong> [?]</span></el-tooltip>
-                    </label>
-
-                    <money id="handler_price" v-model="handlerPriceInput" v-bind="money" class="form-control"></money>
                 </div>
             </div>
 

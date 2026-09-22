@@ -5,6 +5,7 @@ namespace App\Http\Services;
 use App\Interfaces\ICrud;
 use App\Models\Store;
 use App\Repositories\StoreRepository;
+use App\Support\HimotoStores;
 
 class StoreService implements ICrud
 {
@@ -17,16 +18,12 @@ class StoreService implements ICrud
 
     public function all()
     {
-        // return Store::all();
-		$query = $this->storeRepository;
-		$query = $query->where('status', 'opening');
-		return $query->get();
+		return HimotoStores::query()->where('status', 'opening')->orderBy('id')->get();
     }
 
     public function index(array $params)
     {
-		$query = $this->storeRepository;
-		$query = $query->where('status', 'opening');
+		$query = HimotoStores::query()->where('status', 'opening')->orderBy('id');
         return $query->paginate(20);
     }
 

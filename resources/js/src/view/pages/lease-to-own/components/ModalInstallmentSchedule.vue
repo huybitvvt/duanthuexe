@@ -49,7 +49,7 @@
         <div class="col-md-3">
           <span class="text-muted font-size-xs d-block">DƯ NỢ CÒN LẠI</span>
           <span class="font-size-h5 font-weight-bolder text-danger d-block">
-            {{ contract.remaining_debt | formatPrice }}
+            {{ contract.outstanding_balance | formatPrice }}
           </span>
           <span class="text-muted font-size-xs">
             Tổng: {{ contract.total_value | formatPrice }} | Đã thu: {{ contract.total_paid | formatPrice }}
@@ -210,7 +210,7 @@
       <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
         <div>
           <button
-            v-if="contract && contract.remaining_debt > 0"
+            v-if="contract && contract.outstanding_balance > 0"
             type="button"
             class="btn btn-warning font-weight-bold mr-2"
             @click="handleOpenDebtNote"
@@ -218,7 +218,7 @@
             Đôn đốc / Nhắc nợ
           </button>
           <button
-            v-if="contract && contract.remaining_debt > 0"
+            v-if="contract && contract.outstanding_balance > 0"
             type="button"
             class="btn btn-success font-weight-bold mr-2"
             @click="handleOpenFullPayment"
@@ -226,7 +226,7 @@
             Thu tiền kỳ
           </button>
           <button
-            v-if="contract && contract.remaining_debt > 0"
+            v-if="contract && contract.outstanding_balance > 0"
             type="button"
             class="btn btn-outline-primary font-weight-bold mr-2"
             @click="handleEarlySettlement"
@@ -313,17 +313,17 @@ export default {
     getAgingLabel(bucket) {
       const map = {
         current: "Đúng hạn",
-        overdue_1_7: "Quá hạn 1-7 ngày",
-        overdue_8_30: "Quá hạn 8-30 ngày",
-        overdue_30_plus: "Quá hạn >30 ngày",
+        overdue_1_5: "Nợ sớm (1-5 ngày)",
+        overdue_6_30: "Nợ muộn (6-30 ngày)",
+        overdue_30_plus: "Cần thu hồi (>30 ngày)",
       };
       return map[bucket] || "Bình thường";
     },
     getAgingBadgeClass(bucket) {
       const map = {
         current: "badge badge-success",
-        overdue_1_7: "badge badge-warning",
-        overdue_8_30: "badge badge-danger",
+        overdue_1_5: "badge badge-warning",
+        overdue_6_30: "badge badge-danger",
         overdue_30_plus: "badge badge-dark",
       };
       return map[bucket] || "badge badge-secondary";
@@ -337,7 +337,7 @@ export default {
     handleOpenFullPayment() {
       this.$emit("pay-installment", {
         contract: this.contract,
-        amount: this.contract.period_amount || this.contract.remaining_debt,
+        amount: this.contract.period_amount || this.contract.outstanding_balance,
       });
     },
     handleOpenDebtNote() {
@@ -346,7 +346,7 @@ export default {
     async handleEarlySettlement() {
       try {
         const { value: notes } = await this.$prompt(
-          `Xác nhận tất toán toàn bộ dư nợ còn lại (${this.formatCurrency(this.contract.remaining_debt)}) của hợp đồng này? Nhập ghi chú tất toán (nếu có):`,
+          `Xác nhận tất toán toàn bộ dư nợ còn lại (${this.formatCurrency(this.contract.outstanding_balance)}) của hợp đồng này? Nhập ghi chú tất toán (nếu có):`,
           "Tất toán hợp đồng thuê sở hữu",
           {
             confirmButtonText: "Xác nhận tất toán",
@@ -356,7 +356,7 @@ export default {
         );
 
         await ApiService.post(`/api/auth/lease-contracts/${this.contractId}/settle`, {
-          settlement_amount: this.contract.remaining_debt,
+          settlement_amount: this.contract.outstanding_balance,
           notes: notes || "Tất toán sớm toàn bộ dư nợ",
           note: notes || "Tất toán sớm toàn bộ dư nợ",
           payment_method: 1,

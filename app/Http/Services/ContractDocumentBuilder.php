@@ -129,12 +129,16 @@ class ContractDocumentBuilder
             ? self::formatDateString($data['contract_authorization_date'])
             : '';
         $authParty = $data['contract_authorization_party_name'] ?? '';
+        $previewNumber = trim((string) ($data['draft_reference'] ?? ''));
+        if ($previewNumber === '') {
+            $previewNumber = trim((string) ($data['manual_contract_number'] ?? ''));
+        }
 
         $dto = [
             'is_preview' => true,
             'is_locked' => false,
-            'contract_number' => 'Chưa cấp số',
-            'contract_number_label' => 'BẢN XEM TRƯỚC - CHƯA CẤP SỐ',
+            'contract_number' => $previewNumber ?: 'Chưa cấp số',
+            'contract_number_label' => $previewNumber ? 'BẢN XEM TRƯỚC - CHƯA PHÁT HÀNH' : 'BẢN XEM TRƯỚC - CHƯA CẤP SỐ',
             'signed_date' => [
                 'day' => $signedDate ? $signedDate->format('d') : '.....',
                 'month' => $signedDate ? $signedDate->format('m') : '.....',
@@ -152,8 +156,8 @@ class ContractDocumentBuilder
             'lessor' => [
                 'company_name' => config('contract.company_name', 'CÔNG TY CP THƯƠNG MẠI DỊCH VỤ HIMOTO VIỆT NAM'),
                 'tax_code' => config('contract.tax_code', '0110863055'),
-                'representative_name' => $data['contract_signer_a_name'] ?? ($respUserName ?: '........................'),
-                'representative_title' => 'Nhân viên hợp đồng tại ca',
+                'representative_name' => mb_strtoupper($data['contract_signer_a_name'] ?? ($respUserName ?: '........................'), 'UTF-8'),
+                'representative_title' => 'Nhân viên quầy giao dịch',
                 'head_office' => config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN'),
                 'branch_name' => $store ? $store->store_name : 'Himoto Chi nhánh',
                 'branch_address' => $store ? $store->store_address : '',
@@ -255,7 +259,9 @@ class ContractDocumentBuilder
             ? self::parseCarbon($order->contract_signed_on)
             : ($order->created_at ? self::parseCarbon($order->created_at) : Carbon::now('Asia/Ho_Chi_Minh'));
 
-        $contractNumber = $order->contract_number ?: ($snapshot['contract_number'] ?? 'Chưa cấp số');
+        $contractNumber = $order->order_status === 'draft'
+            ? ($order->draft_reference ?: 'NHÁP-' . $order->id)
+            : ($order->contract_number ?: ($snapshot['contract_number'] ?? 'Chưa cấp số'));
         if (!empty($snapshot['signed_on'])) {
             $signedDate = self::parseCarbon($snapshot['signed_on']);
         }
@@ -377,11 +383,11 @@ class ContractDocumentBuilder
         $refundPaid = $isReturned ? (float) $order->transactions()->where('type', 'out')->where('name', 'order:complete:' . $order->id)->sum('value') : 0;
 
         $dto = [
-            'is_preview' => $contractNumber === 'Chưa cấp số',
+            'is_preview' => $order->order_status === 'draft' || $contractNumber === 'Chưa cấp số',
             'is_locked' => $isLocked,
             'order_id' => $order->id,
             'contract_number' => $contractNumber,
-            'contract_number_label' => $contractNumber === 'Chưa cấp số' ? 'BẢN XEM TRƯỚC - CHƯA CẤP SỐ' : $contractNumber,
+            'contract_number_label' => $order->order_status === 'draft' ? 'BẢN NHÁP - CHƯA PHÁT HÀNH' : ($contractNumber === 'Chưa cấp số' ? 'BẢN XEM TRƯỚC - CHƯA CẤP SỐ' : $contractNumber),
             'issued_at' => $order->contract_issued_at ? Carbon::parse($order->contract_issued_at)->format('d/m/Y H:i') : null,
             'signed_date' => [
                 'day' => $signedDate ? $signedDate->format('d') : '.....',
@@ -401,7 +407,7 @@ class ContractDocumentBuilder
                 'company_name' => $snapshot['lessor']['company_name'] ?? config('contract.company_name', 'CÔNG TY CP THƯƠNG MẠI DỊCH VỤ HIMOTO VIỆT NAM'),
                 'tax_code' => $snapshot['lessor']['tax_code'] ?? config('contract.tax_code', '0110863055'),
                 'representative_name' => $snapshot['lessor']['representative_name'] ?? ($order->contract_signer_a_name ?: ($respUserName ?: '........................')),
-                'representative_title' => $snapshot['lessor']['representative_title'] ?? 'Nhân viên hợp đồng tại ca',
+                'representative_title' => $snapshot['lessor']['representative_title'] ?? 'Nhân viên quầy giao dịch',
                 'head_office' => $snapshot['lessor']['head_office_address'] ?? ($snapshot['lessor']['head_office'] ?? config('contract.head_office')),
                 'branch_name' => $snapshot['lessor']['branch_name'] ?? ($store ? $store->store_name : 'Himoto Chi nhánh'),
                 'branch_address' => $snapshot['lessor']['branch_address'] ?? ($store ? $store->store_address : ''),
@@ -627,7 +633,8 @@ class ContractDocumentBuilder
 
     protected static function pricingCalculationText(int $days, $unitPrice, float $total): string
     {
-        if ($days > 0 && is_numeric($unitPrice) && (float) $unitPrice > 0) {
+        if ($days > 0 && is_numeric($unitPrice) && (float) $unitPrice > 0
+            && abs(($days * (float) $unitPrice) - $total) < 0.01) {
             return 'Số ngày thuê tạm tính: ' . $days . ' ngày x Đơn giá: '
                 . number_format((float) $unitPrice, 0, ',', '.') . ' = '
                 . number_format($total, 0, ',', '.') . ' đ';

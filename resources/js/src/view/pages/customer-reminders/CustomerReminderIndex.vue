@@ -119,6 +119,7 @@
               <th>Nội dung liên hệ</th>
               <th>Thời điểm</th>
               <th>Trạng thái</th>
+              <th>Liên hệ hôm nay</th>
             </tr>
           </thead>
           <tbody>
@@ -129,7 +130,9 @@
               </td>
               <td>
                 <span class="type-label">{{ contractTypeLabel(item.contract_type) }}</span>
-                <small class="d-block text-muted mt-1">Mã tham chiếu: {{ item.contract_id }}</small>
+                <button type="button" class="btn btn-link btn-sm p-0 d-block mt-1" @click="openContract(item)">
+                  Mở đơn #{{ item.contract_id }}
+                </button>
               </td>
               <td>
                 <span class="stage-label" :class="stageClass(item.stage)">
@@ -150,6 +153,15 @@
                 <span class="status-label" :class="statusClass(item.status)">
                   {{ statusLabel(item.status) }}
                 </span>
+              </td>
+              <td>
+                <span :class="item.contacted_today ? 'text-success' : 'text-warning'" class="d-block font-weight-bold">
+                  {{ item.contacted_today ? 'Đã liên hệ' : 'Chưa liên hệ' }}
+                </span>
+                <small v-if="item.last_contact_note" class="d-block text-muted" :title="item.last_contact_note">
+                  {{ item.last_contact_note }}
+                </small>
+                <button type="button" class="btn btn-sm btn-link p-0" @click="recordContact(item)">Ghi chú</button>
               </td>
             </tr>
           </tbody>
@@ -209,6 +221,29 @@ export default {
     this.fetchReminders();
   },
   methods: {
+    async recordContact(item) {
+      try {
+        const { value } = await this.$prompt('Đã trao đổi gì với khách hôm nay?', `Liên hệ đơn #${item.contract_id}`, {
+          inputType: 'textarea',
+          confirmButtonText: 'Lưu ghi chú',
+          cancelButtonText: 'Hủy',
+          inputValidator: note => note && note.trim() ? true : 'Vui lòng nhập nội dung liên hệ',
+        });
+        await ApiService.post(`/api/auth/customer-reminders/${item.id}/contact`, { note: value.trim() });
+        await this.fetchReminders();
+      } catch (error) {
+        if (error !== 'cancel' && error !== 'close') {
+          this.$message.error(this.errorMessage(error, 'Không lưu được ghi chú liên hệ'));
+        }
+      }
+    },
+    openContract(item) {
+      if (item.contract_type === 'rental_order') {
+        this.$router.push({ name: 'car-rental', query: { open_order: item.contract_id } });
+      } else {
+        this.$router.push({ name: 'lease-to-own', query: { open_contract: item.contract_id } });
+      }
+    },
     async fetchReminders(page = this.pagination.current_page) {
       this.loading = true;
       try {
@@ -296,6 +331,8 @@ export default {
         due_today: "Đến hạn hôm nay",
         overdue_1_7d: "Quá hạn 1–7 ngày",
         overdue_8_30d: "Quá hạn 8–30 ngày",
+        overdue_1_5d: "Nợ sớm 1–5 ngày",
+        overdue_6_30d: "Nợ muộn 6–30 ngày",
         overdue_30_plus: "Quá hạn trên 30 ngày",
         return_tomorrow: "Trả xe ngày mai",
         return_today: "Trả xe hôm nay",
@@ -304,10 +341,10 @@ export default {
       return labels[stage] || stage || "Chưa phân loại";
     },
     stageClass(stage) {
-      if (["overdue_8_30d", "overdue_30_plus", "overdue_return"].includes(stage)) {
+      if (["overdue_8_30d", "overdue_6_30d", "overdue_30_plus", "overdue_return"].includes(stage)) {
         return "stage-danger";
       }
-      if (["overdue_1_7d", "due_today", "return_today"].includes(stage)) {
+      if (["overdue_1_7d", "overdue_1_5d", "due_today", "return_today"].includes(stage)) {
         return "stage-warning";
       }
       return "stage-neutral";

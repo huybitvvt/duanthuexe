@@ -5,9 +5,17 @@
                 <div class="card-title">
                     <h3 class="card-label">Danh sách hợp đồng</h3>
                 </div>
-                <div class="card-title">
-                    <button class="btn btn-success" @click="openModalCreate()">Thêm mới hợp đồng</button>
-                    <button @click="exportFile" class="ml-2 btn btn-primary">Xuất Excel theo bộ lọc thời gian</button>
+                <div class="card-title d-flex flex-wrap align-items-center">
+                    <button class="btn btn-danger font-weight-bold mr-2 mb-1" @click="openModalCreate('standard')">
+                        &lt;Hợp đồng phổ thông&gt;
+                    </button>
+                    <button class="btn btn-success font-weight-bold mr-2 mb-1" @click="openModalCreate('draft')">
+                        &lt;Hợp đồng Nháp&gt;
+                    </button>
+                    <button class="btn btn-warning font-weight-bold text-white mr-2 mb-1" @click="openModalCreate('handover')">
+                        &lt;Biên bản bàn giao xe&gt;
+                    </button>
+                    <button @click="exportFile" class="btn btn-primary font-weight-bold mb-1">Xuất Excel theo bộ lọc thời gian</button>
                 </div>
 
             </div>
@@ -314,9 +322,9 @@
                 </div>
             </div>
 
-            <b-modal title="Tạo hợp đồng" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
+            <b-modal :title="modalCreateTitle" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
                 hide-footer>
-                <order-update @createSuccess="createSuccess"></order-update>
+                <order-update :initial-mode="createMode" @createSuccess="createSuccess"></order-update>
             </b-modal>
             <b-modal :title='"Sửa hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-update" :centered="true"
                 :scrollable="true" hide-footer>
@@ -387,6 +395,8 @@ export default {
             page: +page || 1,
             last_page: 1,
             showModalCreate: false,
+            createMode: 'standard',
+            modalCreateTitle: 'Tạo <Hợp đồng phổ thông>',
             loading: false,
             errorMessage: null,
             order_stats: [],
@@ -597,10 +607,17 @@ export default {
                 }
             }).catch(() => {});
         },
-        openModalCreate() {
+        openModalCreate(mode = 'standard') {
+            this.createMode = mode;
+            if (mode === 'draft') {
+                this.modalCreateTitle = 'Tạo <Hợp đồng Nháp> (Khách ship / làm tạm)';
+            } else if (mode === 'handover') {
+                this.modalCreateTitle = 'Tạo <Biên bản bàn giao xe> (Khách 50 CC / Giao nhận xe)';
+            } else {
+                this.modalCreateTitle = 'Tạo <Hợp đồng phổ thông>';
+            }
             this.showModalCreate = true;
             this.$refs['modal-contract-create'].show();
-
         },
         openUpdateModal(order) {
             this.orderId = order.id;

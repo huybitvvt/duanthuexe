@@ -383,6 +383,7 @@ class OrderCalculationTest extends TestCase
             'store_id' => 1,
             'total' => 500000,
             'customer_name' => 'Nguyen Van A',
+            'customer_phone' => '0987654321',
             'customer_id_card' => 123456789,
             'first_deposit_amount' => 0,
             'total_rental_fees' => 0,

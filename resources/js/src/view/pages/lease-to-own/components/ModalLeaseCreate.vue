@@ -85,11 +85,8 @@
             class="w-100"
             @change="recalculatePeriodAmount"
           >
-            <el-option label="3 tháng (3 kỳ)" :value="3" />
             <el-option label="6 tháng (6 kỳ)" :value="6" />
-            <el-option label="9 tháng (9 kỳ)" :value="9" />
             <el-option label="12 tháng (12 kỳ)" :value="12" />
-            <el-option label="18 tháng (18 kỳ)" :value="18" />
             <el-option label="24 tháng (24 kỳ)" :value="24" />
           </el-select>
         </div>
@@ -174,7 +171,9 @@ export default {
         this.$set(this.form, 'store_id', store.id);
         const res = await this.$store.dispatch(VEHICLE_GET_ALL, { limit: 100, store_id: store.id, status: 'ready' });
         const rows = res?.data?.data || res?.data?.items || res?.data || [];
-        this.vehicles = Array.isArray(rows) ? rows.filter(v => v.status === 'ready') : [];
+        this.vehicles = Array.isArray(rows)
+          ? rows.filter(v => v.status === 'ready' && Number(v.current_store_id || v.store_id) === Number(store.id))
+          : [];
       } catch (err) {
         Swal.fire('Lỗi', err?.data?.message || 'Không tải được xe sẵn sàng trong kho thuê sở hữu.', 'error');
       }

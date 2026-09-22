@@ -81,7 +81,8 @@ class LeasePdfService
      */
     public function generateContractPdf(LeaseContract $contract, User $actor): string
     {
-        PermissionAccess::can($actor, 'lease.view', $contract->store_id);
+        PermissionAccess::can($actor, 'lease.view');
+        app(LeaseContractService::class)->authorizeContract($contract, $actor);
 
         $contract->loadMissing(['customer', 'vehicle', 'store', 'installments', 'allocations']);
 
@@ -190,7 +191,8 @@ class LeasePdfService
      */
     public function generateDebtStatementPdf(LeaseContract $contract, User $actor): string
     {
-        PermissionAccess::can($actor, 'lease.view', $contract->store_id);
+        PermissionAccess::can($actor, 'lease.view');
+        app(LeaseContractService::class)->authorizeContract($contract, $actor);
 
         $contract->loadMissing(['customer', 'vehicle', 'store', 'installments', 'allocations']);
 

@@ -254,6 +254,56 @@ class HimotoReminderAndGpsTest extends TestCase
         $this->assertEquals(1, $count);
     }
 
+    public function testDailyContactNoteIsVisibleOnlyInTheOriginBranch()
+    {
+        require_once __DIR__ . '/../../database/migrations/2026_09_22_000004_create_reminder_contact_logs.php';
+        (new \CreateReminderContactLogs())->up();
+
+        $store = Store::create(['store_name' => 'CS 1']);
+        $anotherStore = Store::create(['store_name' => 'CS 2']);
+        $order = Order::create(['store_id' => $store->id, 'order_status' => 'renting']);
+        $reminder = CustomerReminderOutbox::create([
+            'contract_type' => 'rental_order', 'contract_id' => $order->id,
+            'recipient_phone' => '0988776655', 'stage' => 'overdue_1_5d',
+            'message_content' => 'Khách quá hạn', 'status' => 'pending',
+            'scheduled_at' => Carbon::now(), 'idempotency_key' => 'rental-test-contact-1',
+        ]);
+        $staff = User::create(['name' => 'Nhân viên CS 1', 'role_id' => 2, 'store_id' => $store->id]);
+        $other = User::create(['name' => 'Nhân viên CS 2', 'role_id' => 2, 'store_id' => $anotherStore->id]);
+
+        $this->reminderService->recordContact($reminder->id, 'Đã gọi, khách hẹn chiều nay', $staff);
+        $item = $this->reminderService->getStaffActionList([], $staff)['data'][0];
+        $this->assertTrue($item['contacted_today']);
+        $this->assertSame('Đã gọi, khách hẹn chiều nay', $item['last_contact_note']);
+        $this->assertSame(0, $this->reminderService->getStaffActionList([], $other)['total']);
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+        $this->reminderService->recordContact($reminder->id, 'Không thuộc cơ sở này', $other);
+    }
+
+    public function testRentalRemindersUseActualVehicleReturnDateAndSkipOrdersWithoutOne()
+    {
+        $store = Store::create(['store_name' => 'CS 1']);
+        $customer = Customer::create(['name' => 'Khách thuê', 'phone' => '0912345678']);
+        $vehicle = Vehicle::create(['name' => 'Xe thuê', 'license' => '29A-TEST', 'store_id' => $store->id]);
+        Order::create(['store_id' => $store->id, 'customer_id' => $customer->id, 'order_status' => 'renting']);
+        $order = Order::create([
+            'store_id' => $store->id, 'customer_id' => $customer->id,
+            'contract_number' => 'HD-2026-001', 'order_status' => 'renting',
+        ]);
+        OrderVehicleDetail::create([
+            'order_id' => $order->id, 'vehicle_id' => $vehicle->id,
+            'rent_at' => Carbon::now('Asia/Ho_Chi_Minh')->subDay(),
+            'return_at' => Carbon::now('Asia/Ho_Chi_Minh')->subDay(),
+        ]);
+
+        $result = $this->reminderService->scanDueAndOverdueItems();
+        $this->assertSame(1, $result['created']);
+        $reminder = CustomerReminderOutbox::firstOrFail();
+        $this->assertSame($order->id, (int) $reminder->contract_id);
+        $this->assertSame('overdue_1_5d', $reminder->stage);
+        $this->assertStringContainsString('HD-2026-001', $reminder->message_content);
+    }
+
     public function test_outbox_never_claims_delivery_without_provider()
     {
         $today = Carbon::now('Asia/Ho_Chi_Minh');

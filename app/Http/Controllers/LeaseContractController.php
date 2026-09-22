@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\LeaseDebtExport;
 use App\Http\Services\LeaseContractService;
 use App\Http\Services\LeasePdfService;
+use App\Http\Services\HimotoLegalDocumentService;
 use App\Models\LeaseContract;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,7 +72,7 @@ class LeaseContractController extends Controller
             'start_date' => 'required|date',
             'total_amount' => 'required|numeric|min:0',
             'deposit_amount' => 'nullable|numeric|min:0',
-            'installment_count' => 'required|integer|min:1|max:120',
+            'installment_count' => 'required|integer|in:6,12,24',
             'period_amount' => 'nullable|numeric|min:0',
             'assigned_user_id' => 'nullable|integer',
             'notes' => 'nullable|string',
@@ -234,6 +235,28 @@ class LeaseContractController extends Controller
         return response($pdfContent, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
+    }
+
+    public function handover(int $id, HimotoLegalDocumentService $documents)
+    {
+        $contract = LeaseContract::findOrFail($id);
+        $this->leaseService->authorizeContract($contract, Auth::user());
+        return $this->legalHtml($documents->leaseHandover($contract));
+    }
+
+    public function annex(int $id, HimotoLegalDocumentService $documents)
+    {
+        $contract = LeaseContract::findOrFail($id);
+        $this->leaseService->authorizeContract($contract, Auth::user());
+        return $this->legalHtml($documents->leaseAnnex($contract));
+    }
+
+    private function legalHtml(string $html)
+    {
+        return response($html, 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
         ]);
     }
 

@@ -6,6 +6,8 @@ use App\Entities\Customer;
 use App\Models\DebtNote;
 use App\Models\Bank;
 use App\Support\PilotAccess;
+use App\Support\PermissionAccess;
+use App\Support\HimotoStores;
 use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
 use App\Models\LeasePaymentAllocation;
@@ -17,6 +19,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Auth\Access\AuthorizationException;
 
 class LeaseContractService
 {
@@ -25,8 +28,11 @@ class LeaseContractService
      */
     public function createContract(array $data, User $user): LeaseContract
     {
-        $requestedStore = data_get($data, 'store_id') ?: Store::where('kind', Store::KIND_LEASE_TO_OWN)->value('id');
-        PilotAccess::store($user, $requestedStore);
+        $requestedStore = data_get($data, 'store_id') ?: HimotoStores::query()->where('kind', Store::KIND_LEASE_TO_OWN)->value('id');
+        PermissionAccess::can($user, 'lease.create');
+        if (!PilotAccess::isAdmin($user) && (!HimotoStores::query()->whereKey((int) $user->store_id)->exists())) {
+            throw new AuthorizationException('Nhân viên phải thuộc một trong sáu cơ sở HIMOTO.');
+        }
         return DB::transaction(function () use ($data, $user) {
         $customerId = data_get($data, 'customer_id');
         if (!$customerId && isset($data['customer'])) {
@@ -52,12 +58,12 @@ class LeaseContractService
         $vehicleId = data_get($data, 'vehicle_id');
         $storeId = data_get($data, 'store_id');
         if (!$storeId) {
-            $ltoStore = Store::where('kind', Store::KIND_LEASE_TO_OWN)->first();
+            $ltoStore = HimotoStores::query()->where('kind', Store::KIND_LEASE_TO_OWN)->first();
             $storeId = $ltoStore ? $ltoStore->id : null;
         }
 
         $store = Store::findOrFail($storeId);
-        if ($store->kind !== Store::KIND_LEASE_TO_OWN) {
+        if (!HimotoStores::isCanonical($store) || $store->kind !== Store::KIND_LEASE_TO_OWN) {
             throw ValidationException::withMessages(['store_id' => 'Chọn kho thuê sở hữu.']);
         }
         $vehicle = Vehicle::where('id', $vehicleId)->lockForUpdate()->firstOrFail();
@@ -67,8 +73,8 @@ class LeaseContractService
         $totalAmount = (float)data_get($data, 'total_amount', 0);
         $depositAmount = (float)data_get($data, 'deposit_amount', 0);
         $installmentCount = (int)data_get($data, 'installment_count', 12);
-        if ($installmentCount < 1) {
-            $installmentCount = 12;
+        if (!in_array($installmentCount, [6, 12, 24], true)) {
+            throw ValidationException::withMessages(['installment_count' => 'Kỳ hạn thuê sở hữu chỉ gồm 6, 12 hoặc 24 tháng.']);
         }
 
         if ($totalAmount <= 0 || $depositAmount < 0 || $depositAmount > $totalAmount || $installmentCount > 120) {
@@ -90,7 +96,7 @@ class LeaseContractService
             $code, $customerId, $vehicleId, $storeId, $startDate, $totalAmount,
             $depositAmount, $installmentCount, $periodAmount, $data, $user
         ) {
-            $contract = LeaseContract::create([
+            $attributes = [
                 'contract_code' => $code,
                 'customer_id' => $customerId,
                 'vehicle_id' => $vehicleId,
@@ -102,9 +108,14 @@ class LeaseContractService
                 'installment_count' => $installmentCount,
                 'period_amount' => $periodAmount,
                 'status' => LeaseContract::STATUS_ACTIVE,
-                'assigned_user_id' => data_get($data, 'assigned_user_id', $user->id),
+                'assigned_user_id' => PermissionAccess::getRoleSlug($user) === 'nhan-vien'
+                    ? $user->id : data_get($data, 'assigned_user_id', $user->id),
                 'notes' => data_get($data, 'notes', ''),
-            ]);
+            ];
+            if (Schema::hasColumn('lease_contracts', 'origin_store_id')) {
+                $attributes['origin_store_id'] = $user->store_id ?: $storeId;
+            }
+            $contract = LeaseContract::create($attributes);
 
             // A promised initial payment is a due item, not a fictitious receipt.
             if ($depositAmount > 0) {
@@ -183,7 +194,7 @@ class LeaseContractService
         return DB::transaction(function () use ($contractId, $amount, $paymentDate, $notes, $paymentMethod, $bankId, $targetInstallmentId, $user, $requestKey, $fingerprint) {
             $contract = LeaseContract::where('id', $contractId)->lockForUpdate()->firstOrFail();
 
-            PilotAccess::store($user, $contract->store_id);
+            $this->authorizeContract($contract, $user);
             if ($requestKey) {
                 $previous = DB::table('lease_payment_requests')->where('lease_contract_id', $contractId)->where('request_key', $requestKey)->first();
                 if ($previous) {
@@ -209,7 +220,6 @@ class LeaseContractService
             $cashId = null;
             if ($paymentMethod === 2) {
                 $bank = Bank::findOrFail($bankId);
-                PilotAccess::store($user, $bank->store_id);
                 if ((int)$bank->store_id !== (int)$contract->store_id) {
                     throw ValidationException::withMessages(['bank_id' => 'Tài khoản không thuộc cơ sở hợp đồng.']);
                 }
@@ -334,7 +344,7 @@ class LeaseContractService
     public function settleContract(int $contractId, array $data, User $user): LeaseContract
     {
         $contract = LeaseContract::with(['installments', 'allocations'])->findOrFail($contractId);
-        PilotAccess::store($user, $contract->store_id);
+        $this->authorizeContract($contract, $user);
 
         if ($contract->status === LeaseContract::STATUS_COMPLETED) {
             throw ValidationException::withMessages(['contract' => 'Hợp đồng này đã được tất toán trước đó.']);
@@ -583,7 +593,7 @@ class LeaseContractService
     public function addDebtNote(int $contractId, array $data, User $user): DebtNote
     {
         $contract = LeaseContract::findOrFail($contractId);
-        PilotAccess::store($user, $contract->store_id);
+        $this->authorizeContract($contract, $user);
         $content = (string)data_get($data, 'note_content', '');
         if (!$content) {
             throw ValidationException::withMessages([
@@ -619,9 +629,7 @@ class LeaseContractService
             'allocations',
         ]);
 
-        if (!PilotAccess::isAdmin($user)) {
-            $query->where('store_id', $user->store_id ?: -1);
-        }
+        $this->scopeVisibleContracts($query, $user);
         // Keyword filter
         $keyword = data_get($params, 'keyword', data_get($params, 'search'));
         if ($keyword) {
@@ -655,7 +663,7 @@ class LeaseContractService
             if ($bucket === 'current') {
                 $query->whereDoesntHave('installments', function ($q) use ($today, $open) { $open($q); $q->where('due_date', '<', $today->toDateString()); });
             } else {
-                $ranges = ['overdue_1_7' => [1,7], 'overdue_8_30' => [8,30], 'overdue_30_plus' => [31,null]];
+                $ranges = ['overdue_1_5' => [1,5], 'overdue_6_30' => [6,30], 'overdue_30_plus' => [31,null]];
                 if (!isset($ranges[$bucket])) { throw ValidationException::withMessages(['aging_bucket' => 'Nhóm nợ không hợp lệ.']); }
                 list($min,$max) = $ranges[$bucket];
                 $query->whereHas('installments', function ($q) use ($today,$open,$min,$max) {
@@ -698,10 +706,10 @@ class LeaseContractService
             $bucket = 'current';
             if ($maxOverdueDays > 30) {
                 $bucket = 'overdue_30_plus';
-            } elseif ($maxOverdueDays >= 8) {
-                $bucket = 'overdue_8_30';
+            } elseif ($maxOverdueDays >= 6) {
+                $bucket = 'overdue_6_30';
             } elseif ($maxOverdueDays >= 1) {
-                $bucket = 'overdue_1_7';
+                $bucket = 'overdue_1_5';
             }
 
             // Current due installment (next upcoming or overdue)
@@ -746,7 +754,7 @@ class LeaseContractService
     public function getStats(array $params, User $user): array
     {
         $query = LeaseContract::with(['installments.allocations', 'allocations']);
-        if (!PilotAccess::isAdmin($user)) { $query->where('store_id', $user->store_id ?: -1); }
+        $this->scopeVisibleContracts($query, $user);
         $contracts = $query->where('status', '!=', LeaseContract::STATUS_CANCELLED)->get();
         $today = Carbon::today('Asia/Ho_Chi_Minh');
 
@@ -767,14 +775,14 @@ class LeaseContractService
         $totalOverdue = 0;
         $bucketCounts = [
             'current' => 0,
-            'overdue_1_7' => 0,
-            'overdue_8_30' => 0,
+            'overdue_1_5' => 0,
+            'overdue_6_30' => 0,
             'overdue_30_plus' => 0,
         ];
         $bucketAmounts = [
             'current' => 0,
-            'overdue_1_7' => 0,
-            'overdue_8_30' => 0,
+            'overdue_1_5' => 0,
+            'overdue_6_30' => 0,
             'overdue_30_plus' => 0,
         ];
 
@@ -801,12 +809,12 @@ class LeaseContractService
             if ($maxOverdueDays > 30) {
                 $bucketCounts['overdue_30_plus']++;
                 $bucketAmounts['overdue_30_plus'] += $cOverdueAmount;
-            } elseif ($maxOverdueDays >= 8) {
-                $bucketCounts['overdue_8_30']++;
-                $bucketAmounts['overdue_8_30'] += $cOverdueAmount;
+            } elseif ($maxOverdueDays >= 6) {
+                $bucketCounts['overdue_6_30']++;
+                $bucketAmounts['overdue_6_30'] += $cOverdueAmount;
             } elseif ($maxOverdueDays >= 1) {
-                $bucketCounts['overdue_1_7']++;
-                $bucketAmounts['overdue_1_7'] += $cOverdueAmount;
+                $bucketCounts['overdue_1_5']++;
+                $bucketAmounts['overdue_1_5'] += $cOverdueAmount;
             } else {
                 $bucketCounts['current']++;
                 $paid = (float)$contract->allocations->filter(function ($allocation) {
@@ -846,9 +854,37 @@ class LeaseContractService
             'debtNotes.createdByUser',
             'assignedUser:id,name',
         ])->findOrFail($contractId);
-        PilotAccess::store($user ?: auth()->user(), $contract->store_id);
+        $this->authorizeContract($contract, $user ?: auth()->user());
         $metrics = $this->index(['id' => $contractId, 'page' => 1], $user ?: auth()->user())->first();
         foreach (['total_paid','outstanding_balance','overdue_amount','overdue_days','aging_bucket','latest_note'] as $key) { $contract->$key = $metrics->$key; }
         return $contract;
+    }
+
+    private function scopeVisibleContracts($query, User $user): void
+    {
+        $role = PermissionAccess::getRoleSlug($user);
+        if (PilotAccess::isAdmin($user) || in_array($role, ['ban-giam-doc', 'ke-toan'], true)) {
+            return;
+        }
+        if (Schema::hasColumn('lease_contracts', 'origin_store_id')) {
+            $query->where('origin_store_id', $user->store_id ?: -1);
+        } else {
+            $query->where('store_id', $user->store_id ?: -1);
+        }
+        if ($role === 'nhan-vien') {
+            $query->where('assigned_user_id', $user->id);
+        }
+    }
+
+    public function authorizeContract(LeaseContract $contract, ?User $user): void
+    {
+        if (!$user) {
+            throw new AuthorizationException('Bạn chưa đăng nhập.');
+        }
+        $query = LeaseContract::whereKey($contract->id);
+        $this->scopeVisibleContracts($query, $user);
+        if (!$query->exists()) {
+            throw new AuthorizationException('Bạn không có quyền truy cập hợp đồng của cơ sở này.');
+        }
     }
 }

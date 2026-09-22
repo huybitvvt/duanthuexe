@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Store;
 use App\Http\Controllers\Controller;
 use App\Http\Services\StoreService;
 use App\Models\Store;
-use App\Repositories\StoreRepository;
+use App\Support\HimotoStores;
 use Illuminate\Http\Request;
 
 class StoreController extends Controller
@@ -29,45 +29,29 @@ class StoreController extends Controller
 
     public function store(Request $request)
     {
-        $this->validate($request, [
-            'store_name' => 'required|unique:stores,store_name',
-            'store_phone' => 'required|unique:stores,store_phone',
-        ], [
-            'store_name.unique' => 'Tên cửa hàng đã tồn tại',
-            'store_phone.unique' => 'Số điện thoại đã tồn tại'
-        ]);
-        $result = $this->storeService->store($request->all());
-        return $this->successResponse($result, 'Tạo mới thành công');
+        return $this->errorResponse('Danh mục kho HIMOTO cố định 6 kho; không tạo thêm kho mới.', 422);
     }
 
     public function update(Request $request, Store $store)
     {
-        $this->validate($request, [
-            'store_name' => 'required|unique:stores,store_name,' . $store->id,
-            'store_phone' => 'required|unique:stores,store_phone,' . $store->id,
-        ], [
-            'store_name.required' => 'Tên cửa hàng không được để trống',
-            'store_name.unique' => 'Tên cửa hàng đã tồn tại',
-            'store_phone.required' => 'Số điện thoại không được để trống',
-            'store_phone.unique' => 'Số điện thoại đã tồn tại'
-        ]);
-        $result = $this->storeService->update($store->id, $request->all());
-        return $this->successResponse($result, 'Sửa thành công');
+        if (!HimotoStores::isCanonical($store)) {
+            return $this->errorResponse('Không thể sửa kho ngoài danh mục 6 kho HIMOTO.', 422);
+        }
+        $data = $request->validate(['store_phone' => 'nullable|string|max:30']);
+        $store->update($data);
+        return $this->successResponse($store->fresh(), 'Đã cập nhật số liên hệ kho.');
     }
 
     public function show(Store $store)
     {
+        if (!HimotoStores::isCanonical($store)) {
+            return $this->errorResponse('Kho không còn nằm trong danh mục 6 kho HIMOTO.', 404);
+        }
         return $this->successResponse($store, 'Lấy dữ liệu thành công');
     }
 
 	public function destroy(Store $store): \Illuminate\Http\JsonResponse
     {
-        $deleted = $store->update(['status' => 'closing']);
-        // $deleted = $store->delete();
-        if ($deleted) {
-            return $this->successResponse(true, 'Store đã được xóa thành công');
-        } else {
-            return $this->errorResponse('Xảy ra lỗi khi xóa store', 500);
-        }
+        return $this->errorResponse('Không thể xóa kho chuẩn. Chỉ migration quản trị danh mục mới được xử lý kho thừa.', 422);
     }
 }

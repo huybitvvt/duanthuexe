@@ -586,8 +586,9 @@ class HimotoCashRegisterAndHrTest extends TestCase
     public function testLeaseContractEarlySettlement()
     {
         $ltoStore = Store::create([
-            'store_name' => 'Kho Thuê Sở Hữu',
-            'store_address' => 'Hà Nội',
+            'code' => 'CS6',
+            'store_name' => 'Kho sở hữu',
+            'store_address' => 'Kho sở hữu',
             'kind' => Store::KIND_LEASE_TO_OWN,
         ]);
         DB::table('cash')->insert(['store_id' => $ltoStore->id, 'status' => 'Active']);
@@ -643,7 +644,8 @@ class HimotoCashRegisterAndHrTest extends TestCase
     public function testLeasePaymentReversal()
     {
         $ltoStore = Store::create([
-            'store_name' => 'Kho Thuê Sở Hữu 2',
+            'code' => 'CS6',
+            'store_name' => 'Kho sở hữu',
             'kind' => Store::KIND_LEASE_TO_OWN,
         ]);
         DB::table('cash')->insert(['store_id' => $ltoStore->id, 'status' => 'Active']);
