@@ -28,6 +28,27 @@ Vue.component('ValidationProvider', ValidationProvider);
 // install rules and localization
 const validationRules = { confirmed, email, min, min_value, numeric, required };
 Object.keys(validationRules).forEach(rule => extend(rule, validationRules[rule]));
+
+extend('phone_format', {
+    validate: value => {
+        if (!value) return true;
+        const phone = String(value).replace(/[\s().-]+/g, '');
+        const validVN = /^(?:0\d{9}|\+84\d{9})$/.test(phone);
+        const validIntl = /^\+[1-9]\d{7,14}$/.test(phone);
+        return validVN || validIntl;
+    },
+    message: 'Số điện thoại phải bắt đầu bằng 0 (10 số), +84 (VN) hoặc + mã nước ngoài (8-15 số).'
+});
+
+extend('cccd_format', {
+    validate: value => {
+        if (!value) return true;
+        const cccd = String(value).trim();
+        return /^(?:\d{9}|\d{12})$/.test(cccd);
+    },
+    message: 'Số CMTND/CCCD phải đúng đủ 9 hoặc 12 chữ số.'
+});
+
 localize('vi', vi);
 configure({
     classes: {

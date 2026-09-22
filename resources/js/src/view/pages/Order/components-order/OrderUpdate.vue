@@ -33,7 +33,7 @@
 							<h6 v-if="id" class="mb-0 mr-3">ID hợp đồng: #{{ id }}</h6>
 							<div class="d-inline-flex align-items-center">
 								<span class="badge badge-primary px-3 py-2" style="font-size: 13px;">
-									Số HĐ: <strong>{{ order.contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
+									Số HĐ: <strong>{{ order.contract_number || order.manual_contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
 								</span>
 								<span v-if="id && is_deposit_contract_mode" class="font-weight-bold badge badge-success ml-2">Cọc giữ xe</span>
 								<span v-if="id && order.order_status === 'draft'" class="font-weight-bold badge badge-info ml-2">Bản nháp giao xe</span>
@@ -138,6 +138,17 @@
 							<label><strong>Liên kết nguồn khách</strong></label>
 							<el-input v-model="order.customer_source_url" placeholder="https://..."></el-input>
 						</div>
+						<div class="col-md-6 form-group">
+							<label>
+								<strong>Mã hợp đồng tự tạo / Số HĐ giấy</strong>
+								<small class="text-muted ml-1">(nhập nếu dùng HĐ giấy hoặc tạo mã riêng)</small>
+							</label>
+							<el-input
+								v-model="order.manual_contract_number"
+								placeholder="VD: 2026/09/23-0001 hoặc số trên hợp đồng giấy"
+								clearable
+							></el-input>
+						</div>
 						<div class="col-md-6 form-group" v-if="order.is_authorized_contract">
 							<label><strong>Bên được ủy quyền</strong></label>
 							<el-input placeholder="Tên đơn vị / cá nhân được ủy quyền" v-model="order.contract_authorization_party_name"></el-input>
@@ -174,8 +185,8 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>SĐT</strong> <span class="text-danger">(*)</span></label>
-                            <ValidationProvider vid="phone" name="Số điện thoại khách hàng" rules="required|numeric"
+                            <label><strong>SĐT</strong> <span class="text-danger" v-if="!isDraftMode">(*)</span></label>
+                            <ValidationProvider vid="phone" name="Số điện thoại khách hàng" :rules="isDraftMode ? 'phone_format' : 'required|phone_format'"
                                 v-slot="{ errors }">
                                 <el-input clearable placeholder="SĐT khách hàng" v-model="order.customer_phone"
                                     @blur="onBlurCardId($event, errors)" @change="onChangeCardId($event)"
@@ -187,8 +198,8 @@
 
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Số CMTND/CCCD</strong> <span class="text-danger">(*)</span></label>
-                            <ValidationProvider vid="cccd" name="Số CMTND/CCCD" rules="required|numeric"
+                            <label><strong>Số CMTND/CCCD</strong> <span class="text-danger" v-if="!isDraftMode">(*)</span></label>
+                            <ValidationProvider vid="cccd" name="Số CMTND/CCCD" :rules="isDraftMode ? 'cccd_format' : 'required|cccd_format'"
                                 v-slot="{ errors }">
                                 <el-input clearable placeholder="Số CMTND/CCCD" v-model="order.customer_id_card"
                                     @blur="onBlurCardId($event, errors)" @change="onChangeCardId($event)"
@@ -239,7 +250,10 @@
                                     <el-input size="small" placeholder="Mối quan hệ (bố, mẹ, vợ, chồng...)" v-model="order.relatives[0].relationship"></el-input>
                                 </div>
                                 <div class="col-md-4">
-                                    <el-input size="small" placeholder="SĐT người thân 1" v-model="order.relatives[0].phone"></el-input>
+                                    <ValidationProvider vid="relative_phone_0" name="SĐT người thân 1" rules="phone_format" v-slot="{ errors }">
+                                        <el-input size="small" placeholder="SĐT người thân 1" v-model="order.relatives[0].phone"></el-input>
+                                        <error-message :errors="errors" field="relative_phone_0"></error-message>
+                                    </ValidationProvider>
                                 </div>
                             </div>
                             <div class="d-flex align-items-center my-2 text-muted font-weight-bold" style="font-size: 12px;" v-if="order.relatives.length > 1">
@@ -253,7 +267,10 @@
                                     <el-input size="small" placeholder="Mối quan hệ" v-model="order.relatives[1].relationship"></el-input>
                                 </div>
                                 <div class="col-md-4">
-                                    <el-input size="small" placeholder="SĐT người thân 2" v-model="order.relatives[1].phone"></el-input>
+                                    <ValidationProvider vid="relative_phone_1" name="SĐT người thân 2" rules="phone_format" v-slot="{ errors }">
+                                        <el-input size="small" placeholder="SĐT người thân 2" v-model="order.relatives[1].phone"></el-input>
+                                        <error-message :errors="errors" field="relative_phone_1"></error-message>
+                                    </ValidationProvider>
                                 </div>
                             </div>
                         </div>
@@ -685,6 +702,8 @@ export default {
             order: {
 				created_at: new Date(),
                 contract_number: "",
+                manual_contract_number: "",
+                draft_reference: "",
                 contract_signed_on: new Date(),
                 is_authorized_contract: false,
                 contract_authorization_date: null,
@@ -788,6 +807,9 @@ export default {
     },
     computed: {
         ...mapGetters(["currentUser"]),
+        isDraftMode() {
+            return this.initialMode === 'draft' || (this.order && this.order.order_status === 'draft');
+        },
 		is_deposit_contract_mode() {
 			if (this.start_this_contract) {
 				return false; // Nếu người dùng chọn start_this_contract=true thì sẽ cần show các normal fields.
@@ -1078,6 +1100,9 @@ export default {
 			try {
 				const payload = {
 					...this.order,
+					contract_number: this.order.contract_number || this.order.manual_contract_number || "",
+					manual_contract_number: (this.order.manual_contract_number || "").trim(),
+					draft_reference: this.order.draft_reference || this.order.manual_contract_number || "",
 					customer_name: this.order.customer_name,
 					customer_phone: this.order.customer_phone,
 					customer_id_card: this.order.customer_id_card,
@@ -1425,6 +1450,8 @@ export default {
                         ...this.order,
                         ...res.data,
                         contract_number: res.data.contract_number || "",
+                        manual_contract_number: res.data.contract_number || res.data.draft_reference || "",
+                        draft_reference: res.data.draft_reference || "",
                         contract_is_locked: !!(res.data.contract_is_locked || (res.data.contract_snapshot && res.data.contract_snapshot.is_locked)),
                         contract_snapshot: res.data.contract_snapshot || null,
                         contract_signed_on: res.data.contract_signed_on || res.data.created_at || new Date(),
@@ -1662,6 +1689,8 @@ export default {
                     { name: "", relationship: "", phone: "" },
                 ],
                 contract_number: "",
+                manual_contract_number: "",
+                draft_reference: "",
                 contract_signed_on: new Date(),
                 is_authorized_contract: false,
                 contract_authorization_date: null,
@@ -1721,6 +1750,7 @@ export default {
 
             return {
                 ...this.order,
+                manual_contract_number: (this.order.manual_contract_number || "").trim(),
                 contract_signed_on: this.order.contract_signed_on ? moment(this.order.contract_signed_on).format('YYYY-MM-DD') : null,
                 contract_authorization_date: (this.order.is_authorized_contract && this.order.contract_authorization_date) ? moment(this.order.contract_authorization_date).format('YYYY-MM-DD') : null,
                 contract_authorization_party_name: this.order.is_authorized_contract ? (this.order.contract_authorization_party_name || "") : "",

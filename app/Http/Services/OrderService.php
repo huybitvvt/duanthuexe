@@ -244,6 +244,9 @@ class OrderService
 			} elseif ($dataOrder['order_status'] === OrderValidator::ORDER_DRAFT) {
 				$dataOrder['contract_number'] = null;
 				$dataOrder['contract_issued_at'] = null;
+				if ($manualNumber !== '') {
+					$dataOrder['draft_reference'] = $manualNumber;
+				}
 			} else {
 				// Sinh số HĐ dạng YYYY/MM/DD-0001
 				$dataOrder['contract_number'] = $manualNumber !== ''
@@ -257,9 +260,12 @@ class OrderService
 
 			if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)) {
 				$dataOrder['order_status'] = OrderValidator::ORDER_DRAFT;
+				if ($manualNumber !== '') {
+					$dataOrder['draft_reference'] = $manualNumber;
+				}
 			} elseif ($order->order_status === OrderValidator::ORDER_DRAFT) {
 				$dataOrder['order_status'] = OrderValidator::ORDER_RENTING;
-				if (empty($order->contract_number)) {
+				if (empty($order->contract_number) || $manualNumber !== '') {
 					$signDate = $request->get('contract_signed_on') ?: ($order->contract_signed_on ?: Carbon::now('Asia/Ho_Chi_Minh'));
 					$paperNumber = $manualNumber !== '' ? $manualNumber : trim((string) ($dataOrder['draft_reference'] ?? $order->draft_reference ?? ''));
 					if ($paperNumber !== '' && Order::where('contract_number', $paperNumber)->where('id', '!=', $order->id)->exists()) {
@@ -267,6 +273,13 @@ class OrderService
 					}
 					$dataOrder['contract_number'] = $paperNumber !== '' ? $paperNumber : ContractNumberService::generate($signDate);
 					$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
+				}
+			} else {
+				if ($manualNumber !== '' && $manualNumber !== $order->contract_number) {
+					if (Order::where('contract_number', $manualNumber)->where('id', '!=', $order->id)->exists()) {
+						throw ValidationException::withMessages(['manual_contract_number' => 'Mã hợp đồng này đã được sử dụng cho hợp đồng khác.']);
+					}
+					$dataOrder['contract_number'] = $manualNumber;
 				}
 			}
 
