@@ -13,6 +13,14 @@
           {{ exporting ? 'Đang xuất...' : 'Xuất Excel công nợ' }}
         </button>
 
+        <router-link
+          :to="{ name: 'warehouse', query: { store_id: 6 } }"
+          class="btn btn-outline-warning font-weight-bold mr-2"
+          title="Xem kho xe riêng của phòng Thuê sở hữu"
+        >
+          <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê sở hữu &rarr;
+        </router-link>
+
         <button class="btn btn-primary font-weight-bold mr-2" @click="openCreateModal">
           Tạo HĐ Thuê sở hữu
         </button>
@@ -346,22 +354,37 @@
                         <span class="font-weight-bold">{{ act.label }}</span>
                       </b-dropdown-item>
                     </b-dropdown>
-                    <button type="button" class="btn btn-sm btn-light-info font-weight-bold ml-1"
-                      :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'pdf')">
-                      Hợp đồng PDF
-                    </button>
-                    <button type="button" class="btn btn-sm btn-light-info font-weight-bold ml-1"
-                      :disabled="downloadingDoc === item.id" @click="openLegalDocument(item, 'annex')">
-                      Phụ lục SH{{ item.installment_count }}
-                    </button>
-                    <button type="button" class="btn btn-sm btn-light-info font-weight-bold ml-1"
-                      :disabled="downloadingDoc === item.id" @click="openLegalDocument(item, 'handover')">
-                      Biên bản bàn giao
-                    </button>
-                    <button type="button" class="btn btn-sm btn-light-secondary font-weight-bold ml-1"
-                      :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'debt-statement.pdf')">
-                      Đối soát nợ
-                    </button>
+                    <!-- Dropdown In tài liệu: đủ 5 mẫu hợp đồng & biên bản theo yêu cầu -->
+                    <b-dropdown
+                      size="sm"
+                      variant="light-info"
+                      class="ml-1"
+                      right
+                      text="In tài liệu"
+                    >
+                      <b-dropdown-header class="font-size-xs text-uppercase font-weight-bold">
+                        5 Mẫu hợp đồng & Biên bản
+                      </b-dropdown-header>
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'pdf')">
+                        1. Hợp đồng thuê xe (mẫu phổ thông)
+                      </b-dropdown-item>
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openLegalDocument(item, 'handover')">
+                        2. Biên bản bàn giao xe (mẫu 2 liên)
+                      </b-dropdown-item>
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openAnnexDocument(item, 6)">
+                        3. Phụ lục HĐ thuê 6 tháng (SH06)
+                      </b-dropdown-item>
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openAnnexDocument(item, 12)">
+                        4. Phụ lục HĐ thuê 12 tháng (SH12)
+                      </b-dropdown-item>
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openAnnexDocument(item, 24)">
+                        5. Phụ lục HĐ thuê 24 tháng (SH24)
+                      </b-dropdown-item>
+                      <b-dropdown-divider></b-dropdown-divider>
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'debt-statement.pdf')">
+                        Bảng đối soát công nợ PDF
+                      </b-dropdown-item>
+                    </b-dropdown>
                   </div>
                 </td>
               </tr>
@@ -478,6 +501,10 @@ export default {
     },
   },
   methods: {
+    openAnnexDocument(item, months) {
+      const query = months ? `?months=${months}` : '';
+      this.openLegalDocument(item, `annex${query}`);
+    },
     async openLegalDocument(item, path) {
       const tab = window.open("", "_blank");
       this.downloadingDoc = item.id;

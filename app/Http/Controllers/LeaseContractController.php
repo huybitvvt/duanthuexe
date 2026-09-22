@@ -245,11 +245,12 @@ class LeaseContractController extends Controller
         return $this->legalHtml($documents->leaseHandover($contract));
     }
 
-    public function annex(int $id, HimotoLegalDocumentService $documents)
+    public function annex(int $id, HimotoLegalDocumentService $documents, Request $request)
     {
         $contract = LeaseContract::findOrFail($id);
         $this->leaseService->authorizeContract($contract, Auth::user());
-        return $this->legalHtml($documents->leaseAnnex($contract));
+        $months = $request->query('months');
+        return $this->legalHtml($documents->leaseAnnex($contract, $months ? (int)$months : null));
     }
 
     private function legalHtml(string $html)

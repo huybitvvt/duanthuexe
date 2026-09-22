@@ -47,13 +47,14 @@ class HimotoLegalDocumentService
         ])->render();
     }
 
-    public function leaseAnnex(LeaseContract $contract): string
+    public function leaseAnnex(LeaseContract $contract, ?int $overrideMonths = null): string
     {
         $data = $this->leaseData($contract);
-        $months = (int) $data['months'];
+        $months = $overrideMonths ?: (int) $data['months'];
         if (!in_array($months, [6, 12, 24], true)) {
             throw ValidationException::withMessages(['installment_count' => 'Chỉ có phụ lục SH06, SH12 hoặc SH24.']);
         }
+        $data['months'] = $months;
         $data['variant'] = [6 => 'SH06', 12 => 'SH12', 24 => 'SH24'][$months];
         return view('documents.himoto-lease-annex', $data)->render();
     }
