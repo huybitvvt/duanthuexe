@@ -39,7 +39,7 @@
 					<div class="legal-references mt-1">
 						<p class="legal-line">- Căn cứ Bộ Luật Dân sự số 91/2005/QH13 đã được Quốc Hội ban hành ngày 24/11/2015;</p>
 						<p class="legal-line">- Căn cứ Luật Thương mại số 36/2005/QH11 đã được Quốc Hội thông qua ngày 14/06/2005;</p>
-						<p class="legal-line">- Căn cứ Hợp đồng ủy quyền ký ngày: {{ doc.lessor.authorization.date || '........................' }} giữa Công ty CP TMDV Himoto Việt Nam và {{ doc.lessor.authorization.party_name || '...................................................................................' }}</p>
+						<p class="legal-line">- Căn cứ Hợp đồng ủy quyền ký ngày: {{ (doc.lessor.authorization && doc.lessor.authorization.date) || '........................' }} giữa Công ty CP TMDV Himoto Việt Nam và {{ (doc.lessor.authorization && doc.lessor.authorization.party_name) || representativeNameA }}</p>
 						<p class="legal-line">- Căn cứ vào nhu cầu và khả năng cung ứng của các bên.</p>
 					</div>
 
@@ -52,19 +52,13 @@
 						<div class="party-name"><strong>Bên A (Bên cho thuê): {{ doc.lessor.company_name }}</strong></div>
 						<div class="party-row d-flex justify-content-between">
 							<span>- MST: {{ doc.lessor.tax_code }}</span>
-							<span>- Đại diện Ông/Bà: <strong>{{ doc.lessor.representative_name }}</strong></span>
-							<span>- Chức vụ: {{ doc.lessor.representative_title }}</span>
-						</div>
-						<div class="party-row">- ĐC trụ sở chính: {{ doc.lessor.head_office }}</div>
-						<div class="party-row d-flex justify-content-between">
 							<span class="text-truncate mr-2">- Tại ĐĐ kinh doanh: <strong>{{ doc.lessor.branch_name }}</strong> ({{ doc.lessor.branch_address }})</span>
 							<span class="flex-shrink-0">SĐT: <strong>{{ doc.lessor.branch_phone }}</strong></span>
 						</div>
-						<div class="party-row" v-if="doc.lessor.authorization && doc.lessor.authorization.has_authorization">
-							- Đại diện ủy quyền: <strong>{{ doc.lessor.authorization.party_name }}</strong> <span v-if="doc.lessor.authorization.date">(Ngày {{ doc.lessor.authorization.date }})</span>
-						</div>
-						<div class="party-row" v-else>
-							- Đại diện ủy quyền: ...................................................................................................................................
+						<div class="party-row">- ĐC trụ sở chính: {{ doc.lessor.head_office }}</div>
+						<div class="party-row d-flex justify-content-between">
+							<span>- Đại diện ủy quyền: <strong class="text-uppercase">{{ representativeNameA }}</strong> <span v-if="doc.lessor.authorization && doc.lessor.authorization.date" class="font-italic small ml-1">(Ngày {{ doc.lessor.authorization.date }})</span></span>
+							<span>- Chức vụ: <strong>{{ doc.lessor.representative_title || 'Nhân viên quầy giao dịch' }}</strong></span>
 						</div>
 					</div>
 
@@ -153,7 +147,7 @@
 							<div class="sig-role font-weight-bold">ĐẠI DIỆN BÊN A</div>
 							<div class="sig-hint">(Ký, đóng dấu, ghi rõ họ tên)</div>
 							<div class="sig-space"></div>
-							<div class="sig-name font-weight-bold">{{ doc.signers.signer_a_name }}</div>
+							<div class="sig-name font-weight-bold text-uppercase">{{ doc.signers.signer_a_name || representativeNameA }}</div>
 						</div>
 						<div class="sig-block text-center">
 							<div class="sig-role font-weight-bold">BÊN B</div>
@@ -210,7 +204,7 @@
 							<div class="sig-role font-weight-bold">ĐẠI DIỆN BÊN A</div>
 							<div class="sig-hint">(Ký, đóng dấu, ghi rõ họ tên)</div>
 							<div class="sig-space-sm"></div>
-							<div class="sig-name font-weight-bold">{{ doc.signers.signer_a_name }}</div>
+							<div class="sig-name font-weight-bold text-uppercase">{{ doc.signers.signer_a_name || representativeNameA }}</div>
 						</div>
 						<div class="sig-block text-center">
 							<div class="sig-role font-weight-bold">BÊN B</div>
@@ -237,7 +231,7 @@
 									</td>
 									<td class="receipt-td-label" style="width: 25%;">Xác nhận Bên A:</td>
 									<td class="receipt-td-val" style="width: 25%;">
-										{{ doc.return_confirmation.signer_a_name || '................................' }}
+										{{ doc.return_confirmation.signer_a_name || representativeNameA }}
 									</td>
 								</tr>
 								<tr>
@@ -307,7 +301,7 @@
 					<div class="text-center">
 						<div class="font-weight-bold">ĐẠI DIỆN BÊN A</div>
 						<div class="sig-space"></div>
-						<div class="font-weight-bold">{{ doc.signers.signer_a_name }}</div>
+						<div class="font-weight-bold text-uppercase">{{ doc.signers.signer_a_name || representativeNameA }}</div>
 					</div>
 					<div class="text-center">
 						<div class="font-weight-bold">BÊN B</div>
@@ -346,6 +340,12 @@ export default {
 		},
 	},
 	computed: {
+		representativeNameA() {
+			const rep = this.doc?.lessor?.representative_name;
+			const auth = this.doc?.lessor?.authorization?.party_name;
+			const signer = this.doc?.signers?.signer_a_name;
+			return (rep && rep !== '........................') ? rep : (auth || signer || '................................');
+		},
 		primaryVehicle() {
 			if (this.doc.primary_vehicle && (this.doc.primary_vehicle.license || this.doc.primary_vehicle.name)) {
 				return this.doc.primary_vehicle;

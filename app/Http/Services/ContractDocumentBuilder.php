@@ -134,6 +134,12 @@ class ContractDocumentBuilder
             $previewNumber = trim((string) ($data['manual_contract_number'] ?? ''));
         }
 
+        $signerAName = trim((string)($data['contract_signer_a_name'] ?? ''));
+        if ($signerAName === '' && !empty($respUserName)) {
+            $signerAName = $respUserName;
+        }
+        $formattedSignerA = $signerAName !== '' ? mb_strtoupper($signerAName, 'UTF-8') : ($respUserName ? mb_strtoupper($respUserName, 'UTF-8') : '........................');
+
         $dto = [
             'is_preview' => true,
             'is_locked' => false,
@@ -156,16 +162,16 @@ class ContractDocumentBuilder
             'lessor' => [
                 'company_name' => config('contract.company_name', 'CÔNG TY CP THƯƠNG MẠI DỊCH VỤ HIMOTO VIỆT NAM'),
                 'tax_code' => config('contract.tax_code', '0110863055'),
-                'representative_name' => mb_strtoupper($data['contract_signer_a_name'] ?? ($respUserName ?: '........................'), 'UTF-8'),
+                'representative_name' => $formattedSignerA,
                 'representative_title' => 'Nhân viên quầy giao dịch',
                 'head_office' => config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN'),
                 'branch_name' => $store ? $store->store_name : 'Himoto Chi nhánh',
                 'branch_address' => $store ? $store->store_address : '',
                 'branch_phone' => $store ? $store->store_phone : '',
                 'authorization' => [
-                    'has_authorization' => !empty($authParty) || !empty($authDate),
+                    'has_authorization' => !empty($authParty) || !empty($authDate) || $signerAName !== '',
                     'date' => $authDate,
-                    'party_name' => $authParty,
+                    'party_name' => $authParty ?: ($signerAName !== '' ? $formattedSignerA : ''),
                 ],
             ],
             'customer' => [
@@ -406,16 +412,16 @@ class ContractDocumentBuilder
             'lessor' => [
                 'company_name' => $snapshot['lessor']['company_name'] ?? config('contract.company_name', 'CÔNG TY CP THƯƠNG MẠI DỊCH VỤ HIMOTO VIỆT NAM'),
                 'tax_code' => $snapshot['lessor']['tax_code'] ?? config('contract.tax_code', '0110863055'),
-                'representative_name' => $snapshot['lessor']['representative_name'] ?? ($order->contract_signer_a_name ?: ($respUserName ?: '........................')),
+                'representative_name' => mb_strtoupper($snapshot['lessor']['representative_name'] ?? ($order->contract_signer_a_name ?: ($respUserName ?: '........................')), 'UTF-8'),
                 'representative_title' => $snapshot['lessor']['representative_title'] ?? 'Nhân viên quầy giao dịch',
                 'head_office' => $snapshot['lessor']['head_office_address'] ?? ($snapshot['lessor']['head_office'] ?? config('contract.head_office')),
                 'branch_name' => $snapshot['lessor']['branch_name'] ?? ($store ? $store->store_name : 'Himoto Chi nhánh'),
                 'branch_address' => $snapshot['lessor']['branch_address'] ?? ($store ? $store->store_address : ''),
                 'branch_phone' => $snapshot['lessor']['contact_phone'] ?? ($snapshot['lessor']['branch_phone'] ?? ($store ? $store->store_phone : '')),
                 'authorization' => [
-                    'has_authorization' => !empty($authParty) || !empty($authDate),
+                    'has_authorization' => !empty($authParty) || !empty($authDate) || !empty($order->contract_signer_a_name) || !empty($respUserName),
                     'date' => $authDate,
-                    'party_name' => $authParty,
+                    'party_name' => $authParty ?: mb_strtoupper($order->contract_signer_a_name ?: ($respUserName ?: ''), 'UTF-8'),
                 ],
             ],
             'customer' => [

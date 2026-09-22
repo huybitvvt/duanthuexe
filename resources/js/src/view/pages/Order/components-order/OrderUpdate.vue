@@ -104,14 +104,31 @@
 							<el-date-picker class="w-100" v-model="order.contract_authorization_date" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Ngày HĐ ủy quyền"></el-date-picker>
 						</div>
 						<div class="col-md-6 form-group">
-							<label><strong>Nhân viên đại diện Bên A tại ca</strong></label>
-							<el-select v-model="order.contract_responsible_user_id" filterable clearable class="w-100" placeholder="Chọn nhân viên" @change="onResponsibleStaffChange">
-								<el-option v-for="staff in staffByStore" :key="staff.id" :label="staff.name" :value="staff.id"></el-option>
+							<label><strong>Đại diện Ủy quyền Bên A (Himoto)</strong></label>
+							<el-select
+								v-model="order.contract_signer_a_name"
+								filterable
+								allow-create
+								default-first-option
+								clearable
+								class="w-100"
+								placeholder="Chọn nhân viên hoặc điền tên"
+								@change="onSignerASelectChange"
+							>
+								<el-option
+									v-for="staff in staffByStore"
+									:key="staff.id"
+									:label="staff.name"
+									:value="staff.name"
+								>
+									<span style="float: left">{{ staff.name }}</span>
+									<span style="float: right; color: #8492a6; font-size: 12px">{{ staff.phone || 'Nhân viên' }}</span>
+								</el-option>
 							</el-select>
 						</div>
 						<div class="col-md-6 form-group">
-							<label><strong>Tên người đại diện in trên hợp đồng</strong></label>
-							<el-input v-model="order.contract_signer_a_name" placeholder="Ông/Bà nhân viên đang trực ca"></el-input>
+							<label><strong>Chức vụ đại diện</strong></label>
+							<el-input value="Nhân viên quầy giao dịch" disabled placeholder="Nhân viên quầy giao dịch"></el-input>
 						</div>
 						<div class="col-md-6 form-group">
 							<label><strong>Nguồn khách</strong></label>
@@ -450,11 +467,27 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 form-group">
-                            <label><strong>Người đại diện ký Bên A (Himoto)</strong></label>
-                            <el-input
-                                placeholder="Tên nhân viên đại diện Bên A"
-                                v-model="order.contract_signer_a_name">
-                            </el-input>
+                            <label><strong>Đại diện Ủy quyền Bên A (Himoto)</strong></label>
+                            <el-select
+                                v-model="order.contract_signer_a_name"
+                                filterable
+                                allow-create
+                                default-first-option
+                                clearable
+                                class="w-100"
+                                placeholder="Chọn nhân viên hoặc điền tên"
+                                @change="onSignerASelectChange"
+                            >
+                                <el-option
+                                    v-for="staff in staffByStore"
+                                    :key="staff.id"
+                                    :label="staff.name"
+                                    :value="staff.name"
+                                >
+                                    <span style="float: left">{{ staff.name }}</span>
+                                    <span style="float: right; color: #8492a6; font-size: 12px">{{ staff.phone || 'Nhân viên' }}</span>
+                                </el-option>
+                            </el-select>
                         </div>
                         <div class="col-md-6 form-group">
                             <label><strong>Người ký Bên B (Khách thuê)</strong></label>
@@ -1326,17 +1359,39 @@ export default {
 			try {
 				const res = await this.$store.dispatch(USER_GET_STAFF_BY_STORE, { store_id: storeId });
 				this.staffByStore = res?.data || [];
-				if (!this.order.contract_responsible_user_id && this.currentUser?.id) {
-					this.order.contract_responsible_user_id = this.currentUser.id;
-					this.order.contract_signer_a_name = this.order.contract_signer_a_name || this.currentUser.name;
+				if (!this.order.contract_signer_a_name) {
+					if (this.order.contract_responsible_user_id) {
+						const staff = this.staffByStore.find(item => Number(item.id) === Number(this.order.contract_responsible_user_id));
+						if (staff) this.order.contract_signer_a_name = staff.name;
+					} else if (this.currentUser?.id) {
+						this.order.contract_responsible_user_id = this.currentUser.id;
+						this.order.contract_signer_a_name = this.currentUser.name;
+					}
 				}
 			} catch (_) {
 				this.staffByStore = [];
 			}
 		},
+		onSignerASelectChange(val) {
+			if (!val) {
+				this.order.contract_signer_a_name = "";
+				this.order.contract_responsible_user_id = null;
+				return;
+			}
+			const staff = this.staffByStore.find(item => item.name === val || String(item.id) === String(val));
+			if (staff) {
+				this.order.contract_signer_a_name = staff.name;
+				this.order.contract_responsible_user_id = staff.id;
+			} else {
+				this.order.contract_signer_a_name = val;
+			}
+		},
 		onResponsibleStaffChange(userId) {
 			const staff = this.staffByStore.find(item => Number(item.id) === Number(userId));
-			if (staff) this.order.contract_signer_a_name = staff.name;
+			if (staff) {
+				this.order.contract_signer_a_name = staff.name;
+				this.order.contract_responsible_user_id = staff.id;
+			}
 		},
 
         deleteFee(id) {
