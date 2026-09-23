@@ -140,8 +140,25 @@ class HimotoReminderAndGpsTest extends TestCase
                 $table->unsignedBigInteger('store_id')->nullable();
                 $table->string('order_status')->default('renting');
                 $table->unsignedInteger('out_dated_at')->default(0);
+                $table->decimal('total', 15, 2)->default(0);
+                $table->decimal('pid', 15, 2)->default(0);
+                $table->decimal('paid', 15, 2)->default(0);
+                $table->decimal('outdate_or_early_amount', 15, 2)->default(0);
                 $table->timestamps();
                 $table->softDeletes();
+            });
+        }
+
+        if (!Schema::hasTable('debt_notes')) {
+            Schema::create('debt_notes', function (Blueprint $table) {
+                $table->bigIncrements('id');
+                $table->unsignedBigInteger('lease_contract_id')->index();
+                $table->unsignedBigInteger('customer_id')->nullable()->index();
+                $table->text('note_content');
+                $table->date('appointment_date')->nullable();
+                $table->string('debt_classification', 32)->default('normal');
+                $table->unsignedBigInteger('created_by')->nullable();
+                $table->timestamps();
             });
         }
 
@@ -394,6 +411,9 @@ class HimotoReminderAndGpsTest extends TestCase
             'customer_id' => $customer->id,
             'contract_number' => 'HĐ-TEST-OVERDUE-01',
             'order_status' => 'renting',
+            'total' => 1000000,
+            'pid' => 500000,
+            'outdate_or_early_amount' => 100000,
         ]);
         $reminder = CustomerReminderOutbox::create([
             'contract_type' => 'rental_order',
@@ -426,12 +446,74 @@ class HimotoReminderAndGpsTest extends TestCase
         $this->assertCount(1, $item['customer_relatives']);
         $this->assertSame('Nguyễn Thị Vợ', $item['customer_relatives'][0]['name']);
         $this->assertSame('Nợ sớm', $item['auto_debt_group']);
-        $this->assertIsNumeric($item['debt_amount']);
+        $this->assertSame(600000.0, (float) $item['debt_amount']);
         $this->assertTrue($item['contacted_today']);
         $this->assertStringContainsString('Hứa thanh toán', $item['last_contact_note']);
         $this->assertStringContainsString('500.000đ', $item['last_contact_note']);
         $this->assertArrayHasKey('stats', $list);
         $this->assertGreaterThanOrEqual(1, $list['stats']['overdue_1_5']);
+    }
+
+    public function test_lease_contact_note_is_mirrored_and_paid_installment_leaves_action_list()
+    {
+        require_once __DIR__ . '/../../database/migrations/2026_09_22_000004_create_reminder_contact_logs.php';
+        (new \CreateReminderContactLogs())->up();
+
+        $store = Store::create(['store_name' => 'Kho online']);
+        $customer = Customer::create(['name' => 'Khách thuê sở hữu', 'phone' => '0988111222']);
+        $vehicle = Vehicle::create(['name' => 'Xe điện', 'license' => '29X1-12345', 'store_id' => $store->id]);
+        $contract = LeaseContract::create([
+            'contract_code' => 'SH-NOTE-01',
+            'customer_id' => $customer->id,
+            'vehicle_id' => $vehicle->id,
+            'store_id' => $store->id,
+            'start_date' => Carbon::today(),
+            'total_amount' => 12000000,
+            'deposit_amount' => 0,
+            'installment_count' => 12,
+            'period_amount' => 1000000,
+            'status' => LeaseContract::STATUS_ACTIVE,
+        ]);
+        $installment = LeaseInstallment::create([
+            'lease_contract_id' => $contract->id,
+            'period_number' => 1,
+            'due_date' => Carbon::today()->subDay(),
+            'amount_due' => 1000000,
+            'amount_paid' => 0,
+            'status' => LeaseInstallment::STATUS_UNPAID,
+        ]);
+        $reminder = CustomerReminderOutbox::create([
+            'contract_type' => 'lease',
+            'contract_id' => $contract->id,
+            'installment_id' => $installment->id,
+            'customer_id' => $customer->id,
+            'recipient_phone' => $customer->phone,
+            'stage' => 'overdue_1_5d',
+            'message_content' => 'Nhắc nợ thuê sở hữu',
+            'status' => 'pending',
+            'scheduled_at' => Carbon::now(),
+            'idempotency_key' => 'lease-note-mirror-1',
+        ]);
+        $admin = User::create(['name' => 'Quản trị viên', 'role_id' => 1]);
+
+        $this->reminderService->recordContact($reminder->id, 'Khách hẹn thanh toán', $admin, [
+            'action' => 'promise',
+            'appointment_date' => Carbon::tomorrow()->toDateString(),
+        ]);
+
+        $this->assertDatabaseHas('debt_notes', [
+            'lease_contract_id' => $contract->id,
+            'customer_id' => $customer->id,
+        ]);
+        $this->assertSame(1, $this->reminderService->getStaffActionList([], $admin)['total']);
+
+        $installment->update([
+            'status' => LeaseInstallment::STATUS_PAID,
+            'amount_paid' => 1000000,
+            'paid_at' => Carbon::today(),
+        ]);
+
+        $this->assertSame(0, $this->reminderService->getStaffActionList([], $admin)['total']);
     }
 }
 

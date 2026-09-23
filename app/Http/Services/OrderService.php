@@ -389,6 +389,8 @@ class OrderService
 			'bank_id' => $bank_amount > 0 && isset($payment_method['bank_id']) && is_numeric($payment_method['bank_id'])
 				? intval($payment_method['bank_id'])
 				: null,
+			'unregistered_bank' => $bank_amount > 0 && !empty($payment_method['unregistered_bank']),
+			'other_method_note' => trim((string)($payment_method['other_method_note'] ?? '')),
 			'bank_transfer_amount' => $bank_amount,
 			'cash_amount' => $cash_amount,
 		];

@@ -57,7 +57,7 @@
 						</div>
 						<div class="party-row">- ĐC trụ sở chính: {{ doc.lessor.head_office }}</div>
 						<div class="party-row d-flex justify-content-between">
-							<span>- Đại diện ủy quyền: <strong class="text-uppercase">{{ representativeNameA }}</strong> <span v-if="doc.lessor.authorization && doc.lessor.authorization.date" class="font-italic small ml-1">(Ngày {{ doc.lessor.authorization.date }})</span></span>
+							<span>- NGƯỜI ỦY QUYỀN A: <strong class="text-uppercase">{{ representativeNameA }}</strong> <span v-if="doc.lessor.authorization && doc.lessor.authorization.date" class="font-italic small ml-1">(Ngày {{ doc.lessor.authorization.date }})</span></span>
 							<span>- Chức vụ: <strong>{{ doc.lessor.representative_title || 'Nhân viên quầy giao dịch' }}</strong></span>
 						</div>
 					</div>
@@ -144,7 +144,7 @@
 					<!-- Chữ ký Hợp đồng -->
 					<div class="contract-signatures mt-2 d-flex justify-content-between px-3">
 						<div class="sig-block text-center">
-							<div class="sig-role font-weight-bold">ĐẠI DIỆN BÊN A</div>
+							<div class="sig-role font-weight-bold">NGƯỜI ỦY QUYỀN A</div>
 							<div class="sig-hint">(Ký, đóng dấu, ghi rõ họ tên)</div>
 							<div class="sig-space"></div>
 							<div class="sig-name font-weight-bold text-uppercase">{{ doc.signers.signer_a_name || representativeNameA }}</div>

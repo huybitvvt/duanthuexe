@@ -54,6 +54,10 @@ export default {
         orderStatus: {
             type: String,
             default: () => { return '' }
+        },
+        suggestedAmount: {
+            type: Number,
+            default: 0,
         }
     },
     components: {
@@ -83,6 +87,14 @@ export default {
         this.getStore();
         this.getListVehicles();
         this.getListVehiclesPrice();
+    },
+    watch: {
+        suggestedAmount: {
+            immediate: true,
+            handler(value) {
+                this.amount = Number(value || 0);
+            },
+        },
     },
     methods: {
         onSubmit() {

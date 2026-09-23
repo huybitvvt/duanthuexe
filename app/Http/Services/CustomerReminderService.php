@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Contracts\ReminderProviderInterface;
 use App\Models\CustomerReminderOutbox;
+use App\Models\DebtNote;
 use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
 use App\Models\Order;
@@ -204,6 +205,20 @@ class CustomerReminderService
 
         $this->scopeActionList($query, $user);
 
+        // A paid lease installment or a rental order that has already been
+        // closed must disappear from the operational reminder list without
+        // waiting for a separate cleanup job.
+        $query->where(function ($active) {
+            $active->where('contract_type', '!=', 'lease')
+                ->orWhereDoesntHave('installment')
+                ->orWhereHas('installment', function ($installment) {
+                    $installment->where('status', '!=', LeaseInstallment::STATUS_PAID);
+                });
+        })->where(function ($active) {
+            $active->where('contract_type', '!=', 'rental_order')
+                ->orWhereIn('contract_id', Order::select('id')->where('order_status', OrderValidator::ORDER_RENTING));
+        });
+
         if (!empty($params['status'])) {
             $query->where('status', $params['status']);
         }
@@ -274,7 +289,7 @@ class CustomerReminderService
         if ($hasVehicles) {
             $leaseWith[] = 'vehicle';
         }
-        if (Schema::hasTable('lease_debt_notes')) {
+        if (Schema::hasTable('debt_notes')) {
             $leaseWith[] = 'debtNotes';
         }
 
@@ -402,8 +417,9 @@ class CustomerReminderService
                     $overdueDays = $diff > 0 ? (int)$diff : 0;
                 }
 
-                $totalAmount = (float)($order ? (!empty($order->total_amount) ? $order->total_amount : (!empty($order->total) ? $order->total : 0)) : 0);
-                $paidAmount = (float)($order ? (!empty($order->paid_amount) ? $order->paid_amount : 0) : 0);
+                $totalAmount = (float)($order ? ($order->total ?: 0) : 0);
+                $totalAmount += (float)($order ? ($order->outdate_or_early_amount ?: 0) : 0);
+                $paidAmount = (float)($order ? ($order->pid ?: ($order->paid ?: 0)) : 0);
                 $remainingAmount = max(0, $totalAmount - $paidAmount);
 
                 if ($overdueDays > 30 || $item->stage === 'overdue_30_plus') {
@@ -503,7 +519,7 @@ class CustomerReminderService
 
         $log = ReminderContactLog::create($logData);
 
-        if ($reminder->contract_type === 'lease' && Schema::hasTable('lease_debt_notes') && class_exists(DebtNote::class)) {
+        if ($reminder->contract_type === 'lease' && Schema::hasTable('debt_notes')) {
             DebtNote::create([
                 'lease_contract_id' => $reminder->contract_id,
                 'customer_id' => $reminder->customer_id,

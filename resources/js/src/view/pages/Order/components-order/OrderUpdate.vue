@@ -12,7 +12,7 @@
 						</div>
 						<div class="mt-2 mt-md-0">
 							<button type="button" class="btn btn-sm btn-success font-weight-bold" :loading="loading" @click="saveDraft">
-								Lưu & In bản nháp
+								Lưu bản nháp
 							</button>
 						</div>
 					</div>
@@ -512,30 +512,7 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-6 form-group">
-                            <label><strong>Đại diện Ủy quyền Bên A (Himoto)</strong></label>
-                            <el-select
-                                v-model="order.contract_signer_a_name"
-                                filterable
-                                allow-create
-                                default-first-option
-                                clearable
-                                class="w-100"
-                                placeholder="Chọn nhân viên hoặc điền tên"
-                                @change="onSignerASelectChange"
-                            >
-                                <el-option
-                                    v-for="staff in staffByStore"
-                                    :key="staff.id"
-                                    :label="staff.name"
-                                    :value="staff.name"
-                                >
-                                    <span style="float: left">{{ staff.name }}</span>
-                                    <span style="float: right; color: #8492a6; font-size: 12px">{{ staff.phone || 'Nhân viên' }}</span>
-                                </el-option>
-                            </el-select>
-                        </div>
-                        <div class="col-md-6 form-group">
+                        <div class="col-md-12 form-group">
                             <label><strong>Người ký Bên B (Khách thuê)</strong></label>
                             <el-input
                                 placeholder="Họ tên người thuê ký hợp đồng"
@@ -600,18 +577,20 @@
 							@addOnSuccess="addOnSuccess" @calc_before_order_complete="calc_before_order_complete">
 						</ModalComplete>
 
-						<button type="button" class="btn btn-sm btn-outline-primary mr-2 font-weight-bold" :disabled="previewLoading" @click="onPreviewContract">
+						<button v-if="initialMode !== 'handover'" type="button" class="btn btn-sm btn-outline-primary mr-2 font-weight-bold" :disabled="previewLoading" @click="onPreviewContract">
 							<span v-if="previewLoading">Đang chuẩn bị...</span>
 							<span v-else>In bản nháp / Xem trước</span>
 						</button>
-						<el-button v-if="!id || order.order_status === 'draft'" type="button" class="btn btn-sm btn-outline-success mr-2"
+						<el-button v-if="initialMode !== 'handover' && (!id || order.order_status === 'draft')" type="button" class="btn btn-sm btn-outline-success mr-2"
 							:loading="loading" @click="saveDraft">
 							Lưu bản nháp giao xe
 						</el-button>
 
 						<el-button v-if="!id" native-type="submit" class="btn btn-sm btn-success mr-2"
 							style="color: #fff" :loading="loading">
-							Lưu hợp đồng
+							<span v-if="initialMode === 'handover'">Lưu & In biên bản bàn giao</span>
+							<span v-else-if="initialMode === 'draft'">Lưu bản nháp giao xe</span>
+							<span v-else>Lưu hợp đồng</span>
 						</el-button>
 						<el-button v-if="
 							id &&
@@ -655,6 +634,7 @@ import {
 } from "@/core/services/store/vehicle.module";
 import moment from "moment";
 import { mapGetters } from "vuex";
+import ApiService from "@/core/services/api.service";
 import {
     SHOW_ORDER_CAR_RENTAL,
     UPDATE_ORDER_CAR_RENTAL,
@@ -838,7 +818,7 @@ export default {
     computed: {
         ...mapGetters(["currentUser"]),
         isDraftMode() {
-            return this.initialMode === 'draft' || (this.order && this.order.order_status === 'draft');
+            return ['draft', 'handover'].includes(this.initialMode) || (this.order && this.order.order_status === 'draft');
         },
 		is_deposit_contract_mode() {
 			if (this.start_this_contract) {
@@ -1105,10 +1085,12 @@ export default {
     },
     methods: {
 		async onPreviewContract() {
-			if (!this.order.customer_name || !this.order.customer_id_card) {
+			if (!this.order.customer_name || (!this.isDraftMode && !this.order.customer_id_card)) {
 				Swal.fire({
 					title: "Thiếu thông tin khách hàng",
-					text: "Vui lòng nhập họ tên và số CCCD của khách thuê trước khi xem trước hợp đồng.",
+					text: this.isDraftMode
+						? "Vui lòng nhập họ tên khách thuê trước khi xem trước hợp đồng."
+						: "Vui lòng nhập họ tên và số CCCD của khách thuê trước khi xem trước hợp đồng.",
 					icon: "warning",
 					confirmButtonText: "Đã hiểu",
 				});
@@ -1840,10 +1822,11 @@ export default {
             };
         },
         handleFormSubmit() {
+            const saveAsDraft = !this.id && ['draft', 'handover'].includes(this.initialMode);
             if (this.id) {
                 this.onSubmit();
             } else {
-                this.onSubmitCreate();
+                this.onSubmitCreate(saveAsDraft);
             }
         },
 
@@ -1888,24 +1871,42 @@ export default {
 
         onSubmitCreate(saveAsDraft = false) {
             this.loading = true;
+            const effectiveSaveAsDraft = saveAsDraft || ['draft', 'handover'].includes(this.initialMode);
+            const handoverTab = this.initialMode === 'handover' ? window.open('', '_blank') : null;
+            let handoverOpened = false;
             let params = this.prepareRequestParams();
-			params.save_as_draft = saveAsDraft;
+			params.save_as_draft = effectiveSaveAsDraft;
 			if (params.created_at) {
 				params.created_at = moment(this.order.created_at).format('DD-MM-YYYY HH:mm:ss');
 			}
 
             this.$store
                 .dispatch(CREATE_ORDER_CAR_RENTAL, params)
-                .then((res) => {
+				.then(async (res) => {
+					const createdId = Number(res?.data?.id || res?.id || 0);
+					if (this.initialMode === 'handover' && createdId) {
+						try {
+							await this.openHandoverDocument(createdId, handoverTab);
+							handoverOpened = true;
+						} catch (error) {
+							if (handoverTab) handoverTab.close();
+							this.noticeMessage("error", "Đã lưu bản nháp nhưng không mở được biên bản bàn giao", error?.data?.message || error?.message);
+						}
+					} else if (this.initialMode === 'handover' && handoverTab) {
+						handoverTab.close();
+					}
                     this.$emit("createSuccess");
                     this.resetForm();
                     this.noticeMessage(
                         "success",
-						saveAsDraft ? "Đã lưu bản nháp giao xe" : "Tạo hợp đồng thành công",
+						this.initialMode === 'handover'
+							? (handoverOpened ? "Đã lưu và mở biên bản bàn giao" : "Đã lưu bản nháp bàn giao")
+							: (effectiveSaveAsDraft ? "Đã lưu bản nháp giao xe" : "Tạo hợp đồng thành công"),
                         res.data?.message,
                     );
                 })
-                .catch((err) => {
+				.catch((err) => {
+					if (handoverTab) handoverTab.close();
                     this.noticeMessage("error", "Không tạo được hợp đồng", err.data?.message);
                 })
                 .finally(() => (this.loading = false));
@@ -1913,6 +1914,13 @@ export default {
 		saveDraft() {
 			if (this.id) this.onSubmit(true);
 			else this.onSubmitCreate(true);
+		},
+		async openHandoverDocument(orderId, targetTab = null) {
+			const response = await ApiService.download(`/api/auth/order/car-rental/${orderId}/handover`);
+			const url = window.URL.createObjectURL(new Blob([response.data], { type: "text/html;charset=utf-8" }));
+			if (targetTab) targetTab.location.href = url;
+			else window.open(url, "_blank");
+			setTimeout(() => window.URL.revokeObjectURL(url), 60000);
 		},
 
         onBlurCardId(event, errors) {

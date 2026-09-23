@@ -349,8 +349,8 @@
             </b-modal>
             <b-modal title="Thu chi hợp đồng" size="xl" ref="modal-contract-payment" :centered="true" :scrollable="true"
                 hide-footer>
-                <order-payment :id="orderId" :order-status="order_status_prop"
-                    @paymentSuccess="paymentSuccess"></order-payment>
+                <order-payment :id="orderId" :order-status="order_status_prop" :suggested-amount="paymentSuggestedAmount"
+                    @paymentSuccess="paymentSuccess" @updateSuccess="paymentSuccess"></order-payment>
             </b-modal>
             <div class="edu-paginate mx-auto text-center" v-if="orders.length">
                 <paginate v-model="page" :page-count="last_page" :page-range="3" :margin-pages="1"
@@ -392,7 +392,7 @@ export default {
     name: "OrderCarRental",
     mixins: [queryMixin],
     data() {
-        const { page, store_id, open_order, ...restQuery } = this.$route?.query || {};
+        const { page, store_id, open_order, open_payment, payment_amount, ...restQuery } = this.$route?.query || {};
         return {
             selectAll: false,
             checkedItems: {},
@@ -433,10 +433,12 @@ export default {
             },
             orderId: 0,
             order_status_prop: '',
+            paymentSuggestedAmount: 0,
             lastFetchedAt: 0,
             showPrintModal: false,
             printDocumentDto: null,
             pendingOpenOrderId: open_order ? Number(open_order) : null,
+            pendingOpenPaymentId: open_payment ? Number(open_payment) : null,
             isFirstActivated: true,
         }
     },
@@ -488,7 +490,12 @@ export default {
     },
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: "Đơn hàng" }]);
-        if (this.pendingOpenOrderId) {
+        if (this.pendingOpenPaymentId) {
+            this.$nextTick(() => this.openPaymentModal(
+                { id: this.pendingOpenPaymentId, order_status: 'renting' },
+                Number(this.$route.query.payment_amount || 0)
+            ));
+        } else if (this.pendingOpenOrderId) {
             this.$nextTick(() => this.openShowOrder({ id: this.pendingOpenOrderId }));
         }
     },
@@ -497,6 +504,15 @@ export default {
             const orderId = Number(value || 0);
             if (orderId && orderId !== Number(this.order_show?.id || 0)) {
                 this.openShowOrder({ id: orderId });
+            }
+        },
+        "$route.query.open_payment"(value) {
+            const orderId = Number(value || 0);
+            if (orderId) {
+                this.openPaymentModal(
+                    { id: orderId, order_status: 'renting' },
+                    Number(this.$route.query.payment_amount || 0)
+                );
             }
         },
     },
@@ -665,9 +681,10 @@ export default {
                     this.noticeMessage('error', 'Thất bại', getApiMessage(err));
                 });
         },
-        openPaymentModal(order) {
+        openPaymentModal(order, suggestedAmount = 0) {
             this.orderId = order.id;
             this.order_status_prop = order.order_status;
+            this.paymentSuggestedAmount = Number(suggestedAmount || 0);
             this.$refs['modal-contract-payment'].show();
         },
         createSuccess() {

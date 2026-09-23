@@ -491,13 +491,22 @@ export default {
     this.fetchContracts();
   },
   mounted() {
+    const paymentId = Number(this.$route.query.open_payment || 0);
     const contractId = Number(this.$route.query.open_contract || 0);
-    if (contractId) this.$nextTick(() => this.openScheduleModal(contractId));
+    if (paymentId) {
+      this.$nextTick(() => this.openPaymentFromQuery(paymentId, this.$route.query.payment_amount));
+    } else if (contractId) {
+      this.$nextTick(() => this.openScheduleModal(contractId));
+    }
   },
   watch: {
     '$route.query.open_contract'(value) {
       const contractId = Number(value || 0);
       if (contractId) this.openScheduleModal(contractId);
+    },
+    '$route.query.open_payment'(value) {
+      const contractId = Number(value || 0);
+      if (contractId) this.openPaymentFromQuery(contractId, this.$route.query.payment_amount);
     },
   },
   methods: {
@@ -633,6 +642,17 @@ export default {
     },
     openPaymentModal(contract, suggestedAmount = null) {
       this.$refs.modalPayment.open(contract, suggestedAmount);
+    },
+    async openPaymentFromQuery(contractId, suggestedAmount = null) {
+      try {
+        const response = await ApiService.get(`/api/auth/lease-contracts/${contractId}`);
+        const contract = response?.data?.data || response?.data;
+        if (contract) {
+          this.openPaymentModal(contract, suggestedAmount ? Number(suggestedAmount) : null);
+        }
+      } catch (error) {
+        Swal.fire("Lỗi", error?.data?.message || "Không mở được phiếu thu tiền.", "error");
+      }
     },
     openDebtNoteModal(contract, defaultAction = null) {
       this.$refs.modalDebtNote.open(contract, defaultAction);

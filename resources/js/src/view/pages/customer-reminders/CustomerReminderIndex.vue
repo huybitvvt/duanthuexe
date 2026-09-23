@@ -336,7 +336,7 @@
     </div>
 
     <!-- Modal Chi tiết người thân & Ghi chú đôn đốc -->
-    <modal-debt-note ref="modalDebtNote" @success="fetchReminders" />
+    <modal-debt-note ref="modalDebtNote" @success="fetchReminders" @open-payment="forwardToPayment" />
   </div>
 </template>
 
@@ -470,6 +470,18 @@ export default {
       } else {
         this.$router.push({ name: "lease-to-own", query: { open_contract: item.contract_id } });
       }
+    },
+    forwardToPayment({ contract, amount }) {
+      const contractId = Number(contract && contract.id);
+      if (!contractId) return;
+      const query = {
+        open_payment: contractId,
+        payment_amount: amount ? Number(amount) : undefined,
+      };
+      this.$router.push({
+        name: contract.is_rental ? "car-rental" : "lease-to-own",
+        query,
+      });
     },
     async fetchReminders(page = this.pagination.current_page) {
       this.loading = true;

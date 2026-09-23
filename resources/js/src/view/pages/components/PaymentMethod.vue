@@ -70,8 +70,15 @@
 		</div>
 
 		<div class="form-group mt-3 mb-0">
-			<label><strong>Hình thức khác (nếu có)</strong></label>
-			<el-input v-model="settings.other_method_note" clearable placeholder="VD: Ví điện tử, bù trừ công nợ..."></el-input>
+			<label><strong>{{ settings.bank_id === 'other' ? 'Ngân hàng / hình thức chuyển khoản khác (*)' : 'Hình thức khác (nếu có)' }}</strong></label>
+			<ValidationProvider vid="other_method_note" name="Ngân hàng / hình thức khác" :rules="settings.bank_id === 'other' ? 'required' : ''" v-slot="{ errors }">
+				<el-input
+					v-model="settings.other_method_note"
+					clearable
+					:placeholder="settings.bank_id === 'other' ? 'VD: Momo 09..., ngân hàng khác...' : 'VD: Ví điện tử, bù trừ công nợ...'"
+				></el-input>
+				<error-message :errors="errors" field="other_method_note"></error-message>
+			</ValidationProvider>
 		</div>
 	</div>
 </template>

@@ -268,6 +268,7 @@ class OrderController extends Controller
 			$cash_amount = isset($payment_method['cash_amount']) && is_numeric($payment_method['cash_amount'])
 				? max(0, intval($payment_method['cash_amount']))
 				: 0;
+			$is_other_bank = isset($payment_method['bank_id']) && $payment_method['bank_id'] === 'other';
 
 			// Keep old clients compatible: a single selected method did not send its amount.
 			if ( $total_amount > 0 && 0 === $bank_transfer_amount && 0 === $cash_amount ) {
@@ -288,7 +289,8 @@ class OrderController extends Controller
 
 			$payment_method['bank_transfer_amount'] = $bank_transfer_amount;
 			$payment_method['cash_amount'] = $cash_amount;
-			$payment_method['bank_id'] = $bank_transfer_amount > 0
+			$payment_method['unregistered_bank'] = $bank_transfer_amount > 0 && $is_other_bank;
+			$payment_method['bank_id'] = $bank_transfer_amount > 0 && !$is_other_bank
 				? (isset($payment_method['bank_id']) ? $payment_method['bank_id'] : null)
 				: null;
 
@@ -312,10 +314,15 @@ class OrderController extends Controller
 			return $this->errorResponse($label, 422);
 		}
 
-		if ( $bank_transfer_amount > 0 && empty($payment_method['bank_id']) ) {
+		$isOtherBank = !empty($payment_method['unregistered_bank']);
+		$otherBankNote = trim((string)($payment_method['other_method_note'] ?? ''));
+		if ( $bank_transfer_amount > 0 && $isOtherBank && $otherBankNote === '' ) {
+			return $this->errorResponse('Vui lòng nhập tên ngân hàng hoặc hình thức chuyển khoản khác.', 422);
+		}
+		if ( $bank_transfer_amount > 0 && empty($payment_method['bank_id']) && !$isOtherBank ) {
 			return $this->errorResponse('Vui lòng chọn tài khoản ngân hàng', 422);
 		}
-		if ($bank_transfer_amount > 0 && $storeId !== null
+		if ($bank_transfer_amount > 0 && !$isOtherBank && $storeId !== null
 			&& !Bank::whereKey($payment_method['bank_id'])->where('store_id', (int) $storeId)->exists()) {
 			return $this->errorResponse('Tài khoản ngân hàng không thuộc cơ sở của hợp đồng.', 422);
 		}
