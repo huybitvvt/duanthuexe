@@ -256,51 +256,62 @@
                 </span>
               </td>
 
-              <!-- Hành Động: Dropdown with 9 specific action items -->
+              <!-- Hành Động: Nút Chi tiết & Dropdown with 9 action items -->
               <td class="text-center">
-                <el-dropdown trigger="click" @command="handleQuickAction(item, $event)">
+                <div class="d-flex align-items-center justify-content-center" style="gap: 6px;">
                   <button
                     type="button"
-                    class="btn btn-sm font-weight-bold dropdown-toggle d-inline-flex align-items-center"
-                    :class="item.contacted_today ? 'btn-light-success' : 'btn-outline-danger'"
+                    class="btn btn-sm btn-outline-primary font-weight-bolder py-1 px-2"
+                    title="Click xem chi tiết, người thân & lịch sử nhắc nợ"
+                    @click="openDetailModal(item)"
                   >
-                    <span>{{ getActionBtnLabel(item) }}</span>
+                    Chi tiết
                   </button>
-                  <el-dropdown-menu slot="dropdown" class="action-dropdown-menu">
-                    <el-dropdown-item command="contacted">
-                      <span class="text-success font-weight-bold">✓ Đã liên hệ</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="promise">
-                      <span class="text-primary font-weight-bold">📅 Hứa thanh toán</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="no_answer">
-                      <span class="text-warning font-weight-bold">📵 Ko nghe máy</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="lost_contact">
-                      <span class="text-danger font-weight-bold">❌ Mất liên lạc</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="uncooperative">
-                      <span class="text-danger font-weight-bold">🚫 Không hợp tác</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="paid">
-                      <span class="text-success font-weight-bolder">💰 Đã thanh toán</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="recall_vehicle">
-                      <span class="text-danger font-weight-bolder">🚨 Cần thu hồi xe</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="check_vehicle">
-                      <span class="text-info font-weight-bold">🔍 Cần check xe</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item command="collect_money">
-                      <span class="text-dark font-weight-bold">🏃 Đi thu tiền</span>
-                    </el-dropdown-item>
-                    <el-dropdown-item divided command="open_modal">
-                      <span class="text-primary font-weight-bolder">💬 Chi tiết & Người thân...</span>
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </el-dropdown>
 
-                <div v-if="item.last_contact_note" class="font-size-xs text-muted mt-1 text-truncate" style="max-width: 170px;" :title="item.last_contact_note">
+                  <el-dropdown trigger="click" @command="handleQuickAction(item, $event)">
+                    <button
+                      type="button"
+                      class="btn btn-sm font-weight-bold dropdown-toggle d-inline-flex align-items-center py-1 px-2"
+                      :class="item.contacted_today ? 'btn-light-success' : 'btn-danger'"
+                    >
+                      <span>{{ getActionBtnLabel(item) }}</span>
+                    </button>
+                    <el-dropdown-menu slot="dropdown" class="action-dropdown-menu">
+                      <el-dropdown-item command="contacted">
+                        <span class="text-success font-weight-bold">✓ Đã liên hệ</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="promise">
+                        <span class="text-primary font-weight-bold">📅 Hứa thanh toán</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="no_answer">
+                        <span class="text-warning font-weight-bold">📵 Ko nghe máy</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="lost_contact">
+                        <span class="text-danger font-weight-bold">❌ Mất liên lạc</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="uncooperative">
+                        <span class="text-danger font-weight-bold">🚫 Không hợp tác</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="paid">
+                        <span class="text-success font-weight-bolder">💰 Đã thanh toán</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="recall_vehicle">
+                        <span class="text-danger font-weight-bolder">🚨 Cần thu hồi xe</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="check_vehicle">
+                        <span class="text-info font-weight-bold">🔍 Cần check xe</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item command="collect_money">
+                        <span class="text-dark font-weight-bold">🏃 Đi thu tiền</span>
+                      </el-dropdown-item>
+                      <el-dropdown-item divided command="open_modal">
+                        <span class="text-primary font-weight-bolder">💬 Chi tiết & Người thân</span>
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </el-dropdown>
+                </div>
+
+                <div v-if="item.last_contact_note" class="font-size-xs text-muted mt-1 text-truncate" style="max-width: 220px;" :title="item.last_contact_note">
                   {{ item.last_contact_note }}
                 </div>
               </td>
@@ -408,33 +419,8 @@ export default {
       };
       return map[action] || action || "";
     },
-    async handleQuickAction(item, action) {
-      if (action === "open_modal" || action === "paid") {
-        this.openDetailModal(item, action === "open_modal" ? null : action);
-        return;
-      }
-      const label = this.getActionLabel(action);
-      try {
-        const { value } = await this.$prompt(
-          `Ghi nhận: [${label}]? Có thể nhập thêm ghi chú (hoặc bấm OK để lưu ngay):`,
-          `Cập nhật đôn đốc - ${item.customer_name || 'Khách hàng'}`,
-          {
-            inputValue: "",
-            confirmButtonText: "Lưu hành động",
-            cancelButtonText: "Hủy",
-          }
-        );
-        await ApiService.post(`/api/auth/customer-reminders/${item.id}/contact`, {
-          action,
-          note: value ? value.trim() : label,
-        });
-        this.$message.success(`Đã cập nhật: [${label}]`);
-        await this.fetchReminders();
-      } catch (e) {
-        if (e !== "cancel" && e !== "close") {
-          this.$message.error(this.errorMessage(e, "Không lưu được hành động"));
-        }
-      }
+    handleQuickAction(item, action) {
+      this.openDetailModal(item, action === "open_modal" ? null : action);
     },
     openDetailModal(item, defaultAction = null) {
       const contractPayload = {
@@ -444,6 +430,11 @@ export default {
         contract_code: item.contract_code || ("#" + item.contract_id),
         overdue_days: item.overdue_days || 0,
         outstanding_balance: item.debt_amount || 0,
+        customer_name: item.customer_name || item.recipient_name,
+        customer_phone: item.customer_phone || item.recipient_phone,
+        plate_number: item.plate_number,
+        vehicle_type: item.vehicle_type,
+        customer_relatives: item.customer_relatives || (item.contract_details && item.contract_details.customer ? item.contract_details.customer.relatives : []),
         customer: item.contract_details?.customer || {
           name: item.customer_name || item.recipient_name,
           phone: item.customer_phone || item.recipient_phone,

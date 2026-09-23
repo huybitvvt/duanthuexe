@@ -15,17 +15,39 @@
           <span class="badge badge-danger">Quá hạn: {{ contract.overdue_days || 0 }} ngày</span>
         </div>
         <div class="text-dark font-size-sm">
-          <div><strong>Khách hàng:</strong> {{ contract.customer?.name }} | <strong>SĐT:</strong> <a :href="'tel:' + contract.customer?.phone" class="text-primary font-weight-bold">{{ contract.customer?.phone }}</a></div>
-          <div><strong>Xe bàn giao:</strong> {{ contract.vehicle?.license }} - {{ contract.vehicle?.name }}</div>
-          <div><strong>Tổng dư nợ còn lại:</strong> <span class="text-danger font-weight-bold">{{ contract.outstanding_balance | formatPrice }}</span></div>
+          <div>
+            <strong>Khách hàng:</strong> {{ (contract.customer && contract.customer.name) || contract.customer_name || 'Khách hàng' }} | 
+            <strong>SĐT:</strong> 
+            <a :href="'tel:' + ((contract.customer && contract.customer.phone) || contract.customer_phone)" class="text-primary font-weight-bold">
+              {{ (contract.customer && contract.customer.phone) || contract.customer_phone || 'Chưa có SĐT' }}
+            </a>
+            <button
+              v-if="(contract.customer && contract.customer.phone) || contract.customer_phone"
+              type="button"
+              class="btn btn-xs btn-icon btn-light-primary ml-1"
+              title="Copy SĐT khách"
+              @click="copyText((contract.customer && contract.customer.phone) || contract.customer_phone)"
+            >
+              <i class="flaticon2-copy font-size-xs"></i>
+            </button>
+          </div>
+          <div>
+            <strong>Xe:</strong> 
+            <span class="badge badge-light-dark font-weight-bolder">{{ (contract.vehicle && contract.vehicle.license) || contract.plate_number || 'Chưa gán' }}</span> - 
+            {{ (contract.vehicle && contract.vehicle.name) || contract.vehicle_type || 'Xe máy' }}
+          </div>
+          <div>
+            <strong>Tổng dư nợ hiện tại:</strong> 
+            <span class="text-danger font-weight-bold font-size-h6">{{ currentOutstanding | formatPrice }}</span>
+          </div>
         </div>
 
         <!-- Mở rộng thông tin người thân để đôn đốc / sự cố -->
         <div class="mt-3 pt-2 border-top border-danger-subtle">
           <div class="d-flex justify-content-between align-items-center cursor-pointer" @click="showRelatives = !showRelatives">
             <span class="font-weight-bolder text-dark">
-              <i class="flaticon-users mr-1 text-primary"></i> Thông tin người thân (để liên hệ khi xe gặp sự cố hoặc nhắc nợ):
-              <span class="badge badge-secondary ml-1">{{ relativesList.length }} người thân</span>
+              <i class="flaticon-users mr-1 text-primary"></i> Thông tin người thân (tên gì, quan hệ, SĐT để nhắc nợ & gọi khi xe gặp sự cố):
+              <span class="badge badge-primary ml-1 font-weight-bold">{{ relativesList.length }} người thân</span>
             </span>
             <span class="btn btn-xs btn-outline-primary font-weight-bold">
               {{ showRelatives ? 'Thu gọn ▲' : 'Xem chi tiết ▼' }}
@@ -34,21 +56,36 @@
 
           <div v-if="showRelatives" class="mt-2">
             <div v-if="relativesList.length === 0" class="text-muted font-italic font-size-xs bg-white p-2 rounded border">
-              Chưa lưu thông tin người thân trong hồ sơ khách hàng.
+              Chưa lưu thông tin người thân trong hồ sơ khách hàng này.
             </div>
             <div v-else class="row">
               <div v-for="(rel, idx) in relativesList" :key="idx" class="col-md-6 mb-2">
-                <div class="bg-white p-2 rounded border shadow-sm h-100">
-                  <div class="font-weight-bold text-dark font-size-sm">
-                    <span class="badge badge-light-primary mr-1">#{{ idx + 1 }}</span>
-                    {{ rel.name || '(Chưa nhập tên)' }}
-                    <span v-if="rel.relationship" class="text-muted font-size-xs font-weight-normal">({{ rel.relationship }})</span>
+                <div class="bg-white p-2 rounded border border-primary shadow-sm h-100">
+                  <div class="font-weight-bold text-dark font-size-sm d-flex justify-content-between">
+                    <div>
+                      <span class="badge badge-primary mr-1">#{{ idx + 1 }}</span>
+                      {{ rel.name || '(Chưa nhập tên)' }}
+                    </div>
+                    <span v-if="rel.relationship" class="badge badge-light-info font-size-xs font-weight-normal">{{ rel.relationship }}</span>
                   </div>
                   <div class="mt-1 d-flex align-items-center justify-content-between">
-                    <span class="font-size-xs text-dark">SĐT: <strong>{{ rel.phone || 'N/A' }}</strong></span>
-                    <a v-if="rel.phone" :href="'tel:' + rel.phone" class="btn btn-xs btn-outline-success font-weight-bold">
-                      Gọi ngay
-                    </a>
+                    <span class="font-size-xs text-dark">
+                      SĐT: <strong class="text-primary font-weight-bolder">{{ rel.phone || 'N/A' }}</strong>
+                    </span>
+                    <div class="d-flex align-items-center" style="gap: 4px;">
+                      <button
+                        v-if="rel.phone"
+                        type="button"
+                        class="btn btn-xs btn-icon btn-light-primary"
+                        title="Copy SĐT"
+                        @click="copyText(rel.phone)"
+                      >
+                        <i class="flaticon2-copy font-size-xs"></i>
+                      </button>
+                      <a v-if="rel.phone" :href="'tel:' + rel.phone" class="btn btn-xs btn-outline-success font-weight-bold">
+                        Gọi ngay
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -83,7 +120,10 @@
               </el-select>
             </div>
             <div class="col-md-6 form-group">
-              <label class="font-weight-bold">Số tiền đã thanh toán hôm nay (VNĐ)</label>
+              <label class="font-weight-bold">
+                Số tiền đã thanh toán hôm nay (VNĐ)
+                <span class="text-muted font-weight-normal font-size-xs">(nếu khách trả tiền)</span>
+              </label>
               <el-input-number
                 v-model="form.paid_today"
                 :min="0"
@@ -91,10 +131,45 @@
                 class="w-100"
                 placeholder="Nhập số tiền đã thanh toán..."
                 controls-position="right"
+                @change="handlePaidAmountChange"
               />
-              <span v-if="form.paid_today > 0" class="form-text text-success font-weight-bold font-size-xs">
-                Đã nhận hôm nay: {{ form.paid_today | formatPrice }}
-              </span>
+              <div class="d-flex flex-wrap mt-1" style="gap: 4px;">
+                <button
+                  v-if="currentOutstanding > 0"
+                  type="button"
+                  class="btn btn-xs btn-light-success py-0 px-2 font-weight-bold"
+                  @click="setQuickAmount(currentOutstanding)"
+                >
+                  Trả hết ({{ currentOutstanding | formatPrice }})
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-light py-0 px-2"
+                  @click="setQuickAmount(500000)"
+                >
+                  500k
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-light py-0 px-2"
+                  @click="setQuickAmount(1000000)"
+                >
+                  1 triệu
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-light py-0 px-2"
+                  @click="setQuickAmount(2000000)"
+                >
+                  2 triệu
+                </button>
+              </div>
+              <div v-if="form.paid_today > 0" class="mt-1 font-size-xs">
+                <span class="text-success font-weight-bold">✓ Đã nhận: {{ form.paid_today | formatPrice }}</span>
+                <span v-if="remainingAfterPay >= 0" class="text-muted ml-2">
+                  (Dư nợ còn lại: <strong class="text-danger">{{ remainingAfterPay | formatPrice }}</strong>)
+                </span>
+              </div>
             </div>
             <div class="col-md-6 form-group">
               <label class="font-weight-bold">Ngày hẹn thanh toán (nếu có)</label>
@@ -222,9 +297,30 @@ export default {
     };
   },
   computed: {
+    currentOutstanding() {
+      if (!this.contract) return 0;
+      if (this.contract.outstanding_balance !== undefined && this.contract.outstanding_balance !== null) {
+        return Number(this.contract.outstanding_balance) || 0;
+      }
+      if (this.contract.debt_amount !== undefined && this.contract.debt_amount !== null) {
+        return Number(this.contract.debt_amount) || 0;
+      }
+      return 0;
+    },
+    remainingAfterPay() {
+      const cur = this.currentOutstanding;
+      const paid = Number(this.form.paid_today || 0);
+      return Math.max(0, cur - paid);
+    },
     relativesList() {
-      if (!this.contract || !this.contract.customer) return [];
-      let rels = this.contract.customer.relatives;
+      if (!this.contract) return [];
+      let rels = this.contract.customer_relatives;
+      if (!rels && this.contract.customer) {
+        rels = this.contract.customer.relatives;
+      }
+      if (!rels && this.contract.relatives) {
+        rels = this.contract.relatives;
+      }
       if (typeof rels === "string") {
         try {
           rels = JSON.parse(rels);
@@ -237,6 +333,34 @@ export default {
     },
   },
   methods: {
+    copyText(text) {
+      if (!text) return;
+      if (navigator && navigator.clipboard) {
+        navigator.clipboard.writeText(String(text));
+        this.$message.success(`Đã copy: ${text}`);
+      } else {
+        const input = document.createElement("input");
+        input.value = String(text);
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+        this.$message.success(`Đã copy: ${text}`);
+      }
+    },
+    setQuickAmount(amount) {
+      this.form.paid_today = Number(amount);
+      if (this.form.call_status === "contacted") {
+        this.form.call_status = "paid";
+        this.handleActionChange("paid");
+      }
+    },
+    handlePaidAmountChange(val) {
+      if (Number(val) > 0 && this.form.call_status === "contacted") {
+        this.form.call_status = "paid";
+        this.handleActionChange("paid");
+      }
+    },
     open(contract, defaultAction = null) {
       this.contract = contract;
       this.visible = true;
