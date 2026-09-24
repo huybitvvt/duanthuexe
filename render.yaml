@@ -57,7 +57,7 @@ services:
       - key: WORDPRESS_LEADS_TOKEN
         sync: false
       - key: RUN_MIGRATIONS
-        value: "false"
+        value: "true"
 
   - type: web
     name: himoto-web
