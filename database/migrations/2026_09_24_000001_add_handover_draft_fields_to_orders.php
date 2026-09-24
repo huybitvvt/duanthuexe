@@ -18,9 +18,13 @@ class AddHandoverDraftFieldsToOrders extends Migration
 
         // An intake can be saved before the branch is known. Issuing it still
         // requires a branch in OrderValidator.
-        Schema::table('orders', function (Blueprint $table) {
-            $table->bigInteger('store_id')->nullable()->change();
-        });
+        if (Schema::getConnection()->getDriverName() === 'pgsql') {
+            Schema::getConnection()->statement('ALTER TABLE "orders" ALTER COLUMN "store_id" DROP NOT NULL');
+        } else {
+            Schema::table('orders', function (Blueprint $table) {
+                $table->bigInteger('store_id')->nullable()->change();
+            });
+        }
     }
 
     public function down()

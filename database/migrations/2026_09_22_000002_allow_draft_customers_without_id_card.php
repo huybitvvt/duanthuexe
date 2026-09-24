@@ -9,10 +9,17 @@ class AllowDraftCustomersWithoutIdCard extends Migration
     public function up(): void
     {
         if (Schema::hasTable('customers') && Schema::hasColumn('customers', 'id_card')) {
-            Schema::table('customers', function (Blueprint $table) {
-                // SQL UNIQUE permits multiple NULLs while keeping genuine CCCDs unique.
-                $table->string('id_card')->nullable()->change();
-            });
+            // Doctrine DBAL cannot initialize its statement class on a persistent
+            // PDO connection. Use native PostgreSQL DDL in production and keep
+            // the schema-builder path for SQLite-based tests.
+            if (Schema::getConnection()->getDriverName() === 'pgsql') {
+                Schema::getConnection()->statement('ALTER TABLE "customers" ALTER COLUMN "id_card" DROP NOT NULL');
+            } else {
+                Schema::table('customers', function (Blueprint $table) {
+                    // SQL UNIQUE permits multiple NULLs while keeping genuine CCCDs unique.
+                    $table->string('id_card')->nullable()->change();
+                });
+            }
         }
     }
 
