@@ -278,34 +278,34 @@
                     </button>
                     <el-dropdown-menu slot="dropdown" class="action-dropdown-menu">
                       <el-dropdown-item command="contacted">
-                        <span class="text-success font-weight-bold">✓ Đã liên hệ</span>
+                        <span class="text-success font-weight-bold">Đã liên hệ</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="promise">
-                        <span class="text-primary font-weight-bold">📅 Hứa thanh toán</span>
+                        <span class="text-primary font-weight-bold">Hứa thanh toán</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="no_answer">
-                        <span class="text-warning font-weight-bold">📵 Ko nghe máy</span>
+                        <span class="text-warning font-weight-bold">Ko nghe máy</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="lost_contact">
-                        <span class="text-danger font-weight-bold">❌ Mất liên lạc</span>
+                        <span class="text-danger font-weight-bold">Mất liên lạc</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="uncooperative">
-                        <span class="text-danger font-weight-bold">🚫 Không hợp tác</span>
+                        <span class="text-danger font-weight-bold">Không hợp tác</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="paid">
-                        <span class="text-success font-weight-bolder">💰 Đã thanh toán</span>
+                        <span class="text-success font-weight-bolder">Đã thanh toán</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="recall_vehicle">
-                        <span class="text-danger font-weight-bolder">🚨 Cần thu hồi xe</span>
+                        <span class="text-danger font-weight-bolder">Cần thu hồi xe</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="check_vehicle">
-                        <span class="text-info font-weight-bold">🔍 Cần check xe</span>
+                        <span class="text-info font-weight-bold">Cần check xe</span>
                       </el-dropdown-item>
                       <el-dropdown-item command="collect_money">
-                        <span class="text-dark font-weight-bold">🏃 Đi thu tiền</span>
+                        <span class="text-dark font-weight-bold">Đi thu tiền</span>
                       </el-dropdown-item>
                       <el-dropdown-item divided command="open_modal">
-                        <span class="text-primary font-weight-bolder">💬 Chi tiết & Người thân</span>
+                        <span class="text-primary font-weight-bolder">Chi tiết & Người thân</span>
                       </el-dropdown-item>
                     </el-dropdown-menu>
                   </el-dropdown>
@@ -401,7 +401,7 @@ export default {
         return this.getActionLabel(item.last_action);
       }
       if (item.contacted_today) {
-        return "Đã liên hệ ✓";
+        return "Đã liên hệ";
       }
       return "Hành động ▾";
     },

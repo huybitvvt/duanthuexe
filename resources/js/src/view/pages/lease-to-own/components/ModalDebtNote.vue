@@ -9,89 +9,97 @@
   >
     <div v-loading="loading">
       <!-- Thông tin hợp đồng & khách hàng -->
-      <div v-if="contract" class="alert alert-custom alert-light-danger p-3 mb-3">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-          <span class="font-weight-bold font-size-h6 text-danger">HĐ: {{ contract.contract_code }}</span>
-          <span class="badge badge-danger">Quá hạn: {{ contract.overdue_days || 0 }} ngày</span>
-        </div>
-        <div class="text-dark font-size-sm">
-          <div>
-            <strong>Khách hàng:</strong> {{ (contract.customer && contract.customer.name) || contract.customer_name || 'Khách hàng' }} | 
-            <strong>SĐT:</strong> 
-            <a :href="'tel:' + ((contract.customer && contract.customer.phone) || contract.customer_phone)" class="text-primary font-weight-bold">
-              {{ (contract.customer && contract.customer.phone) || contract.customer_phone || 'Chưa có SĐT' }}
-            </a>
-            <button
-              v-if="(contract.customer && contract.customer.phone) || contract.customer_phone"
-              type="button"
-              class="btn btn-xs btn-icon btn-light-primary ml-1"
-              title="Copy SĐT khách"
-              @click="copyText((contract.customer && contract.customer.phone) || contract.customer_phone)"
-            >
-              <i class="flaticon2-copy font-size-xs"></i>
-            </button>
-          </div>
-          <div>
-            <strong>Xe:</strong> 
-            <span class="badge badge-light-dark font-weight-bolder">{{ (contract.vehicle && contract.vehicle.license) || contract.plate_number || 'Chưa gán' }}</span> - 
-            {{ (contract.vehicle && contract.vehicle.name) || contract.vehicle_type || 'Xe máy' }}
-          </div>
-          <div>
-            <strong>Tổng dư nợ hiện tại:</strong> 
-            <span class="text-danger font-weight-bold font-size-h6">{{ currentOutstanding | formatPrice }}</span>
-          </div>
-        </div>
-
-        <!-- Mở rộng thông tin người thân để đôn đốc / sự cố -->
-        <div class="mt-3 pt-2 border-top border-danger-subtle">
-          <div class="d-flex justify-content-between align-items-center cursor-pointer" @click="showRelatives = !showRelatives">
-            <span class="font-weight-bolder text-dark">
-              <i class="flaticon-users mr-1 text-primary"></i> Thông tin người thân (tên gì, quan hệ, SĐT để nhắc nợ & gọi khi xe gặp sự cố):
-              <span class="badge badge-primary ml-1 font-weight-bold">{{ relativesList.length }} người thân</span>
-            </span>
-            <span class="btn btn-xs btn-outline-primary font-weight-bold">
-              {{ showRelatives ? 'Thu gọn ▲' : 'Xem chi tiết ▼' }}
-            </span>
-          </div>
-
-          <div v-if="showRelatives" class="mt-2">
-            <div v-if="relativesList.length === 0" class="text-muted font-italic font-size-xs bg-white p-2 rounded border">
-              Chưa lưu thông tin người thân trong hồ sơ khách hàng này.
-            </div>
-            <div v-else class="row">
-              <div v-for="(rel, idx) in relativesList" :key="idx" class="col-md-6 mb-2">
-                <div class="bg-white p-2 rounded border border-primary shadow-sm h-100">
-                  <div class="font-weight-bold text-dark font-size-sm d-flex justify-content-between">
-                    <div>
-                      <span class="badge badge-primary mr-1">#{{ idx + 1 }}</span>
-                      {{ rel.name || '(Chưa nhập tên)' }}
-                    </div>
-                    <span v-if="rel.relationship" class="badge badge-light-info font-size-xs font-weight-normal">{{ rel.relationship }}</span>
-                  </div>
-                  <div class="mt-1 d-flex align-items-center justify-content-between">
-                    <span class="font-size-xs text-dark">
-                      SĐT: <strong class="text-primary font-weight-bolder">{{ rel.phone || 'N/A' }}</strong>
-                    </span>
-                    <div class="d-flex align-items-center" style="gap: 4px;">
-                      <button
-                        v-if="rel.phone"
-                        type="button"
-                        class="btn btn-xs btn-icon btn-light-primary"
-                        title="Copy SĐT"
-                        @click="copyText(rel.phone)"
-                      >
-                        <i class="flaticon2-copy font-size-xs"></i>
-                      </button>
-                      <a v-if="rel.phone" :href="'tel:' + rel.phone" class="btn btn-xs btn-outline-success font-weight-bold">
-                        Gọi ngay
-                      </a>
-                    </div>
-                  </div>
+      <div v-if="contract" class="debt-summary-card mb-3">
+        <table class="debt-summary-table">
+          <tbody>
+            <tr>
+              <th scope="row">HĐ</th>
+              <td>
+                <div class="summary-contract">
+                  <strong>{{ contract.contract_code }}</strong>
+                  <span class="badge badge-danger">Quá hạn: {{ contract.overdue_days || 0 }} ngày</span>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
+              </td>
+              <th scope="row">Khách hàng</th>
+              <td>
+                <strong class="d-block">{{ (contract.customer && contract.customer.name) || contract.customer_name || 'Khách hàng' }}</strong>
+                <div class="summary-phone">
+                  <a :href="'tel:' + ((contract.customer && contract.customer.phone) || contract.customer_phone)" class="text-primary font-weight-bold">
+                    {{ (contract.customer && contract.customer.phone) || contract.customer_phone || 'Chưa có SĐT' }}
+                  </a>
+                  <button
+                    v-if="(contract.customer && contract.customer.phone) || contract.customer_phone"
+                    type="button"
+                    class="btn btn-xs btn-icon btn-light-primary"
+                    title="Copy SĐT khách"
+                    @click="copyText((contract.customer && contract.customer.phone) || contract.customer_phone)"
+                  >
+                    <i class="flaticon2-copy font-size-xs"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Xe</th>
+              <td>
+                <span class="badge badge-light-dark font-weight-bolder">{{ (contract.vehicle && contract.vehicle.license) || contract.plate_number || 'Chưa gán' }}</span>
+                <span class="ml-1">{{ (contract.vehicle && contract.vehicle.name) || contract.vehicle_type || 'Xe máy' }}</span>
+              </td>
+              <th scope="row">Tổng dư nợ</th>
+              <td class="summary-outstanding">{{ currentOutstanding | formatPrice }}</td>
+            </tr>
+            <tr>
+              <th scope="row">Người thân</th>
+              <td colspan="3" class="relative-cell">
+                <div class="relative-heading" @click="showRelatives = !showRelatives">
+                  <div>
+                    <strong>Thông tin người thân</strong>
+                    <span class="badge badge-primary ml-1">{{ relativesList.length }} người thân</span>
+                    <span class="relative-helper">Tên, quan hệ và SĐT để nhắc nợ hoặc gọi khi xe gặp sự cố</span>
+                  </div>
+                  <button type="button" class="btn btn-xs btn-outline-primary font-weight-bold">
+                    {{ showRelatives ? 'Thu gọn' : 'Xem chi tiết' }}
+                  </button>
+                </div>
+
+                <div v-if="showRelatives" class="relative-list">
+                  <div v-if="relativesList.length === 0" class="empty-relative">
+                    Chưa lưu thông tin người thân trong hồ sơ khách hàng này.
+                  </div>
+                  <table v-else class="relatives-table">
+                    <thead>
+                      <tr>
+                        <th>Họ tên</th>
+                        <th>Quan hệ</th>
+                        <th>Số điện thoại</th>
+                        <th class="text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(rel, idx) in relativesList" :key="idx">
+                        <td><span class="badge badge-light-primary mr-1">#{{ idx + 1 }}</span>{{ rel.name || '(Chưa nhập tên)' }}</td>
+                        <td>{{ rel.relationship || '—' }}</td>
+                        <td class="font-weight-bold text-primary">{{ rel.phone || 'N/A' }}</td>
+                        <td class="text-right">
+                          <button
+                            v-if="rel.phone"
+                            type="button"
+                            class="btn btn-xs btn-icon btn-light-primary mr-1"
+                            title="Copy SĐT"
+                            @click="copyText(rel.phone)"
+                          >
+                            <i class="flaticon2-copy font-size-xs"></i>
+                          </button>
+                          <a v-if="rel.phone" :href="'tel:' + rel.phone" class="btn btn-xs btn-outline-success font-weight-bold">Gọi</a>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Form thêm ghi chú mới -->
@@ -487,3 +495,218 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.debt-summary-card {
+  overflow: hidden;
+  border: 1px solid #ffd7dc;
+  border-radius: 10px;
+  background: #fff6f7;
+  box-shadow: 0 3px 12px rgba(180, 30, 50, 0.06);
+}
+
+.debt-summary-table,
+.relatives-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.debt-summary-table {
+  table-layout: fixed;
+  color: #263238;
+  font-size: 13px;
+}
+
+.debt-summary-table th,
+.debt-summary-table td {
+  padding: 9px 11px;
+  border-bottom: 1px solid #f5dfe2;
+  vertical-align: middle;
+}
+
+.debt-summary-table tr:last-child th,
+.debt-summary-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.debt-summary-table th {
+  width: 13%;
+  color: #8d5660;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.debt-summary-table td {
+  width: 37%;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.summary-contract,
+.summary-phone,
+.relative-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.summary-contract {
+  flex-wrap: wrap;
+}
+
+.summary-contract strong {
+  color: #e3342f;
+  font-size: 15px;
+}
+
+.summary-phone {
+  margin-top: 2px;
+}
+
+.summary-outstanding {
+  color: #e3342f;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.relative-cell {
+  padding: 0 !important;
+}
+
+.relative-heading {
+  justify-content: space-between;
+  padding: 8px 11px;
+  cursor: pointer;
+}
+
+.relative-heading > div {
+  min-width: 0;
+}
+
+.relative-helper {
+  display: block;
+  margin-top: 2px;
+  color: #8b8f98;
+  font-size: 11px;
+}
+
+.relative-list {
+  padding: 0 11px 10px;
+}
+
+.empty-relative {
+  padding: 8px 10px;
+  border: 1px solid #e7eaee;
+  border-radius: 5px;
+  background: #fff;
+  color: #9299a3;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.relatives-table {
+  overflow: hidden;
+  border: 1px solid #e5e9ef;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.relatives-table th,
+.relatives-table td {
+  width: auto;
+  padding: 6px 8px;
+  border-bottom: 1px solid #edf0f3;
+  color: #3e4752;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+}
+
+.relatives-table th {
+  background: #f7f8fa;
+  color: #687386;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.relatives-table tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 575px) {
+  .debt-summary-table {
+    table-layout: auto;
+  }
+
+  .debt-summary-table th,
+  .debt-summary-table td {
+    width: auto;
+  }
+
+  .debt-summary-table th {
+    padding-bottom: 2px;
+    border-bottom: 0;
+  }
+
+  .debt-summary-table td {
+    padding-top: 2px;
+  }
+
+  .debt-summary-table tr {
+    display: grid;
+    grid-template-columns: 28% 72%;
+    padding: 7px 0;
+  }
+
+  .debt-summary-table tr > th,
+  .debt-summary-table tr > td {
+    display: block;
+    grid-column: 1;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .debt-summary-table tr > td {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .debt-summary-table tr > th:nth-of-type(2) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .debt-summary-table tr > td:nth-of-type(2) {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .debt-summary-table tr:last-child {
+    display: block;
+  }
+
+  .debt-summary-table tr:last-child > th,
+  .debt-summary-table tr:last-child > td {
+    display: block;
+  }
+
+  .debt-summary-table tr:last-child > td {
+    padding-top: 0;
+  }
+
+  .relative-heading {
+    align-items: flex-start;
+  }
+
+  .relatives-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+</style>
