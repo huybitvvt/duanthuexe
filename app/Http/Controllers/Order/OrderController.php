@@ -132,22 +132,27 @@ class OrderController extends Controller
     public function store(Request $request): JsonResponse
     {
 		// return $this->successResponse('', 'Fake data');
+		if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
+			&& !$request->filled('store_id') && auth()->user() && auth()->user()->store_id) {
+			$request->merge(['store_id' => auth()->user()->store_id]);
+		}
 		$this->normalizeOrderPaymentMethods($request);
+		$isDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
 
 		$request->validate(OrderValidator::store($request));
 
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền đặt cọc không khớp', $request->get('first_deposit_payment_method'), $request->get('first_deposit_amount'), $request->get('store_id') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền đặt cọc không khớp', $request->get('first_deposit_payment_method'), $request->get('first_deposit_amount'), $request->get('store_id') )) ) {
 			return $error;
 		}
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền phí thuê xe không khớp', $request->get('total_rental_payment_method'), $request->get('total_rental_fees'), $request->get('store_id') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền phí thuê xe không khớp', $request->get('total_rental_payment_method'), $request->get('total_rental_fees'), $request->get('store_id') )) ) {
 			return $error;
 		}
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền cọc thu thêm không khớp', $request->get('additional_deposit_payment_method'), $request->get('additional_deposit_amount'), $request->get('store_id') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền cọc thu thêm không khớp', $request->get('additional_deposit_payment_method'), $request->get('additional_deposit_amount'), $request->get('store_id') )) ) {
 			return $error;
 		}
 
 		$payment_method = $request->get('payment_method');
-		if ( $payment_method ) {
+		if ( $payment_method && !$isDraft ) {
 			$bank_id = $request->get('bank_id');
 			if ( in_array( intval( $payment_method ), array( 2, 3 ) ) ) {
 				if ( ! $bank_id ) {
@@ -159,18 +164,22 @@ class OrderController extends Controller
 		$order_items = $request->get('order_items');
 		if( is_array( $order_items ) && ! empty( $order_items ) ) {
 			foreach ( $order_items as $order_item ) {
+				if ($isDraft && (empty($order_item['rent_at']) || empty($order_item['return_at']))) {
+					continue;
+				}
 				$rent_at = DateTimeHelper::parse( $order_item['rent_at'] );
 				$return_at = DateTimeHelper::parse( $order_item['return_at'] );
 
-				if ( $rent_at->gt( $return_at ) ) {
+				if (!$rent_at || !$return_at || $rent_at->gt($return_at)) {
 					return $this->errorResponse('Thời gian trả xe phải muộn hơn thời gian thuê xe', 422);
 				}
 			}
 		}
-		if (!HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {
+		if ((!filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) || $request->filled('store_id'))
+			&& !HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {
 			return $this->errorResponse('Kho/cơ sở không thuộc danh mục 6 kho HIMOTO.', 422);
 		}
-		if ($error = $this->validateOrderVehicleLocations($request)) {
+		if (!$isDraft && ($error = $this->validateOrderVehicleLocations($request))) {
 			return $error;
 		}
 
@@ -197,13 +206,14 @@ class OrderController extends Controller
 		}
 		$this->normalizeOrderPaymentMethods($request);
 
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền đặt cọc không khớp', $request->get('first_deposit_payment_method'), $request->get('first_deposit_amount'), $request->get('store_id') ) ) {
+		$isDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền đặt cọc không khớp', $request->get('first_deposit_payment_method'), $request->get('first_deposit_amount'), $request->get('store_id') )) ) {
 			return $error;
 		}
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền phí thuê xe không khớp', $request->get('total_rental_payment_method'), $request->get('total_rental_fees'), $request->get('store_id') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền phí thuê xe không khớp', $request->get('total_rental_payment_method'), $request->get('total_rental_fees'), $request->get('store_id') )) ) {
 			return $error;
 		}
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền cọc thu thêm không khớp', $request->get('additional_deposit_payment_method'), $request->get('additional_deposit_amount'), $request->get('store_id') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền cọc thu thêm không khớp', $request->get('additional_deposit_payment_method'), $request->get('additional_deposit_amount'), $request->get('store_id') )) ) {
 			return $error;
 		}
 
@@ -212,10 +222,11 @@ class OrderController extends Controller
 		}
 
 		$request->validate(OrderValidator::update($request, $order));
-		if (!HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {
+		if ((!filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) || $request->filled('store_id'))
+			&& !HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {
 			return $this->errorResponse('Kho/cơ sở không thuộc danh mục 6 kho HIMOTO.', 422);
 		}
-		if ($error = $this->validateOrderVehicleLocations($request, $order)) {
+		if (!$isDraft && ($error = $this->validateOrderVehicleLocations($request, $order))) {
 			return $error;
 		}
         try {
@@ -542,6 +553,9 @@ class OrderController extends Controller
 	}
 
 	public function preview(Request $request) {
+        if (!$request->filled('store_id') && auth()->user() && auth()->user()->store_id) {
+            $request->merge(['store_id' => auth()->user()->store_id]);
+        }
         \App\Support\PilotAccess::store(auth()->user(), $request->get('store_id'));
 		try {
 			if ($request->filled('store_id') && !HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {

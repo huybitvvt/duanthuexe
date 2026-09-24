@@ -41,6 +41,10 @@ class OrderValidator extends LaravelValidator
             'contract_signer_b_name' => 'nullable|string|max:191',
             'customer_source' => 'nullable|string|max:191',
             'customer_source_url' => 'nullable|url|max:1000',
+            'order_mode' => 'nullable|in:standard,draft,handover',
+            'guardian_name' => 'nullable|string|max:191',
+            'guardian_phone' => 'nullable|string|max:32',
+            'guardian_id_card' => 'nullable|string|max:32',
             'save_as_draft' => 'nullable|boolean',
             'draft_reference' => 'nullable|string|max:32',
             'manual_contract_number' => 'nullable|string|max:32',
@@ -65,11 +69,15 @@ class OrderValidator extends LaravelValidator
     {
         $draft = filter_var(($request ?: request())->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
         return array_merge(self::contractRules(), [
-            'store_id' => 'required|numeric',
+            'store_id' => $draft ? 'nullable|numeric' : 'required|numeric',
             'total' => 'required|numeric',
-            'customer_name' => 'required',
+            'customer_name' => $draft ? 'nullable|string|max:191' : 'required|string|max:191',
+            'guardian_name' => (!$draft && ($request ?: request())->get('order_mode') === 'handover') ? 'required|string|max:191' : 'nullable|string|max:191',
             'customer_phone' => array_merge([$draft ? 'nullable' : 'required'], self::contractRules()['customer_phone']),
             'customer_id_card' => [$draft ? 'nullable' : 'required', 'regex:/^(?:\d{9}|\d{12})$/'],
+            'order_items.*.vehicle_id' => $draft ? 'nullable|integer' : 'required|integer',
+            'order_items.*.rent_at' => $draft ? 'nullable' : 'required',
+            'order_items.*.return_at' => $draft ? 'nullable' : 'required',
             'manual_contract_number' => ['nullable', 'string', 'max:32', Rule::unique('orders', 'contract_number'), Rule::unique('orders', 'draft_reference')],
             'draft_reference' => ['nullable', 'string', 'max:32', Rule::unique('orders', 'draft_reference'), Rule::unique('orders', 'contract_number')],
         ]);
@@ -79,11 +87,15 @@ class OrderValidator extends LaravelValidator
     {
         $draft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) && $order->order_status === self::ORDER_DRAFT;
         return array_merge(self::contractRules(), [
-            'store_id' => 'required|numeric',
+            'store_id' => $draft ? 'nullable|numeric' : 'required|numeric',
             'total' => 'required|numeric',
-            'customer_name' => 'required',
+            'customer_name' => $draft ? 'nullable|string|max:191' : 'required|string|max:191',
+            'guardian_name' => (!$draft && $order->order_mode === 'handover') ? 'required|string|max:191' : 'nullable|string|max:191',
             'customer_phone' => array_merge([$draft ? 'nullable' : 'required'], self::contractRules()['customer_phone']),
             'customer_id_card' => [$draft ? 'nullable' : 'required', 'regex:/^(?:\d{9}|\d{12})$/', Rule::unique('customers', 'id_card')->ignore($order->customer_id)],
+            'order_items.*.vehicle_id' => $draft ? 'nullable|integer' : 'required|integer',
+            'order_items.*.rent_at' => $draft ? 'nullable' : 'required',
+            'order_items.*.return_at' => $draft ? 'nullable' : 'required',
             'manual_contract_number' => ['nullable', 'string', 'max:32', Rule::unique('orders', 'contract_number')->ignore($order->id), Rule::unique('orders', 'draft_reference')->ignore($order->id)],
             'draft_reference' => ['nullable', 'string', 'max:32', Rule::unique('orders', 'draft_reference')->ignore($order->id), Rule::unique('orders', 'contract_number')->ignore($order->id)],
         ]);

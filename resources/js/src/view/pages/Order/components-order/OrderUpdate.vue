@@ -2,6 +2,10 @@
     <div v-loading="loadingComponent">
         <ValidationObserver v-slot="{ handleSubmit }" ref="form">
             <form class="form" @submit.prevent="handleSubmit(handleFormSubmit)">
+				<nav v-if="!id" class="nav nav-tabs mb-4" aria-label="Loại hồ sơ tạo mới">
+					<button v-for="mode in creationModes" :key="mode.value" type="button" class="nav-link"
+						:class="{ active: initialMode === mode.value }" @click="selectCreationMode(mode.value)">{{ mode.label }}</button>
+				</nav>
 				<div v-if="!id && initialMode === 'draft'" class="alert alert-custom alert-light-success p-3 mb-4">
 					<div class="d-flex align-items-center justify-content-between flex-wrap">
 						<div>
@@ -32,7 +36,7 @@
 						<div class="d-flex justify-content-start align-items-center flex-wrap">
 							<h6 v-if="id" class="mb-0 mr-3">ID hợp đồng: #{{ id }}</h6>
 							<div class="d-inline-flex align-items-center">
-								<span class="badge badge-primary px-3 py-2" style="font-size: 13px;">
+						<span class="badge badge-primary px-3 py-2" style="font-size: 13px;">
 									Số HĐ: <strong>{{ order.contract_number || order.manual_contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
 								</span>
 								<span v-if="id && is_deposit_contract_mode" class="font-weight-bold badge badge-success ml-2">Cọc giữ xe</span>
@@ -93,8 +97,8 @@
 							<el-date-picker class="w-100" v-model="order.contract_signed_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Chọn ngày ký"></el-date-picker>
 						</div>
 						<div class="col-md-4 form-group" v-if="id == 0 || id == null">
-							<label><strong>Ngày tạo hợp đồng<span class="text-danger">(*)</span></strong></label>
-							<ValidationProvider vid="completed_at" name="Ngày tạo hợp đồng" rules="required" v-slot="{ errors }">
+							<label><strong>Ngày tạo hợp đồng<span v-if="!isDraftMode" class="text-danger">(*)</span></strong></label>
+							<ValidationProvider vid="completed_at" name="Ngày tạo hợp đồng" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
 								<el-date-picker class="w-100" v-model="order.created_at" format="dd-MM-yyyy HH:mm:ss" type="datetime" placeholder="Ngày tạo hợp đồng"></el-date-picker>
 								<error-message :errors="errors" field="completed_at"></error-message>
 							</ValidationProvider>
@@ -145,7 +149,7 @@
 							</label>
 							<el-input
 								v-model="order.manual_contract_number"
-								placeholder="VD: 2026/09/23-0001 hoặc số trên hợp đồng giấy"
+									placeholder="VD: 260924-0001 hoặc số trên hợp đồng giấy"
 								clearable
 							></el-input>
 						</div>
@@ -156,6 +160,21 @@
 					</div>
 				</div>
 
+                <div v-if="isHandoverMode" class="card card-custom border p-4 mb-6 bg-light-warning">
+                    <h5 class="font-weight-bold mb-3">Người giám hộ / đại diện hợp pháp</h5>
+                    <p class="text-muted mb-3">Có thể bổ sung sau khi lưu nháp. Cần tên người giám hộ khi hoàn thành biên bản.</p>
+                    <div class="row">
+                        <div class="col-md-4 form-group">
+                            <label><strong>Họ tên người giám hộ</strong><span v-if="!isDraftMode" class="text-danger"> (*)</span></label>
+                            <ValidationProvider vid="guardian_name" name="Người giám hộ" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
+                                <el-input v-model="order.guardian_name" placeholder="Họ tên người giám hộ"></el-input>
+                                <error-message :errors="errors" field="guardian_name"></error-message>
+                            </ValidationProvider>
+                        </div>
+                        <div class="col-md-4 form-group"><label><strong>SĐT người giám hộ</strong></label><el-input v-model="order.guardian_phone" placeholder="Số điện thoại"></el-input></div>
+                        <div class="col-md-4 form-group"><label><strong>CCCD người giám hộ</strong></label><el-input v-model="order.guardian_id_card" placeholder="Số CCCD"></el-input></div>
+                    </div>
+                </div>
                 <div class="d-flex justify-content-center mb-6">
                     <h2 class="font-weight-bold">Thông tin khách hàng (Bên B)</h2>
                 </div>
@@ -163,7 +182,7 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="mb-0"><strong>Cửa hàng xe</strong> <span class="text-danger">(*)</span></label>
+                                <label class="mb-0"><strong>Cửa hàng xe</strong> <span v-if="!isDraftMode" class="text-danger">(*)</span></label>
                                 <router-link
                                     v-if="order.store_id"
                                     :to="{ name: 'warehouse', query: { store_id: order.store_id } }"
@@ -175,7 +194,7 @@
                                     <i class="fas fa-warehouse mr-1"></i>Kho xe PGD này &rarr;
                                 </router-link>
                             </div>
-                            <ValidationProvider vid="store_id" name="Cửa hàng xe" rules="required" v-slot="{ errors }">
+                            <ValidationProvider vid="store_id" name="Cửa hàng xe" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
                                 <el-select name="store_id" v-model="order.store_id" clearable filterable class="w-100"
                                     placeholder="Chọn cửa hàng" @change="onStoreChange($event)">
                                     <el-option v-for="item in stores" :key="item.name" :label="item.store_name"
@@ -188,8 +207,8 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Tên khách hàng</strong> <span class="text-danger">(*)</span></label>
-                            <ValidationProvider vid="name" name="Tên khách hàng" rules="required" v-slot="{ errors }">
+                            <label><strong>Tên khách hàng</strong> <span v-if="!isDraftMode" class="text-danger">(*)</span></label>
+                            <ValidationProvider vid="name" name="Tên khách hàng" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
                                 <el-input placeholder="Tên khách hàng" v-model="order.customer_name"></el-input>
                                 <error-message :errors="errors" field="name"></error-message>
                             </ValidationProvider>
@@ -323,6 +342,7 @@
                     <div v-if="order.order_items" v-for="(item, key) in order.order_items" :key="key">
                         <items-order :priceVehicles="priceVehicles" :order_item="item" :banks="banks"
 							:is_deposit_contract_mode="is_deposit_contract_mode"
+							:is_draft_mode="isDraftMode"
                             :ref="'itemOrder-' + key" :vehicles="vehicles" :index="key" :order_id="id"
                             :customer_name="order.customer_name"
                             @deleteFee="deleteFee" @deleteVehicle="deleteVehicle" @changeRentAt="changeRentAt" @addFee="addFee" @feeChanged="feeChanged"
@@ -712,6 +732,10 @@ export default {
             order: {
 				created_at: new Date(),
                 contract_number: "",
+                order_mode: this.initialMode,
+                guardian_name: "",
+                guardian_phone: "",
+                guardian_id_card: "",
                 manual_contract_number: "",
                 draft_reference: "",
                 contract_signed_on: new Date(),
@@ -819,6 +843,16 @@ export default {
         ...mapGetters(["currentUser"]),
         isDraftMode() {
             return ['draft', 'handover'].includes(this.initialMode) || (this.order && this.order.order_status === 'draft');
+        },
+        isHandoverMode() {
+            return this.initialMode === 'handover' || (this.order && this.order.order_mode === 'handover');
+        },
+        creationModes() {
+            return [
+                { value: 'standard', label: 'Hợp đồng phổ thông' },
+                { value: 'draft', label: 'Hợp đồng nháp / giấy' },
+                { value: 'handover', label: 'Biên bản bàn giao xe' },
+            ];
         },
 		is_deposit_contract_mode() {
 			if (this.start_this_contract) {
@@ -1084,13 +1118,16 @@ export default {
 		},
     },
     methods: {
+        selectCreationMode(mode) {
+            this.order.order_mode = mode;
+            this.$emit('change-mode', mode);
+        },
 		async onPreviewContract() {
-			if (!this.order.customer_name || (!this.isDraftMode && !this.order.customer_id_card)) {
+			const paperDraft = this.isDraftMode || this.order.order_status === 'draft';
+			if (!paperDraft && (!this.order.customer_name || !this.order.customer_id_card)) {
 				Swal.fire({
 					title: "Thiếu thông tin khách hàng",
-					text: this.isDraftMode
-						? "Vui lòng nhập họ tên khách thuê trước khi xem trước hợp đồng."
-						: "Vui lòng nhập họ tên và số CCCD của khách thuê trước khi xem trước hợp đồng.",
+					text: "Vui lòng nhập họ tên và số CCCD của khách thuê trước khi xem trước hợp đồng.",
 					icon: "warning",
 					confirmButtonText: "Đã hiểu",
 				});
@@ -1098,7 +1135,7 @@ export default {
 				if (customerEl) customerEl.focus();
 				return;
 			}
-			if (!this.order.order_items || this.order.order_items.length === 0 || !this.order.order_items[0].vehicle_id) {
+			if (!paperDraft && (!this.order.order_items || this.order.order_items.length === 0 || !this.order.order_items[0].vehicle_id)) {
 				Swal.fire({
 					title: "Chưa chọn xe thuê",
 					text: "Vui lòng chọn ít nhất 1 xe thuê để xem trước hợp đồng.",
@@ -1500,6 +1537,10 @@ export default {
                         contract_number: res.data.contract_number || "",
                         manual_contract_number: res.data.contract_number || res.data.draft_reference || "",
                         draft_reference: res.data.draft_reference || "",
+                        order_mode: res.data.order_mode || (res.data.order_status === 'draft' ? 'draft' : 'standard'),
+                        guardian_name: res.data.guardian_name || "",
+                        guardian_phone: res.data.guardian_phone || "",
+                        guardian_id_card: res.data.guardian_id_card || "",
                         contract_is_locked: !!(res.data.contract_is_locked || (res.data.contract_snapshot && res.data.contract_snapshot.is_locked)),
                         contract_snapshot: res.data.contract_snapshot || null,
                         contract_signed_on: res.data.contract_signed_on || res.data.created_at || new Date(),
@@ -1519,7 +1560,8 @@ export default {
                         customer_id_card_issued_by: res.data.customer?.id_card_issued_by || "",
                         customer_address: res.data.customer?.address || "",
                         relatives: relatives,
-                        order_items: res.data.order_items.map((item) => ({
+                        order_items: (res.data.order_status === 'draft' && res.data.draft_payload?.order_items?.length
+                            ? res.data.draft_payload.order_items : res.data.order_items).map((item) => ({
                             ...item,
                             driver_name: item.driver_name || "",
                             driver_license_number: item.driver_license_number || "",
@@ -1735,6 +1777,10 @@ export default {
 
             this.order = {
                 store_id: "",
+                order_mode: this.initialMode,
+                guardian_name: "",
+                guardian_phone: "",
+                guardian_id_card: "",
                 customer_name: "",
                 customer_phone: "",
                 customer_id_card: "",
@@ -1784,8 +1830,8 @@ export default {
 
                 type: item.is_all_in_one ? 'total' : 'day',
                 total_money: item.hiringFee,
-                rent_at: moment(item.rent_at).format('DD-MM-YYYY HH:mm:ss'),
-                return_at: moment(item.return_at).format('DD-MM-YYYY HH:mm:ss'),
+				rent_at: item.rent_at ? moment(item.rent_at).format('DD-MM-YYYY HH:mm:ss') : null,
+				return_at: item.return_at ? moment(item.return_at).format('DD-MM-YYYY HH:mm:ss') : null,
 				custom_total_money: item.custom_hiring_fee,
                 driver_name: item.driver_name || "",
                 driver_license_number: item.driver_license_number || "",
@@ -1807,6 +1853,7 @@ export default {
 
             return {
                 ...this.order,
+                order_mode: this.order.order_mode || this.initialMode,
                 manual_contract_number: (this.order.manual_contract_number || "").trim(),
                 contract_signed_on: this.order.contract_signed_on ? moment(this.order.contract_signed_on).format('YYYY-MM-DD') : null,
                 contract_authorization_date: (this.order.is_authorized_contract && this.order.contract_authorization_date) ? moment(this.order.contract_authorization_date).format('YYYY-MM-DD') : null,

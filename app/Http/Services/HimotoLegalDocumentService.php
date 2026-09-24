@@ -30,6 +30,11 @@ class HimotoLegalDocumentService
                 $vehicle = $item->vehicle;
                 return $this->vehicleFields($vehicle);
             })->all(),
+            'guardian' => [
+                'name' => $order->guardian_name,
+                'phone' => $order->guardian_phone,
+                'id_card' => $order->guardian_id_card,
+            ],
             'isDraft' => $order->order_status === 'draft',
         ])->render();
     }
@@ -43,6 +48,7 @@ class HimotoLegalDocumentService
             'handoverOn' => $data['handoverOn'],
             'customer' => $data['customer'],
             'vehicles' => [$data['vehicle']],
+            'guardian' => $data['guardian'],
             'isDraft' => false,
         ])->render();
     }
@@ -53,6 +59,9 @@ class HimotoLegalDocumentService
         $months = $overrideMonths ?: (int) $data['months'];
         if (!in_array($months, [6, 12, 24], true)) {
             throw ValidationException::withMessages(['installment_count' => 'Chỉ có phụ lục SH06, SH12 hoặc SH24.']);
+        }
+        if ($months !== (int) $data['months']) {
+            throw ValidationException::withMessages(['installment_count' => 'Kỳ hạn phụ lục phải trùng với kỳ hạn hợp đồng đã ký.']);
         }
         $data['months'] = $months;
         $data['variant'] = [6 => 'SH06', 12 => 'SH12', 24 => 'SH24'][$months];
@@ -89,6 +98,11 @@ class HimotoLegalDocumentService
                 'id_card' => $customer['id_card'] ?? optional($contract->customer)->id_card,
                 'id_card_date' => $this->date($customer['id_card_date'] ?? optional($contract->customer)->id_card_issued_on),
                 'id_card_place' => $customer['id_card_place'] ?? optional($contract->customer)->id_card_issued_by,
+            ],
+            'guardian' => $snapshot['parties']['guardian'] ?? [
+                'name' => $contract->guardian_name,
+                'phone' => $contract->guardian_phone,
+                'id_card' => $contract->guardian_id_card,
             ],
             'vehicle' => [
                 'brand' => optional($contract->vehicle)->brand,

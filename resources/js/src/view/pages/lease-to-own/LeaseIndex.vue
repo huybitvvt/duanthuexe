@@ -366,18 +366,18 @@
                         5 Mẫu hợp đồng & Biên bản
                       </b-dropdown-header>
                       <b-dropdown-item :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'pdf')">
-                        1. Hợp đồng thuê xe (mẫu phổ thông)
+                        1. Hợp đồng thuê sở hữu (mẫu phổ thông)
                       </b-dropdown-item>
                       <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openLegalDocument(item, 'handover')">
                         2. Biên bản bàn giao xe (mẫu 2 liên)
                       </b-dropdown-item>
-                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openAnnexDocument(item, 6)">
+                      <b-dropdown-item :disabled="downloadingDoc === item.id || Number(item.installment_count) !== 6" @click="openAnnexDocument(item, 6)">
                         3. Phụ lục HĐ thuê 6 tháng (SH06)
                       </b-dropdown-item>
-                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openAnnexDocument(item, 12)">
+                      <b-dropdown-item :disabled="downloadingDoc === item.id || Number(item.installment_count) !== 12" @click="openAnnexDocument(item, 12)">
                         4. Phụ lục HĐ thuê 12 tháng (SH12)
                       </b-dropdown-item>
-                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openAnnexDocument(item, 24)">
+                      <b-dropdown-item :disabled="downloadingDoc === item.id || Number(item.installment_count) !== 24" @click="openAnnexDocument(item, 24)">
                         5. Phụ lục HĐ thuê 24 tháng (SH24)
                       </b-dropdown-item>
                       <b-dropdown-divider></b-dropdown-divider>
@@ -660,8 +660,13 @@ export default {
     handlePayFromSchedule({ contract, amount }) {
       this.openPaymentModal(contract, amount);
     },
-    handleModalSuccess() {
+    handleModalSuccess(contract, documentType) {
       this.refreshData();
+      if (contract && contract.id && documentType) {
+        if (documentType === 'pdf') this.downloadPdf(contract, 'pdf');
+        else if (documentType === 'handover') this.openLegalDocument(contract, 'handover');
+        else this.openAnnexDocument(contract, Number(documentType.slice(5)));
+      }
     },
     handleExportExcel() {
       this.exporting = true;

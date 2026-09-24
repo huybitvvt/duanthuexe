@@ -85,6 +85,21 @@ class DashboardPerformanceTest extends TestCase
         $this->assertCount(17, $overview['chart']['labels']);
     }
 
+    public function testDraftIntakeDoesNotIncreaseContractCounts(): void
+    {
+        auth()->login($this->admin);
+        DB::table('orders')->insert([
+            'store_id' => 1,
+            'order_status' => 'draft',
+            'created_at' => $this->now,
+        ]);
+        Cache::flush();
+
+        $report = app(DashboardService::class)->report();
+        $this->assertSame(2, $report['total_order_in_day']);
+        $this->assertSame(3, $report['total_order_in_month']);
+    }
+
     public function testReportScopesToStaffStoreAndUsesSharedCache(): void
     {
         auth()->login($this->staff);

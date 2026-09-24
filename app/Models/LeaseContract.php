@@ -35,6 +35,9 @@ class LeaseContract extends Model
         'settled_at',
         'assigned_user_id',
         'notes',
+        'guardian_name',
+        'guardian_phone',
+        'guardian_id_card',
     ];
 
     protected $casts = [

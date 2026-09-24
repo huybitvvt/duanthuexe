@@ -8,6 +8,8 @@
     @hidden="resetForm"
   >
     <div v-loading="loading">
+      <el-tabs v-model="activeTab" type="card">
+        <el-tab-pane label="1. Khách hàng & giám hộ" name="customer">
       <div class="row">
         <!-- Khách hàng -->
         <div class="col-md-6 form-group">
@@ -26,8 +28,13 @@
           <label class="font-weight-bold">Địa chỉ thường trú</label>
           <el-input v-model="form.customer.address" placeholder="Địa chỉ nơi cư trú" />
         </div>
-
-        <div class="col-12"><hr class="my-3" /></div>
+        <div class="col-md-6 form-group"><label class="font-weight-bold">Người giám hộ / đại diện hợp pháp</label><el-input v-model="form.guardian_name" placeholder="Họ tên người giám hộ" /></div>
+        <div class="col-md-3 form-group"><label class="font-weight-bold">SĐT giám hộ</label><el-input v-model="form.guardian_phone" /></div>
+        <div class="col-md-3 form-group"><label class="font-weight-bold">CCCD giám hộ</label><el-input v-model="form.guardian_id_card" /></div>
+      </div>
+        </el-tab-pane>
+        <el-tab-pane label="2. Xe & điều khoản" name="terms">
+      <div class="row">
 
         <!-- Xe & Ngày bắt đầu -->
         <div class="col-md-6 form-group">
@@ -83,7 +90,7 @@
           <el-select
             v-model="form.installment_count"
             class="w-100"
-            @change="recalculatePeriodAmount"
+            @change="onInstallmentChange"
           >
             <el-option label="6 tháng (6 kỳ)" :value="6" />
             <el-option label="12 tháng (12 kỳ)" :value="12" />
@@ -115,12 +122,27 @@
           />
         </div>
       </div>
+        </el-tab-pane>
+        <el-tab-pane label="3. Bộ tài liệu (5 mẫu)" name="documents">
+          <p class="text-muted">Chọn tài liệu cần mở sau khi tạo hợp đồng. Phụ lục sẽ dùng đúng kỳ hạn đã chọn.</p>
+          <el-radio-group v-model="documentType" class="d-flex flex-column">
+            <el-radio label="pdf" class="mb-3">1. Hợp đồng thuê sở hữu (mẫu phổ thông)</el-radio>
+            <el-radio label="handover" class="mb-3">2. Biên bản bàn giao xe</el-radio>
+            <el-radio label="annex6" class="mb-3">3. Phụ lục SH06 — 6 tháng</el-radio>
+            <el-radio label="annex12" class="mb-3">4. Phụ lục SH12 — 12 tháng</el-radio>
+            <el-radio label="annex24" class="mb-3">5. Phụ lục SH24 — 24 tháng</el-radio>
+          </el-radio-group>
+          <p v-if="documentType.startsWith('annex') && Number(documentType.slice(5)) !== Number(form.installment_count)" class="text-danger">
+            Chọn kỳ hạn {{ documentType.slice(5) }} tháng ở tab “Xe & điều khoản” để in phụ lục này.
+          </p>
+        </el-tab-pane>
+      </el-tabs>
     </div>
 
     <template #modal-footer="{ cancel }">
       <b-button variant="secondary" @click="cancel">Đóng</b-button>
       <b-button variant="primary" :disabled="loading" @click="handleSubmit">
-        Tạo hợp đồng & Sinh lịch trả góp
+        Tạo hợp đồng & mở tài liệu đã chọn
       </b-button>
     </template>
   </b-modal>
@@ -138,6 +160,8 @@ export default {
     return {
       visible: false,
       loading: false,
+      activeTab: "customer",
+      documentType: "annex12",
       vehicles: [],
       form: {
         customer: {
@@ -153,10 +177,17 @@ export default {
         installment_count: 12,
         period_amount: 2000000,
         notes: "",
+        guardian_name: "",
+        guardian_phone: "",
+        guardian_id_card: "",
       },
     };
   },
   methods: {
+    onInstallmentChange() {
+      this.recalculatePeriodAmount();
+      if (this.documentType.startsWith('annex')) this.documentType = `annex${this.form.installment_count}`;
+    },
     open() {
       this.visible = true;
       this.recalculatePeriodAmount();
@@ -186,15 +217,23 @@ export default {
       this.form.period_amount = Math.round(remaining / count);
     },
     handleSubmit() {
+      if (this.documentType.startsWith('annex') && Number(this.documentType.slice(5)) !== Number(this.form.installment_count)) {
+        this.activeTab = 'documents';
+        Swal.fire('Sai kỳ hạn', 'Kỳ hạn trả góp phải trùng với phụ lục đã chọn.', 'warning');
+        return;
+      }
       if (!this.form.customer.name || !this.form.customer.phone) {
+        this.activeTab = 'customer';
         Swal.fire("Lỗi", "Vui lòng nhập tên và số điện thoại khách hàng.", "warning");
         return;
       }
       if (!this.form.total_amount || this.form.total_amount <= 0) {
+        this.activeTab = 'terms';
         Swal.fire("Lỗi", "Vui lòng nhập tổng giá trị hợp đồng.", "warning");
         return;
       }
       if (!this.form.vehicle_id) {
+        this.activeTab = 'terms';
         Swal.fire('Chưa chọn xe', 'Vui lòng chọn xe sẵn sàng tại kho Thuê sở hữu.', 'warning');
         return;
       }
@@ -215,7 +254,7 @@ export default {
             "success"
           );
           this.visible = false;
-          this.$emit("success");
+          this.$emit("success", res?.data || null, this.documentType);
         })
         .catch((err) => {
           const msg = err?.data?.message || err?.message || "Đã xảy ra lỗi khi tạo hợp đồng.";
@@ -226,6 +265,8 @@ export default {
         });
     },
     resetForm() {
+      this.activeTab = 'customer';
+      this.documentType = 'annex12';
       this.form = {
         customer: {
           name: "",
@@ -240,6 +281,9 @@ export default {
         installment_count: 12,
         period_amount: 2000000,
         notes: "",
+        guardian_name: "",
+        guardian_phone: "",
+        guardian_id_card: "",
       };
     },
   },

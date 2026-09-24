@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Prettus\Repository\Criteria\RequestCriteria;
 use Prettus\Repository\Eloquent\BaseRepository;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
 {
@@ -44,7 +45,7 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
 
         // The index only needs data rendered by the table. Transaction,
         // activity and add-on histories are loaded by the detail endpoint.
-        $query = $this->getModel()->newQuery()->select([
+        $columns = [
             'orders.id',
             'orders.store_id',
             'orders.customer_id',
@@ -60,7 +61,13 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
             'orders.additional_deposit_amount',
             'orders.created_without_collect_deposit',
             'orders.deposit_closed',
-        ])
+        ];
+        foreach (['draft_reference', 'order_mode'] as $optionalColumn) {
+            if (Schema::hasColumn('orders', $optionalColumn)) {
+                $columns[] = 'orders.' . $optionalColumn;
+            }
+        }
+        $query = $this->getModel()->newQuery()->select($columns)
         ->withCount([
             'contractAmendments as vehicle_exchange_count' => function ($q) {
                 $q->where('amendment_type', \App\Models\ContractAmendment::TYPE_VEHICLE_EXCHANGE);

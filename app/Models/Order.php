@@ -20,6 +20,7 @@ class Order extends Model implements Transformable
 
     protected $casts = [
         'contract_snapshot' => 'array',
+        'draft_payload' => 'array',
         'contract_signed_on' => 'date',
         'contract_authorization_date' => 'date',
         'contract_issued_at' => 'datetime',

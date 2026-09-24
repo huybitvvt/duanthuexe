@@ -28,6 +28,23 @@ class HimotoDraftCustomerTest extends TestCase
         $this->assertTrue(Validator::make($issued, OrderValidator::store(new Request($issued)))->fails());
     }
 
+    public function testHandoverDraftCanStartWithoutCustomerOrBranchAndNeedsGuardianWhenIssued(): void
+    {
+        $draft = ['save_as_draft' => true, 'order_mode' => 'handover', 'total' => 0];
+        $this->assertFalse(Validator::make($draft, OrderValidator::store(new Request($draft)))->fails());
+
+        $official = $draft + [
+            'store_id' => 1,
+            'customer_name' => 'Khách nhận xe',
+            'customer_phone' => '0912345678',
+            'customer_id_card' => '001234567890',
+        ];
+        $official['save_as_draft'] = false;
+        $this->assertTrue(Validator::make($official, OrderValidator::store(new Request($official)))->fails());
+        $official['guardian_name'] = 'Người giám hộ';
+        $this->assertFalse(Validator::make($official, OrderValidator::store(new Request($official)))->fails());
+    }
+
     public function testDraftCustomerCardMigrationRetainsUniqueRealCard(): void
     {
         Schema::dropIfExists('customers');
@@ -70,5 +87,19 @@ class HimotoDraftCustomerTest extends TestCase
         $this->assertTrue(Validator::make($form, OrderValidator::store(new Request($form)))->fails());
         $form['draft_reference'] = 'PAPER-02';
         $this->assertFalse(Validator::make($form, OrderValidator::store(new Request($form)))->fails());
+    }
+
+    public function testIntakeMigrationAllowsUnassignedBranchAndStoresGuardian(): void
+    {
+        Schema::dropIfExists('orders');
+        Schema::create('orders', function (Blueprint $table) {
+            $table->increments('id');
+            $table->bigInteger('store_id');
+        });
+        require_once __DIR__ . '/../../database/migrations/2026_09_24_000001_add_handover_draft_fields_to_orders.php';
+        (new \AddHandoverDraftFieldsToOrders())->up();
+
+        DB::table('orders')->insert(['store_id' => null, 'order_mode' => 'handover', 'guardian_name' => 'Bà Lan']);
+        $this->assertSame('Bà Lan', DB::table('orders')->value('guardian_name'));
     }
 }

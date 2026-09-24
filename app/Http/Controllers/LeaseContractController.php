@@ -76,6 +76,9 @@ class LeaseContractController extends Controller
             'period_amount' => 'nullable|numeric|min:0',
             'assigned_user_id' => 'nullable|integer',
             'notes' => 'nullable|string',
+            'guardian_name' => 'nullable|string|max:191',
+            'guardian_phone' => 'nullable|string|max:32',
+            'guardian_id_card' => 'nullable|string|max:32',
         ]);
 
         try {

@@ -210,6 +210,9 @@
                                         <div v-if="item.contract_number" class="badge badge-light-primary text-primary font-weight-bolder mt-1" style="font-size: 11px;">
                                             {{ item.contract_number }}
                                         </div>
+                                        <div v-else-if="item.order_status === 'draft'" class="badge badge-light-warning text-warning font-weight-bolder mt-1" style="font-size: 11px;">
+                                            {{ item.draft_reference || ('NHÁP-' + item.id) }} · {{ item.order_mode === 'handover' ? 'Bàn giao' : 'Hợp đồng' }}
+                                        </div>
                                     </th>
                                     <td class="contract-date-cell"><div>{{ (item.created_at || "").split(" ")[0] }}</div><small class="text-muted">{{ (item.created_at || "").split(" ")[1] }}</small></td>
                                     <td style="width: 150px;">
@@ -273,6 +276,8 @@
                                         </template>
                                     </td>
                                     <td>
+                                        <span v-if="item.order_status === 'draft'" class="text-muted">Chưa ghi nhận</span>
+                                        <template v-else>
                                         <div v-if="item.deposit_closed">
                                             <span v-if="item.deposit_closed == 1">Đặt cọc:</span>
                                             <span v-else>Phí thuê:</span>
@@ -291,6 +296,7 @@
                                                 ) | formatPrice
                                             }}</span>
                                         </div>
+                                        </template>
                                     </td>
                                     <td>
                                         <span class="font-weight-bold"
@@ -337,7 +343,7 @@
 
             <b-modal :title="modalCreateTitle" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
                 hide-footer>
-                <order-update :initial-mode="createMode" @createSuccess="createSuccess"></order-update>
+                <order-update :initial-mode="createMode" @change-mode="openModalCreate" @createSuccess="createSuccess"></order-update>
             </b-modal>
             <b-modal :title='"Sửa hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-update" :centered="true"
                 :scrollable="true" hide-footer>

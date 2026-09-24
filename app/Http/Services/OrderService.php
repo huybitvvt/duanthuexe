@@ -71,7 +71,8 @@ class OrderService
     public function store(Request $request)
     {
         $isDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
-        $customer = $this->storeOrUpdateCustomer($request);
+        $customer = $isDraft && !$request->filled('customer_name')
+            ? null : $this->storeOrUpdateCustomer($request);
         $order = $this->updateOrCreateOrder($request, null, $customer);
         $this->updateVehicles($request, $order);
         if (!$isDraft) {
@@ -94,9 +95,10 @@ class OrderService
         }
 
         $saveAsDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
-        $customer = $this->storeOrUpdateCustomer($request, $order);
+        $customer = $saveAsDraft && !$request->filled('customer_name')
+            ? null : $this->storeOrUpdateCustomer($request, $order->customer_id ? $order : null);
 
-        $this->updateOrCreateOrder($request, $order, null);
+		$this->updateOrCreateOrder($request, $order, $customer);
 
         $this->saveOrderLog($request, $order);
         
@@ -175,6 +177,19 @@ class OrderService
 			'note' => $request->get('note'),
 			'note_payment' => $request->get('note_item'),
 		];
+		if ($order === null && Schema::hasColumn('orders', 'order_mode')) {
+			$dataOrder['order_mode'] = in_array($request->get('order_mode'), ['standard', 'draft', 'handover'], true)
+				? $request->get('order_mode') : 'standard';
+		}
+		foreach (['guardian_name', 'guardian_phone', 'guardian_id_card'] as $guardianField) {
+			if (Schema::hasColumn('orders', $guardianField) && $request->has($guardianField)) {
+				$dataOrder[$guardianField] = $request->get($guardianField) ?: null;
+			}
+		}
+		if (Schema::hasColumn('orders', 'draft_payload')) {
+			$dataOrder['draft_payload'] = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
+				? ['order_items' => (array) $request->get('order_items', [])] : null;
+		}
 		$manualNumber = trim((string) $request->get('manual_contract_number', ''));
 		if (Schema::hasColumn('orders', 'draft_reference') && $request->has('draft_reference')) {
 			$dataOrder['draft_reference'] = trim((string) $request->get('draft_reference')) ?: null;
@@ -211,7 +226,7 @@ class OrderService
 		if ($order === null) {
 			$created_at = DateTimeHelper::parse($request->get('created_at'));
 
-			$dataOrder['customer_id'] = $customer->id;
+			$dataOrder['customer_id'] = $customer ? $customer->id : null;
 			$dataOrder['order_type'] = OrderValidator::ORDER_TYPE_RENTING;
 			$dataOrder['order_status'] = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
 				? OrderValidator::ORDER_DRAFT
@@ -256,6 +271,12 @@ class OrderService
 
 			return $this->orderRepository->store($dataOrder);
 		} else { // update existing order
+			if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) && !$request->filled('customer_name')) {
+				$dataOrder['customer_id'] = null;
+			}
+			if ($customer && !$order->customer_id) {
+				$dataOrder['customer_id'] = $customer->id;
+			}
 			$additional_deposit_amount = $request->get('additional_deposit_amount');
 
 			if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)) {
@@ -535,7 +556,12 @@ class OrderService
 	}
 	protected function updateVehicles(Request $request, Order $order)
 	{
-		$order_items = $request->get('order_items');
+		$order_items = (array) $request->get('order_items', []);
+		if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)) {
+			$order_items = array_values(array_filter($order_items, function ($item) {
+				return !empty($item['vehicle_id']) && !empty($item['rent_at']) && !empty($item['return_at']);
+			}));
+		}
 		$sync_data = [];
 		$money_outdate = 0;
 		$need_release_vehicle_ids = [];
@@ -586,7 +612,7 @@ class OrderService
 				'borrow_hats' => data_get($order_item, 'borrow_hats', 0),
 				'type' => $order_item['type'] ?? ($isFlatDaily ? 'day' : 'total'),
 				'handler_price' => $order_item['handler_price'] ?? 0,
-				'substitute_unit_price' => $order_item['substitute_unit_price'],
+			'substitute_unit_price' => $order_item['substitute_unit_price'] ?? 0,
 				'hiring_fee' => $hiring_fee,
 				'driver_name' => data_get($order_item, 'driver_name') ?: $request->get('customer_name'),
 				'driver_license_number' => data_get($order_item, 'driver_license_number'),
@@ -1530,10 +1556,10 @@ class OrderService
         $log->metadata = json_encode([
             'old_data' => [
                 'store_id' => $order->store_id,
-                'customer_name' => $order->customer->name,
-                'customer_phone' => $order->customer->phone,
-                'customer_address' => $order->customer->address,
-                'customer_idnumber' => $order->customer->id_card,
+                'customer_name' => optional($order->customer)->name,
+                'customer_phone' => optional($order->customer)->phone,
+                'customer_address' => optional($order->customer)->address,
+                'customer_idnumber' => optional($order->customer)->id_card,
                 'vehicle_ids' => $order->vehicles()->get()->toArray(),
                 'order_type' => $order->order_type,
                 'order_status' => $order->status,

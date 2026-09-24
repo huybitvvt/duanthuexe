@@ -112,6 +112,11 @@ class LeaseContractService
                     ? $user->id : data_get($data, 'assigned_user_id', $user->id),
                 'notes' => data_get($data, 'notes', ''),
             ];
+            foreach (['guardian_name', 'guardian_phone', 'guardian_id_card'] as $guardianField) {
+                if (Schema::hasColumn('lease_contracts', $guardianField)) {
+                    $attributes[$guardianField] = data_get($data, $guardianField) ?: null;
+                }
+            }
             if (Schema::hasColumn('lease_contracts', 'origin_store_id')) {
                 $attributes['origin_store_id'] = $user->store_id ?: $storeId;
             }

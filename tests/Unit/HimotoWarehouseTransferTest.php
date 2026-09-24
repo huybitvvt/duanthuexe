@@ -379,6 +379,7 @@ class HimotoWarehouseTransferTest extends TestCase
             ['store_id' => $this->storeA->id, 'order_status' => 'renting', 'out_dated_at' => 60],
             ['store_id' => $this->storeA->id, 'order_status' => 'renting', 'out_dated_at' => 0],
             ['store_id' => $this->storeB->id, 'order_status' => 'deposit_contract', 'out_dated_at' => 0],
+            ['store_id' => $this->storeB->id, 'order_status' => 'draft', 'out_dated_at' => 0],
         ]);
         $this->actingAs($this->adminUser);
 

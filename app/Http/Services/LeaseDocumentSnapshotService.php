@@ -51,6 +51,11 @@ class LeaseDocumentSnapshotService
             'version' => '1.0',
             'created_at' => Carbon::now('Asia/Ho_Chi_Minh')->toIso8601String(),
             'parties' => [
+                'guardian' => [
+                    'name' => $contract->guardian_name,
+                    'phone' => $contract->guardian_phone,
+                    'id_card' => $contract->guardian_id_card,
+                ],
                 'lessor' => [
                     'company_name' => config('contract.company_name'),
                     'brand_name' => 'HIMOTO',

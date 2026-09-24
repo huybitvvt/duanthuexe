@@ -18,8 +18,8 @@
         <div class="row">
             <div class="col-md-4">
                 <div class="form-group">
-                    <label><strong>Chọn xe</strong> <span class="text-danger">(*)</span></label>
-                    <ValidationProvider vid="vehicle_id" name="Xe thuê" rules="required" v-slot="{ errors }">
+                    <label><strong>Chọn xe</strong> <span v-if="!is_draft_mode" class="text-danger">(*)</span></label>
+                    <ValidationProvider vid="vehicle_id" name="Xe thuê" :rules="is_draft_mode ? '' : 'required'" v-slot="{ errors }">
                         <el-select v-model="order_item.vehicle_id" clearable filterable class="w-100"
                             placeholder="Chọn xe thuê" @change="changeVehicleId">
                             <el-option v-for="item in vehicles" :key="item.id"
@@ -39,9 +39,9 @@
             
             <div class="col-md-4">
                 <div class="form-group">
-					<label v-if="is_deposit_contract_mode"><strong>Ngày đặt cọc</strong><span class="text-danger">(*)</span></label>
-                    <label v-else><strong>Thuê lúc</strong><span class="text-danger">(*)</span></label>
-                    <ValidationProvider ref="rentAtProvider" vid="rent_at" name="Thời gian thuê" rules="required" v-slot="{ errors }">
+					<label v-if="is_deposit_contract_mode"><strong>Ngày đặt cọc</strong><span v-if="!is_draft_mode" class="text-danger">(*)</span></label>
+                    <label v-else><strong>Thuê lúc</strong><span v-if="!is_draft_mode" class="text-danger">(*)</span></label>
+                    <ValidationProvider ref="rentAtProvider" vid="rent_at" name="Thời gian thuê" :rules="is_draft_mode ? '' : 'required'" v-slot="{ errors }">
                         <el-date-picker class="w-100" @change="changeRentAt" v-model="local_order_item.rent_at"
                             type="datetime" format="dd-MM-yyyy HH:mm:ss" placeholder="Chọn thời gian">
                         </el-date-picker>
@@ -51,9 +51,9 @@
             </div>
             <div class="col-md-4">
                 <div class="form-group">
-                    <label v-if="is_deposit_contract_mode"><strong>Ngày hẹn lấy xe</strong> <span class="text-danger">(*)</span></label>
-                    <label v-else><strong>Hẹn trả</strong> <span class="text-danger">(*)</span></label>
-                    <ValidationProvider ref="returnAtProvider" vid="return_at" name="Thời gian hẹn trả" rules="required" v-slot="{ errors }">
+                    <label v-if="is_deposit_contract_mode"><strong>Ngày hẹn lấy xe</strong> <span v-if="!is_draft_mode" class="text-danger">(*)</span></label>
+                    <label v-else><strong>Hẹn trả</strong> <span v-if="!is_draft_mode" class="text-danger">(*)</span></label>
+                    <ValidationProvider ref="returnAtProvider" vid="return_at" name="Thời gian hẹn trả" :rules="is_draft_mode ? '' : 'required'" v-slot="{ errors }">
                         <el-date-picker class="w-100" @change="changeReturnAt" v-model="local_order_item.return_at"
                             format="dd-MM-yyyy HH:mm:ss" type="datetime" placeholder="Chọn thời gian">
                         </el-date-picker>
@@ -296,6 +296,10 @@ export default {
 		customer_name: {
 			type: String,
 			default: '',
+		},
+		is_draft_mode: {
+			type: Boolean,
+			default: false,
 		}
     },
     components: {

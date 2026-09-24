@@ -36,6 +36,8 @@
 <p><strong>BÊN B (Bên thuê):</strong> {{ $customer['name'] ?: '…………………………………………' }}</p>
 <p>Địa chỉ: {{ $customer['address'] ?: '…………………………………………' }}</p>
 <p>Số CCCD: {{ $customer['id_card'] ?: '……………………' }} &nbsp; Cấp ngày: {{ $customer['id_card_date'] ?: '…/…/……' }} &nbsp; Tại: {{ $customer['id_card_place'] ?: '……………………' }}</p>
+<p><strong>NGƯỜI GIÁM HỘ / ĐẠI DIỆN HỢP PHÁP (nếu có):</strong> {{ $guardian['name'] ?: '…………………………………………' }}</p>
+<p>Số CCCD: {{ $guardian['id_card'] ?: '……………………' }} &nbsp; Điện thoại: {{ $guardian['phone'] ?: '……………………' }}</p>
 <p>Sau khi bàn bạc, thỏa thuận, hai bên thống nhất ký biên bản bàn giao xe với nội dung sau:</p>
 <p>Ngày giao nhận xe: <strong>{{ $handoverOn ?: '…/…/……' }}</strong></p>
 <p>Hai bên cùng kiểm tra, xác nhận và bàn giao cho Bên thuê xe sau:</p>
@@ -52,6 +54,6 @@
 <p>Đại diện bên cho thuê đã giải thích kỹ những nội dung trên. Đại diện bên nhận đã nghe và xác nhận những nội dung trên.</p>
 <p>Biên bản này được lập thành hai (02) bản có giá trị như nhau, mỗi bên giữ một (01) bản.</p>
 <p style="text-align: right; margin-top: 18px;">Hà Nội, ngày …… tháng …… năm ……</p>
-<div class="signatures"><div><strong>ĐẠI DIỆN BÊN A</strong><br><small>(Ký, đóng dấu và ghi rõ họ tên)</small></div><div><strong>ĐẠI DIỆN BÊN B</strong><br><small>(Ký và ghi rõ họ tên)</small></div></div>
+<div class="signatures"><div><strong>ĐẠI DIỆN BÊN A</strong><br><small>(Ký, đóng dấu và ghi rõ họ tên)</small></div><div><strong>ĐẠI DIỆN BÊN B / NGƯỜI GIÁM HỘ</strong><br><small>(Ký và ghi rõ họ tên)</small></div></div>
 </body>
 </html>

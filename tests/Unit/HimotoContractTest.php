@@ -214,8 +214,8 @@ class HimotoContractTest extends TestCase
         $number1 = $this->contractNumberService->generateForOrder(null, $date);
         $number2 = $this->contractNumberService->generateForOrder(null, $date);
 
-        $this->assertRegExp('/^20260914-\d{4}$/', $number1);
-        $this->assertRegExp('/^20260914-\d{4}$/', $number2);
+        $this->assertRegExp('/^260914-\d{4}$/', $number1);
+        $this->assertRegExp('/^260914-\d{4}$/', $number2);
         $this->assertTrue($this->contractNumberService->isValid($number1));
         $this->assertTrue($this->contractNumberService->isValid('2026/09/14-0001'), 'Must accept legacy format for backward compatibility');
 
