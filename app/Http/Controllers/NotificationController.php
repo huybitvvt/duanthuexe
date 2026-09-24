@@ -81,17 +81,13 @@ class NotificationController extends Controller
 
         // 2. Overdue rental contracts (orders)
         $orderQuery = Order::query()
-            ->with(['customer:id,name,phone', 'vehicle:id,name,license'])
+            ->with(['customer:id,name,phone', 'vehicles:id,name,license'])
             ->whereNull('deleted_at')
             ->where(function ($q) {
                 $q->where('order_status', 'renting')
                   ->orWhere('order_status', 2);
             })
-            ->where(function ($q) use ($now) {
-                $q->where('is_out_of_date', 1)
-                  ->orWhere('is_out_of_date', true)
-                  ->orWhere('return_at', '<', $now);
-            });
+            ->where('return_at', '<', $now);
 
         if ($storeId && $storeId !== 'all') {
             $orderQuery->where('store_id', (int) $storeId);
@@ -102,13 +98,14 @@ class NotificationController extends Controller
         $orderItems = $allOrders->map(function ($order) use ($now) {
             $returnAt = $order->return_at ? Carbon::parse($order->return_at)->timezone('Asia/Bangkok') : null;
             $daysOver = $returnAt ? (int) $now->diffInDays($returnAt) : 0;
+            $vehicle = $order->vehicles->first();
 
             return [
                 'id' => $order->id,
                 'contract_number' => $order->contract_number ?: ('HĐ #' . $order->id),
                 'customer_name' => $order->customer ? $order->customer->name : 'Khách #' . $order->customer_id,
                 'customer_phone' => $order->customer ? $order->customer->phone : '',
-                'vehicle_license' => $order->vehicle ? $order->vehicle->license : '',
+                'vehicle_license' => $vehicle ? $vehicle->license : '',
                 'return_at' => $returnAt ? $returnAt->format('d/m/Y H:i') : '',
                 'days_overdue' => $daysOver,
                 'status_text' => $daysOver <= 1 ? 'Quá hạn 1 ngày' : "Quá hạn {$daysOver} ngày",

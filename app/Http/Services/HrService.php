@@ -101,7 +101,9 @@ class HrService
             ];
         }
 
-        $unassigned = $staff->whereNull('department_id')->values();
+        $unassigned = $staff->filter(function ($profile) {
+            return $profile->department_id === null;
+        })->values();
         if ($unassigned->isNotEmpty()) {
             $units[] = [
                 'id' => null,
