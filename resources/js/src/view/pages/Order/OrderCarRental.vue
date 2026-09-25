@@ -174,7 +174,7 @@
                         </div>
                         <HimotoErrorState v-if="categoryError" title="Không thể tải danh sách theo loại" :message="categoryError" @retry="getCategoryList" />
                         <HimotoTableSkeleton v-else-if="categoryLoading" :rows="4" :columns="7" />
-                        <div v-else-if="categoryOrders.length" v-drag-scroll class="table-responsive" role="region" aria-label="Danh sách theo loại, có thể kéo ngang bằng chuột">
+                        <div v-else v-drag-scroll class="table-responsive" role="region" aria-label="Danh sách theo loại, có thể kéo ngang bằng chuột">
                             <table class="table table-bordered table-hover table-vertical-center">
                                 <thead><tr>
                                     <th scope="col">Mã hồ sơ</th><th scope="col">Ngày tạo</th><th scope="col">Khách hàng</th>
@@ -196,10 +196,12 @@
                                             <button type="button" class="btn btn-xs btn-danger" @click="deleteOrder(item.id)">Xóa</button>
                                         </td>
                                     </tr>
+                                    <tr v-if="!categoryOrders.length">
+                                        <td colspan="7" class="text-center text-muted py-4">Chưa có {{ activeCategoryLabel.toLowerCase() }} phù hợp với bộ lọc.</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <div v-else class="text-center text-muted border rounded py-4">Chưa có {{ activeCategoryLabel.toLowerCase() }} phù hợp với bộ lọc.</div>
                         <div v-if="!categoryLoading && !categoryError && categoryLastPage > 1" class="d-flex justify-content-center mt-3">
                             <paginate v-model="categoryPage" :page-count="categoryLastPage" :page-range="3" :margin-pages="1"
                                 :click-handler="clickCategoryPage" :prev-text="'Trước'" :next-text="'Sau'"
@@ -212,9 +214,9 @@
                     <section class="contract-master-list" aria-label="Danh sách tổng hợp đồng">
                     <h4 class="font-weight-bold mb-3">Danh sách tổng <small class="text-muted">Tất cả loại hồ sơ theo bộ lọc hiện tại</small></h4>
                     <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách tổng" :message="errorMessage" @retry="getList" />
-                    <HimotoTableSkeleton v-else-if="loading" :rows="6" :columns="10" />
+                    <HimotoTableSkeleton v-else-if="loading" :rows="6" :columns="11" />
                     <div
-                        v-else-if="orders.length"
+                        v-else
                         v-drag-scroll
                         class="table-responsive"
                         role="region"
@@ -380,11 +382,16 @@
 										</div>
                                     </td>
                                 </tr>
+                                <tr v-if="!orders.length">
+                                    <td colspan="11" class="text-center text-muted py-5">
+                                        Không có hợp đồng nào phù hợp với bộ lọc.
+                                        <button type="button" class="btn btn-sm btn-link font-weight-bold" @click="openModalCreate()">Thêm mới hợp đồng</button>
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
-                    <HimotoEmptyState v-else title="Không tìm thấy hợp đồng nào" description="Thử thay đổi bộ lọc hoặc thêm mới hợp đồng vào hệ thống." actionText="Thêm mới hợp đồng" @action="openModalCreate()" />
-                    <div class="edu-paginate mx-auto text-center" v-if="orders.length">
+                    <div class="edu-paginate mx-auto text-center" v-if="!loading && !errorMessage && orders.length">
                         <paginate v-model="page" :page-count="last_page" :page-range="3" :margin-pages="1"
                             :click-handler="clickCallback" :prev-text="'Trước'" :next-text="'Sau'"
                             :container-class="'pagination b-pagination'" :pageLinkClass="'page-link'"
@@ -436,7 +443,6 @@ import { ORDER_STATUS_DEFINE, ORDER_STATUS_DEFINE_CSS, STATUS_COMPLETED, ORDER_O
 import { getTextShort } from '../../../utils';
 import queryMixin from '@/utils/queryMixin.js';
 import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vue";
-import HimotoEmptyState from "@/view/components/himoto/HimotoEmptyState.vue";
 import HimotoErrorState from "@/view/components/himoto/HimotoErrorState.vue";
 import { normalizePaginator } from "@/utils/paginatorAdapter";
 import { getApiMessage } from "@/utils/apiErrorHandler";
@@ -513,7 +519,6 @@ export default {
         OrderPayment,
         ModalContractPreview,
         HimotoTableSkeleton,
-        HimotoEmptyState,
         HimotoErrorState
     },
 
@@ -997,6 +1002,6 @@ export default {
 .contract-category-tabs .nav-link { flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #64748b; font-weight: 700; padding: 10px 16px; }
 .contract-category-tabs .nav-link.active { border-bottom-color: #28468d; color: #28468d; }
 .contract-category-actions { white-space: nowrap; }
-.contract-master-list { margin-top: 24px; }
+.contract-master-list { border: 1px solid #e5e9f0; border-radius: 12px; padding: 18px 20px; margin-top: 24px; background: #fff; }
 @media (max-width: 991px) { .contract-overview { grid-template-columns: 1fr; } }
 </style>
