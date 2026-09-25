@@ -100,6 +100,16 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
     }
 
     public function getOrderByParams($query, $params) {
+        if (isset($params['order_mode']) && in_array($params['order_mode'], ['standard', 'draft', 'handover'], true)
+            && Schema::hasColumn('orders', 'order_mode')) {
+            if ($params['order_mode'] === 'standard') {
+                $query->where(function ($modes) {
+                    $modes->where('orders.order_mode', 'standard')->orWhereNull('orders.order_mode');
+                });
+            } else {
+                $query->where('orders.order_mode', $params['order_mode']);
+            }
+        }
         if ( isset( $params['store_id'])) {
             $query->where('orders.store_id', $params['store_id']);   // orders.id because this will be used in OrderExport
         }

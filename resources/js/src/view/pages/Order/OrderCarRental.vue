@@ -6,15 +6,6 @@
                     <h3 class="card-label">Danh sách hợp đồng</h3>
                 </div>
                 <div class="card-title d-flex flex-wrap align-items-center">
-                    <button class="btn btn-danger font-weight-bold mr-2 mb-1" @click="openModalCreate('standard')">
-                        &lt;Hợp đồng phổ thông&gt;
-                    </button>
-                    <button class="btn btn-success font-weight-bold mr-2 mb-1" @click="openModalCreate('draft')">
-                        &lt;Hợp đồng Nháp&gt;
-                    </button>
-                    <button class="btn btn-warning font-weight-bold text-white mr-2 mb-1" @click="openModalCreate('handover')">
-                        &lt;Biên bản bàn giao xe&gt;
-                    </button>
                     <button @click="exportFile" class="btn btn-primary font-weight-bold mb-1">Xuất Excel theo bộ lọc thời gian</button>
                 </div>
 
@@ -167,7 +158,60 @@
 
 
 
-                    <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách hợp đồng" :message="errorMessage" @retry="getList" />
+                    <section class="contract-category-list" aria-label="Danh sách theo loại hồ sơ">
+                        <div class="contract-category-tabs nav nav-tabs" aria-label="Loại hồ sơ">
+                            <button v-for="category in categories" :key="category.value" type="button" class="nav-link"
+                                :aria-pressed="activeCategory === category.value"
+                                :class="{ active: activeCategory === category.value }" @click="setCategory(category.value)">
+                                {{ category.label }}
+                            </button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center flex-wrap my-3">
+                            <h4 class="font-weight-bold mb-2">{{ activeCategoryLabel }}</h4>
+                            <button type="button" class="btn btn-sm btn-success font-weight-bold mb-2" @click="openModalCreate(activeCategory)">
+                                Thêm mới {{ activeCategoryLabel.toLowerCase() }}
+                            </button>
+                        </div>
+                        <HimotoErrorState v-if="categoryError" title="Không thể tải danh sách theo loại" :message="categoryError" @retry="getCategoryList" />
+                        <HimotoTableSkeleton v-else-if="categoryLoading" :rows="4" :columns="7" />
+                        <div v-else-if="categoryOrders.length" v-drag-scroll class="table-responsive" role="region" aria-label="Danh sách theo loại, có thể kéo ngang bằng chuột">
+                            <table class="table table-bordered table-hover table-vertical-center">
+                                <thead><tr>
+                                    <th scope="col">Mã hồ sơ</th><th scope="col">Ngày tạo</th><th scope="col">Khách hàng</th>
+                                    <th scope="col">Xe</th><th scope="col">Cửa hàng</th><th scope="col">Trạng thái</th><th scope="col">Hành động</th>
+                                </tr></thead>
+                                <tbody>
+                                    <tr v-for="item in categoryOrders" :key="item.id">
+                                        <td><strong>#{{ item.id }}</strong><div>{{ item.contract_number || item.draft_reference || 'Chưa cấp số' }}</div></td>
+                                        <td class="contract-date-cell">{{ item.created_at }}</td>
+                                        <td><strong>{{ item.customer_name || 'Chưa nhập khách hàng' }}</strong><div>{{ item.customer_phone }}</div></td>
+                                        <td><div v-for="vehicle in item.vehicles" :key="vehicle.id">{{ vehicle.name }} - {{ vehicle.license }}</div></td>
+                                        <td>{{ item.store ? item.store.store_name : 'Chưa chọn' }}</td>
+                                        <td><span class="font-weight-bold" :class="ORDER_STATUS_DEFINE_CSS[item.order_status]">{{ ORDER_STATUS_DEFINE[item.order_status] }}</span></td>
+                                        <td class="contract-category-actions">
+                                            <button type="button" class="btn btn-xs btn-success mr-1" @click="openUpdateModal(item)">Sửa</button>
+                                            <button type="button" class="btn btn-xs btn-outline-info mr-1" @click="openShowOrder(item)">Xem</button>
+                                            <button type="button" class="btn btn-xs btn-outline-primary mr-1" @click="printOrderContract(item)">In</button>
+                                            <button v-if="item.order_status === 'renting'" type="button" class="btn btn-xs btn-warning mr-1" @click="openUpdateModal(item)">Thu thêm / Trả xe</button>
+                                            <button type="button" class="btn btn-xs btn-danger" @click="deleteOrder(item.id)">Xóa</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div v-else class="text-center text-muted border rounded py-4">Chưa có {{ activeCategoryLabel.toLowerCase() }} phù hợp với bộ lọc.</div>
+                        <div v-if="!categoryLoading && !categoryError && categoryLastPage > 1" class="d-flex justify-content-center mt-3">
+                            <paginate v-model="categoryPage" :page-count="categoryLastPage" :page-range="3" :margin-pages="1"
+                                :click-handler="clickCategoryPage" :prev-text="'Trước'" :next-text="'Sau'"
+                                :container-class="'pagination b-pagination'" :pageLinkClass="'page-link'"
+                                :next-link-class="'next-link-item'" :prev-link-class="'prev-link-item'" :prev-class="'page-link'"
+                                :next-class="'page-link'" :page-class="'page-item'" />
+                        </div>
+                    </section>
+
+                    <section class="contract-master-list" aria-label="Danh sách tổng hợp đồng">
+                    <h4 class="font-weight-bold mb-3">Danh sách tổng <small class="text-muted">Tất cả loại hồ sơ theo bộ lọc hiện tại</small></h4>
+                    <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách tổng" :message="errorMessage" @retry="getList" />
                     <HimotoTableSkeleton v-else-if="loading" :rows="6" :columns="10" />
                     <div
                         v-else-if="orders.length"
@@ -180,6 +224,7 @@
                             <thead>
                                 <tr>
                                     <th scope="col">#</th>
+                                    <th scope="col">Loại hồ sơ</th>
                                     <th scope="col">Ngày tạo</th>
                                     <th scope="col">Khách hàng</th>
                                     <th scope="col">Xe</th>
@@ -214,6 +259,7 @@
                                             {{ item.draft_reference || ('NHÁP-' + item.id) }} · {{ item.order_mode === 'handover' ? 'Bàn giao' : 'Hợp đồng' }}
                                         </div>
                                     </th>
+                                    <td><span class="badge badge-light-primary">{{ categoryLabel(item.order_mode) }}</span></td>
                                     <td class="contract-date-cell"><div>{{ (item.created_at || "").split(" ")[0] }}</div><small class="text-muted">{{ (item.created_at || "").split(" ")[1] }}</small></td>
                                     <td style="width: 150px;">
                                         <span>{{ item.customer_name }}<br></span>
@@ -338,12 +384,21 @@
                         </table>
                     </div>
                     <HimotoEmptyState v-else title="Không tìm thấy hợp đồng nào" description="Thử thay đổi bộ lọc hoặc thêm mới hợp đồng vào hệ thống." actionText="Thêm mới hợp đồng" @action="openModalCreate()" />
+                    <div class="edu-paginate mx-auto text-center" v-if="orders.length">
+                        <paginate v-model="page" :page-count="last_page" :page-range="3" :margin-pages="1"
+                            :click-handler="clickCallback" :prev-text="'Trước'" :next-text="'Sau'"
+                            :container-class="'pagination b-pagination'" :pageLinkClass="'page-link'"
+                            :next-link-class="'next-link-item'" :prev-link-class="'prev-link-item'" :prev-class="'page-link'"
+                            :next-class="'page-link'" :page-class="'page-item'">
+                        </paginate>
+                    </div>
+                    </section>
                 </div>
             </div>
 
             <b-modal :title="modalCreateTitle" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
                 hide-footer>
-                <order-update :initial-mode="createMode" @change-mode="openModalCreate" @createSuccess="createSuccess"></order-update>
+                <order-update :initial-mode="createMode" @createSuccess="createSuccess"></order-update>
             </b-modal>
             <b-modal :title='"Sửa hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-update" :centered="true"
                 :scrollable="true" hide-footer>
@@ -358,14 +413,6 @@
                 <order-payment :id="orderId" :order-status="order_status_prop" :suggested-amount="paymentSuggestedAmount"
                     @paymentSuccess="paymentSuccess" @updateSuccess="paymentSuccess"></order-payment>
             </b-modal>
-            <div class="edu-paginate mx-auto text-center" v-if="orders.length">
-                <paginate v-model="page" :page-count="last_page" :page-range="3" :margin-pages="1"
-                    :click-handler="clickCallback" :prev-text="'Trước'" :next-text="'Sau'"
-                    :container-class="'pagination b-pagination'" :pageLinkClass="'page-link'"
-                    :next-link-class="'next-link-item'" :prev-link-class="'prev-link-item'" :prev-class="'page-link'"
-                    :next-class="'page-link'" :page-class="'page-item'">
-                </paginate>
-            </div>
             <ModalContractPreview v-model="showPrintModal" :doc="printDocumentDto" />
         </div>
     </div>
@@ -398,8 +445,20 @@ export default {
     name: "OrderCarRental",
     mixins: [queryMixin],
     data() {
-        const { page, store_id, open_order, open_payment, payment_amount, ...restQuery } = this.$route?.query || {};
+        const { page, store_id, order_mode, open_order, open_payment, payment_amount, ...restQuery } = this.$route?.query || {};
         return {
+            categories: [
+                { value: 'standard', label: 'Hợp đồng phổ thông' },
+                { value: 'draft', label: 'Hợp đồng nháp' },
+                { value: 'handover', label: 'Biên bản bàn giao' },
+            ],
+            activeCategory: ['standard', 'draft', 'handover'].includes(order_mode) ? order_mode : 'standard',
+            categoryOrders: [],
+            categoryPage: 1,
+            categoryLastPage: 1,
+            categoryLoading: false,
+            categoryError: null,
+            categoryRequestId: 0,
             selectAll: false,
             checkedItems: {},
             ORDER_STATUS_DEFINE: ORDER_STATUS_DEFINE,
@@ -462,6 +521,9 @@ export default {
 
 
         ...mapGetters(["currentUser"]),
+        activeCategoryLabel() {
+            return this.categoryLabel(this.activeCategory);
+        },
         checkedCount() {
             return Object.values(this.checkedItems).filter(item => item).length;
         },
@@ -506,6 +568,13 @@ export default {
         }
     },
     watch: {
+        "$route.query.order_mode"(mode) {
+            if (this.categories.some(category => category.value === mode) && mode !== this.activeCategory) {
+                this.activeCategory = mode;
+                this.categoryPage = 1;
+                this.getCategoryList();
+            }
+        },
         "$route.query.open_order"(value) {
             const orderId = Number(value || 0);
             if (orderId && orderId !== Number(this.order_show?.id || 0)) {
@@ -541,9 +610,44 @@ export default {
         this.getReport();
     },
     methods: {
+        categoryLabel(mode) {
+            const category = this.categories.find(item => item.value === mode);
+            return category ? category.label : 'Hợp đồng phổ thông';
+        },
+        setCategory(mode) {
+            if (mode === this.activeCategory) return;
+            this.activeCategory = mode;
+            this.categoryPage = 1;
+            this.pushParamsUrl();
+            this.getCategoryList();
+        },
+        clickCategoryPage(page) {
+            this.categoryPage = page;
+            this.getCategoryList();
+        },
+        getCategoryList() {
+            const requestId = ++this.categoryRequestId;
+            this.categoryLoading = true;
+            this.categoryError = null;
+            this.$store.dispatch(GET_ORDER_CAR_RENTAL, {
+                ...this.query,
+                order_mode: this.activeCategory,
+                page: this.categoryPage,
+            }).then((data) => {
+                if (requestId !== this.categoryRequestId) return;
+                const paginated = normalizePaginator(data);
+                this.categoryOrders = paginated.items || [];
+                this.categoryLastPage = paginated.lastPage || 1;
+            }).catch((err) => {
+                if (requestId === this.categoryRequestId) this.categoryError = getApiMessage(err);
+            }).finally(() => {
+                if (requestId === this.categoryRequestId) this.categoryLoading = false;
+            });
+        },
         setTodayFilter(filter) {
             this.query.today_filter = filter;
             this.page = 1;
+            this.categoryPage = 1;
             this.getList();
             this.getReport();
         },
@@ -589,6 +693,7 @@ export default {
             return getTextShort(str);
         },
         getList() {
+            this.getCategoryList();
             this.loading = true;
             this.errorMessage = null;
             this.$store.dispatch(GET_ORDER_CAR_RENTAL, { page: this.page, ...this.query })
@@ -629,6 +734,7 @@ export default {
         },
         search() {
             this.page = 1;
+            this.categoryPage = 1;
             this.pushParamsUrl();
             this.getList();
             this.getReport();
@@ -638,7 +744,8 @@ export default {
                 path: '',
                 query: {
                     page: this.page,
-                    ...this.query
+                    ...this.query,
+                    order_mode: this.activeCategory,
                 }
             }).catch(() => {});
         },
@@ -656,14 +763,14 @@ export default {
                 }
             });
         },
-        openModalCreate(mode = 'standard') {
+        openModalCreate(mode = this.activeCategory) {
             this.createMode = mode;
             if (mode === 'draft') {
-                this.modalCreateTitle = 'Tạo <Hợp đồng Nháp> (Khách ship / làm tạm)';
+                this.modalCreateTitle = 'Tạo hợp đồng nháp';
             } else if (mode === 'handover') {
-                this.modalCreateTitle = 'Tạo <Biên bản bàn giao xe> (Khách 50 CC / Giao nhận xe)';
+                this.modalCreateTitle = 'Tạo biên bản bàn giao xe';
             } else {
-                this.modalCreateTitle = 'Tạo <Hợp đồng phổ thông>';
+                this.modalCreateTitle = 'Tạo hợp đồng phổ thông';
             }
             this.showModalCreate = true;
             this.$refs['modal-contract-create'].show();
@@ -885,5 +992,11 @@ export default {
 .contract-overview-card dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 9px 0; border-top: 1px solid #eef1f5; }
 .contract-overview-card dt { font-weight: 400; }
 .contract-overview-card dd { margin: 0; font-weight: 600; white-space: nowrap; }
+.contract-category-list { border: 1px solid #e5e9f0; border-radius: 12px; padding: 18px 20px; margin: 16px 0 24px; background: #fff; }
+.contract-category-tabs { gap: 4px; overflow-x: auto; flex-wrap: nowrap; }
+.contract-category-tabs .nav-link { flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #64748b; font-weight: 700; padding: 10px 16px; }
+.contract-category-tabs .nav-link.active { border-bottom-color: #28468d; color: #28468d; }
+.contract-category-actions { white-space: nowrap; }
+.contract-master-list { margin-top: 24px; }
 @media (max-width: 991px) { .contract-overview { grid-template-columns: 1fr; } }
 </style>

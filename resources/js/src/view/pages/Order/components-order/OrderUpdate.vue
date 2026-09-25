@@ -2,10 +2,6 @@
     <div v-loading="loadingComponent">
         <ValidationObserver v-slot="{ handleSubmit }" ref="form">
             <form class="form" @submit.prevent="handleSubmit(handleFormSubmit)">
-				<nav v-if="!id" class="nav nav-tabs mb-4" aria-label="Loại hồ sơ tạo mới">
-					<button v-for="mode in creationModes" :key="mode.value" type="button" class="nav-link"
-						:class="{ active: initialMode === mode.value }" @click="selectCreationMode(mode.value)">{{ mode.label }}</button>
-				</nav>
 				<div v-if="!id && initialMode === 'draft'" class="alert alert-custom alert-light-success p-3 mb-4">
 					<div class="d-flex align-items-center justify-content-between flex-wrap">
 						<div>
@@ -847,13 +843,6 @@ export default {
         isHandoverMode() {
             return this.initialMode === 'handover' || (this.order && this.order.order_mode === 'handover');
         },
-        creationModes() {
-            return [
-                { value: 'standard', label: 'Hợp đồng phổ thông' },
-                { value: 'draft', label: 'Hợp đồng nháp / giấy' },
-                { value: 'handover', label: 'Biên bản bàn giao xe' },
-            ];
-        },
 		is_deposit_contract_mode() {
 			if (this.start_this_contract) {
 				return false; // Nếu người dùng chọn start_this_contract=true thì sẽ cần show các normal fields.
@@ -1076,6 +1065,9 @@ export default {
 
     },
     watch: {
+        initialMode(mode) {
+            if (!this.id) this.order.order_mode = mode;
+        },
         "order.order_items": {
             handler: "watchOrderItems",
             deep: true,
@@ -1118,10 +1110,6 @@ export default {
 		},
     },
     methods: {
-        selectCreationMode(mode) {
-            this.order.order_mode = mode;
-            this.$emit('change-mode', mode);
-        },
 		async onPreviewContract() {
 			const paperDraft = this.isDraftMode || this.order.order_status === 'draft';
 			if (!paperDraft && (!this.order.customer_name || !this.order.customer_id_card)) {
@@ -1853,7 +1841,7 @@ export default {
 
             return {
                 ...this.order,
-                order_mode: this.order.order_mode || this.initialMode,
+                order_mode: this.id ? (this.order.order_mode || this.initialMode) : this.initialMode,
                 manual_contract_number: (this.order.manual_contract_number || "").trim(),
                 contract_signed_on: this.order.contract_signed_on ? moment(this.order.contract_signed_on).format('YYYY-MM-DD') : null,
                 contract_authorization_date: (this.order.is_authorized_contract && this.order.contract_authorization_date) ? moment(this.order.contract_authorization_date).format('YYYY-MM-DD') : null,
