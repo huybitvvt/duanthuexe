@@ -14,6 +14,13 @@
                 </h4>
             </div>
             <div class="d-flex flex-wrap justify-content-end order-show-actions">
+                <router-link
+                    :to="orderWarehouseLink"
+                    class="btn btn-sm btn-outline-warning font-weight-bold"
+                    title="Mở kho xe thuê / điều chuyển"
+                >
+                    <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+                </router-link>
                 <button
                     v-if="currentVehicle"
                     type="button"
@@ -35,8 +42,8 @@
                 </button>
             </div>
         </div>
-        <div class="row">
-            <div class="col-md-6">
+        <el-tabs v-model="activeShowTab" type="border-card" class="contract-form-tabs mb-4">
+            <el-tab-pane label="Thông tin phương tiện" name="vehicle">
                 <table class="table table-bordered" v-if="order">
                     <tbody v-for="(item, index) in displayOrderItems" :key="index">
                         <tr class="text-primary">
@@ -61,9 +68,7 @@
                         </tr>
                         <tr>
                             <td>Tại cửa hàng</td>
-                            <td>
-                                {{ displayStoreName }}
-                            </td>
+                            <td>{{ displayStoreName }}</td>
                         </tr>
                         <tr>
                             <td>Thuê lúc</td>
@@ -84,8 +89,12 @@
                                 <span class="ml-4">Áo mưa: <strong>{{ item.borrow_raincoats || 0 }}</strong> cái</span>
                             </td>
                         </tr>
-
                     </tbody>
+                </table>
+            </el-tab-pane>
+
+            <el-tab-pane label="Thông tin hợp đồng" name="contract">
+                <table class="table table-bordered" v-if="order">
                     <tbody>
                         <tr v-if="displayContractSignedOn">
                             <td>Ngày ký HĐ</td>
@@ -120,15 +129,10 @@
                         </tr>
                         <tr>
                             <td>Ghi chú</td>
-                            <td>
-                                {{
-                                    order.note ? order.note : "Chưa có ghi chú"
-                                }}
-                            </td>
+                            <td>{{ order.note ? order.note : "Chưa có ghi chú" }}</td>
                         </tr>
                         <tr>
                             <td>Nguồn lead</td>
-
                             <td>
                                 <template v-if="order.leads && order.leads.length">
                                     <span v-for="lead in order.leads" :key="lead.id">
@@ -139,9 +143,9 @@
                         </tr>
                     </tbody>
                 </table>
-            </div>
-            <div class="col-md-6">
-                <h4 class="my-5 ml-2">Thông tin khách hàng</h4>
+            </el-tab-pane>
+
+            <el-tab-pane label="Thông tin khách hàng (Bên B)" name="customer">
                 <table class="table table-bordered">
                     <tbody>
                         <tr>
@@ -176,10 +180,11 @@
                         </tr>
                     </tbody>
                 </table>
-                <h4 class="my-5 ml-2">Chi phí</h4>
+            </el-tab-pane>
+
+            <el-tab-pane label="Chi phí" name="payment">
                 <table class="table table-bordered">
                     <tbody>
-
                         <tr>
                             <td>Thu khách</td>
                             <td v-if="order">{{ order.pid | formatPrice }}</td>
@@ -190,12 +195,10 @@
                                 {{ order.total | formatPrice }}
                             </td>
                         </tr>
-
                     </tbody>
                 </table>
-
-                <div v-if="otherFees.length > 0">
-                    <h4 class="my-5 ml-2">Chi phí khác</h4>
+                <div v-if="otherFees.length > 0" class="mt-4">
+                    <h5 class="mb-3 font-weight-bold">Chi phí khác</h5>
                     <table class="table table-bordered">
                         <tbody>
                             <tr>
@@ -211,56 +214,53 @@
                         </tbody>
                     </table>
                 </div>
-            </div>
-        </div>
-        <div v-if="exchangeTimeline.length" class="vehicle-exchange-card mb-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-                <div>
-                    <h4 class="mb-1">Lịch sử đổi xe</h4>
-                    <span class="text-muted small">
-                        Theo dõi xe và cơ sở bàn giao xuyên suốt hợp đồng
-                    </span>
-                </div>
-                <span class="badge badge-light-warning font-weight-bold">
-                    {{ vehicleExchangeHistory.length }} lần đổi
-                </span>
-            </div>
-            <div class="vehicle-exchange-timeline">
-                <div
-                    v-for="(step, index) in exchangeTimeline"
-                    :key="`${step.vehicle.id}-${index}-${step.at || ''}`"
-                    class="vehicle-exchange-step"
-                >
-                    <div class="vehicle-exchange-marker">{{ index + 1 }}</div>
-                    <div class="vehicle-exchange-content">
-                        <div class="font-weight-bolder text-dark">
-                            {{ step.customerName || displayCustomer.name || 'Khách thuê' }}
-                            <span v-if="index > 0" class="text-warning mx-1">→</span>
-                            <span class="text-primary">
-                                Xe {{ step.store ? step.store.store_name : 'chưa xác định cơ sở' }}:
-                                {{ step.vehicle.license }}
-                            </span>
+            </el-tab-pane>
+
+            <el-tab-pane v-if="exchangeTimeline.length" label="Lịch sử đổi xe" name="exchange">
+                <div class="vehicle-exchange-card mb-2">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                        <div>
+                            <h4 class="mb-1">Lịch sử đổi xe</h4>
+                            <span class="text-muted small">Theo dõi xe và cơ sở bàn giao xuyên suốt hợp đồng</span>
                         </div>
-                        <div class="text-muted small mt-1">
-                            {{ step.vehicle.name || 'Chưa cập nhật tên xe' }}
-                            <span v-if="step.at"> · Ngày {{ step.at | formatDateTime }}</span>
-                            <span v-if="step.reason"> · {{ step.reason }}</span>
-                        </div>
-                        <router-link
-                            :to="warehouseLink(step)"
-                            class="btn btn-xs btn-light-primary font-weight-bold mt-2"
+                        <span class="badge badge-light-warning font-weight-bold">
+                            {{ vehicleExchangeHistory.length }} lần đổi
+                        </span>
+                    </div>
+                    <div class="vehicle-exchange-timeline">
+                        <div
+                            v-for="(step, index) in exchangeTimeline"
+                            :key="`${step.vehicle.id}-${index}-${step.at || ''}`"
+                            class="vehicle-exchange-step"
                         >
-                            Xem xe tại Kho
-                        </router-link>
+                            <div class="vehicle-exchange-marker">{{ index + 1 }}</div>
+                            <div class="vehicle-exchange-content">
+                                <div class="font-weight-bolder text-dark">
+                                    {{ step.customerName || displayCustomer.name || 'Khách thuê' }}
+                                    <span v-if="index > 0" class="text-warning mx-1">→</span>
+                                    <span class="text-primary">
+                                        Xe {{ step.store ? step.store.store_name : 'chưa xác định cơ sở' }}:
+                                        {{ step.vehicle.license }}
+                                    </span>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    {{ step.vehicle.name || 'Chưa cập nhật tên xe' }}
+                                    <span v-if="step.at"> · Ngày {{ step.at | formatDateTime }}</span>
+                                    <span v-if="step.reason"> · {{ step.reason }}</span>
+                                </div>
+                                <router-link
+                                    :to="warehouseLink(step)"
+                                    class="btn btn-xs btn-light-primary font-weight-bold mt-2"
+                                >
+                                    Xem xe tại Kho
+                                </router-link>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        <el-collapse accordion>
-            <el-collapse-item name="1">
-                <template slot="title">
-                    Xem lịch sử
-                </template>
+            </el-tab-pane>
+
+            <el-tab-pane label="Lịch sử" name="history">
                 <el-tabs type="card">
                     <el-tab-pane label="Lịch sử thanh toán">
                         <transaction-history skin="order-show"
@@ -271,8 +271,9 @@
                             :activity-logs="order ? order.activity_logs : []"></activity-history>
                     </el-tab-pane>
                 </el-tabs>
-            </el-collapse-item>
-        </el-collapse>
+            </el-tab-pane>
+        </el-tabs>
+
         <ModalContractPreview v-model="showPrintModal" :doc="printDocumentDto" />
     </div>
 </template>
@@ -423,6 +424,16 @@ export default {
             }
             return this.order?.order_items || [];
         },
+        orderWarehouseLink() {
+            const storeId = this.currentVehicle?.current_store_id
+                || this.currentVehicle?.store_id
+                || this.order?.store_id
+                || this.currentUser?.store_id;
+            return {
+                name: "warehouse",
+                query: storeId ? { store_id: storeId } : {},
+            };
+        },
     },
     methods: {
         warehouseLink(step) {
@@ -519,6 +530,7 @@ export default {
             ORDER_STATUS_DEFINE_CSS: ORDER_STATUS_DEFINE_CSS,
             loading: false,
             otherFees: [],
+            activeShowTab: "vehicle",
             showPrintModal: false,
             printDocumentDto: null,
         };
@@ -597,5 +609,23 @@ h4.my-5 { margin-top: 16px !important; margin-bottom: 10px !important; font-size
     .order-show-toolbar { align-items: flex-start; }
     .order-show-title { font-size: 16px; }
     .order-show-actions { justify-content: flex-start !important; }
+}
+.contract-form-tabs.el-tabs--border-card {
+    box-shadow: none;
+    border: 1px solid #e4e6ef;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.contract-form-tabs .el-tabs__header {
+    background: #f5f8fa;
+    margin: 0;
+}
+.contract-form-tabs .el-tabs__item {
+    height: 44px;
+    line-height: 44px;
+    font-weight: 600;
+}
+.contract-form-tabs .el-tabs__content {
+    padding: 16px;
 }
 </style>

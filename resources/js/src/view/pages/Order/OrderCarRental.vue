@@ -1,14 +1,20 @@
 <template>
     <div>
         <div class="card card-custom gutter-b">
-            <div class="card-header">
+            <div class="card-header flex-wrap align-items-center">
                 <div class="card-title">
                     <h3 class="card-label">Danh sách hợp đồng</h3>
                 </div>
-                <div class="card-title d-flex flex-wrap align-items-center">
-                    <button @click="exportFile" class="btn btn-primary font-weight-bold mb-1">Xuất Excel theo bộ lọc thời gian</button>
+                <div class="card-toolbar d-flex flex-wrap align-items-center">
+                    <button @click="exportFile" class="btn btn-primary font-weight-bold mr-2 mb-1">Xuất Excel theo bộ lọc thời gian</button>
+                    <router-link
+                        :to="{ name: 'warehouse' }"
+                        class="btn btn-warning font-weight-bold mb-1 text-dark"
+                        title="Mở kho xe thuê / điều chuyển"
+                    >
+                        <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+                    </router-link>
                 </div>
-
             </div>
             <div class="card-body">
                 <section class="contract-overview" aria-label="Thống kê hợp đồng">
@@ -168,9 +174,18 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-center flex-wrap my-3">
                             <h4 class="font-weight-bold mb-2">{{ activeCategoryLabel }}</h4>
-                            <button type="button" class="btn btn-sm btn-success font-weight-bold mb-2" @click="openModalCreate(activeCategory)">
-                                Thêm mới {{ activeCategoryLabel.toLowerCase() }}
-                            </button>
+                            <div class="d-flex flex-wrap align-items-center mb-2">
+                                <router-link
+                                    :to="{ name: 'warehouse' }"
+                                    class="btn btn-sm btn-warning font-weight-bold mr-2 text-dark"
+                                    title="Mở kho xe thuê / điều chuyển"
+                                >
+                                    <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+                                </router-link>
+                                <button type="button" class="btn btn-sm btn-success font-weight-bold" @click="openModalCreate(activeCategory)">
+                                    Thêm mới {{ activeCategoryLabel.toLowerCase() }}
+                                </button>
+                            </div>
                         </div>
                         <HimotoErrorState v-if="categoryError" title="Không thể tải danh sách theo loại" :message="categoryError" @retry="getCategoryList" />
                         <HimotoTableSkeleton v-else-if="categoryLoading" :rows="4" :columns="7" />
@@ -212,7 +227,16 @@
                     </section>
 
                     <section class="contract-master-list" aria-label="Danh sách tổng hợp đồng">
-                    <h4 class="font-weight-bold mb-3">Danh sách tổng <small class="text-muted">Tất cả loại hồ sơ theo bộ lọc hiện tại</small></h4>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                        <h4 class="font-weight-bold mb-2">Danh sách tổng <small class="text-muted">Tất cả loại hồ sơ theo bộ lọc hiện tại</small></h4>
+                        <router-link
+                            :to="{ name: 'warehouse' }"
+                            class="btn btn-sm btn-warning font-weight-bold mb-2 text-dark"
+                            title="Mở kho xe thuê / điều chuyển"
+                        >
+                            <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+                        </router-link>
+                    </div>
                     <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách tổng" :message="errorMessage" @retry="getList" />
                     <HimotoTableSkeleton v-else-if="loading" :rows="6" :columns="11" />
                     <div

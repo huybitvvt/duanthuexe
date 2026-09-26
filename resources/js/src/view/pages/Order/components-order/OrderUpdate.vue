@@ -56,6 +56,16 @@
 						</div>
 					</div>
 					<div class="col-md-6 text-right">
+						<div class="d-flex justify-content-end align-items-center flex-wrap mb-2">
+							<router-link
+								:to="order.store_id ? { name: 'warehouse', query: { store_id: order.store_id } } : { name: 'warehouse' }"
+								class="btn btn-sm btn-outline-warning font-weight-bold"
+								title="Mở kho xe thuê / điều chuyển"
+								target="_blank"
+							>
+								<i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+							</router-link>
+						</div>
 						<div class="d-flex justify-content-end align-items-center" v-if="id && order && order.order_status == 'deposit_contract'">
 							<div class="checkbox-wrapper deposit-contract-checkbox">
 								<input type="checkbox" class="checkbox-input" v-model="start_this_contract" id="start-this-contract">
@@ -71,7 +81,7 @@
 				</div>
 
 				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4">
-					<el-tab-pane label="1. Khách hàng & Hợp đồng" name="customer">
+					<el-tab-pane label="Thông tin hợp đồng" name="contract">
 
 				<div class="card card-custom gutter-b border p-4 bg-light-secondary mb-6">
 					<div class="d-flex justify-content-between align-items-center mb-3">
@@ -174,9 +184,9 @@
                         <div class="col-md-4 form-group"><label><strong>CCCD người giám hộ</strong></label><el-input v-model="order.guardian_id_card" placeholder="Số CCCD"></el-input></div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-center mb-6">
-                    <h2 class="font-weight-bold">Thông tin khách hàng (Bên B)</h2>
-                </div>
+					</el-tab-pane>
+
+					<el-tab-pane label="Thông tin khách hàng (Bên B)" name="customer">
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
@@ -324,11 +334,7 @@
 
 					</el-tab-pane>
 
-					<el-tab-pane label="2. Phương tiện" name="vehicle" :disabled="!!warningTemp">
-                    <div class="d-flex justify-content-center mb-6">
-                        <h2 class="font-weight-bold">Thông tin phương tiện</h2>
-                    </div>
-
+					<el-tab-pane label="Thông tin phương tiện" name="vehicle" :disabled="!!warningTemp">
                     <div class="mb-3 d-flex flex-grow-1 align-items-center p-2 rounded">
                         <div class="mr-4 flex-shrink-0">
                             <button :style="{
@@ -362,11 +368,7 @@
                     </div>
 					</el-tab-pane>
 
-					<el-tab-pane label="3. Chi phí & Ký kết" name="payment" :disabled="!!warningTemp">
-                    <div class="d-flex justify-content-center mb-6 mt-2 mb-10">
-                        <h2 class="font-weight-bold">Chi phí</h2>
-                    </div>
-
+					<el-tab-pane label="Chi phí" name="payment" :disabled="!!warningTemp">
 					<div class="row">
 						<div class="col-md-9 left-column">
 
@@ -501,7 +503,9 @@
 							</div>
 						</div>
 					</div>
-					
+					</el-tab-pane>
+
+					<el-tab-pane label="Ký kết & Ghi chú" name="signing" :disabled="!!warningTemp">
                     <!-- Thông tin ký kết & Tài sản thế chấp theo hợp đồng Himoto -->
                     <div class="row">
                         <div class="col-md-12 form-group">
@@ -720,7 +724,7 @@ export default {
         return {
             HOAN_THANH: HOAN_THANH,
 			loadingLock: false,
-            activeContractTab: "customer",
+            activeContractTab: "contract",
             showPreviewModal: false,
             previewDocumentDto: null,
             previewLoading: false,
