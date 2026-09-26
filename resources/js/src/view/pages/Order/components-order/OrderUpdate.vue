@@ -70,6 +70,9 @@
 					</div>
 				</div>
 
+				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4">
+					<el-tab-pane label="1. Khách hàng & Hợp đồng" name="customer">
+
 				<div class="card card-custom gutter-b border p-4 bg-light-secondary mb-6">
 					<div class="d-flex justify-content-between align-items-center mb-3">
 						<h5 class="font-weight-bold text-primary mb-0">Thông tin hợp đồng & Pháp lý</h5>
@@ -319,9 +322,9 @@
                     :closable="false">
                 </el-alert>
 
-                <div v-show="!warningTemp">
-                    <el-divider></el-divider>
+					</el-tab-pane>
 
+					<el-tab-pane label="2. Phương tiện" name="vehicle" :disabled="!!warningTemp">
                     <div class="d-flex justify-content-center mb-6">
                         <h2 class="font-weight-bold">Thông tin phương tiện</h2>
                     </div>
@@ -357,7 +360,10 @@
 							@item_hiring_fee_changed="item_hiring_fee_changed">
                         </items-order>
                     </div>
-                    <div class="d-flex justify-content-center mb-6 mt-6 mb-10">
+					</el-tab-pane>
+
+					<el-tab-pane label="3. Chi phí & Ký kết" name="payment" :disabled="!!warningTemp">
+                    <div class="d-flex justify-content-center mb-6 mt-2 mb-10">
                         <h2 class="font-weight-bold">Chi phí</h2>
                     </div>
 
@@ -587,6 +593,9 @@
 						<label for="bad-debt">Nợ xấu</label>
 					</div>
 
+					</el-tab-pane>
+				</el-tabs>
+
 					<div class="update-order-buttons card-toolbar mt-3 d-flex justify-content-center"
 						v-if="parent !== 'vehicle-revenue'">
 						<ModalComplete v-if="id && order.order_status == 'renting' && !editing_item_fee" :order="order" :banks="banks" :bank_outs="bank_outs" :debt="debt"
@@ -628,7 +637,6 @@
 						<ModalCloseDeposit v-if="id && order && order.order_status == 'deposit_contract'" :order_id="id" @onSuccess="onCloseDepositOrderSuccess"></ModalCloseDeposit>
 
 					</div>
-                </div>
             </form>
         </ValidationObserver>
 
@@ -711,7 +719,8 @@ export default {
     data() {
         return {
             HOAN_THANH: HOAN_THANH,
-            loadingLock: false,
+			loadingLock: false,
+            activeContractTab: "customer",
             showPreviewModal: false,
             previewDocumentDto: null,
             previewLoading: false,
@@ -2193,5 +2202,32 @@ export default {
 .bad-debt-checkbox input[type="checkbox"]:disabled {
     color: #aaa;
     cursor: not-allowed;
+}
+
+.contract-form-tabs.el-tabs--border-card {
+    box-shadow: none;
+    border: 1px solid #e4e6ef;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.contract-form-tabs .el-tabs__header {
+    background: #f5f8fa;
+    margin: 0;
+}
+
+.contract-form-tabs .el-tabs__item {
+    height: 44px;
+    line-height: 44px;
+    font-weight: 600;
+    color: #5e6278;
+}
+
+.contract-form-tabs .el-tabs__item.is-active {
+    color: #009ef7;
+}
+
+.contract-form-tabs .el-tabs__content {
+    padding: 16px 16px 8px;
 }
 </style>

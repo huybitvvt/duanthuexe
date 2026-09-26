@@ -27,11 +27,12 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 7h14M5 17h14"/></svg>
                 <span>Tiếng Việt</span>
             </div>
-            <div class="himoto-mobile-header">
+            <div class="himoto-auth-logo">
                 <img
-                    src="/images/branding/logo-himoto-pdf.png"
-                    alt="HIMOTO Logo"
-                    class="himoto-mobile-logo"
+                    src="/images/branding/logo-himoto.svg"
+                    alt="HiMOTO"
+                    width="360"
+                    height="74"
                 />
             </div>
 

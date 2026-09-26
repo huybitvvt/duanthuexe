@@ -212,6 +212,8 @@
                                 <button type="button" class="btn btn-sm btn-outline-success">
                                     Thêm chi phí khác cho xe {{ index + 1 }}
                                 </button>
+                            </div>
+                        </div>
                     </el-tabs>
                 </el-collapse-item>
             </el-collapse>
