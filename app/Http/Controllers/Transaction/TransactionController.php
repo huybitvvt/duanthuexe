@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Transaction;
 use App\Http\Controllers\Controller;
 use App\Http\Services\TransactionService;
 use App\Models\Transaction;
+use App\Models\SepayWebhookEvent;
 use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Http\Services\OrderService;
 use App\Helpers\DateTimeHelper;
 use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 
 class TransactionController extends Controller
 {
@@ -41,6 +44,7 @@ class TransactionController extends Controller
     {
         $tran = Transaction::find($id);        
         if ($tran !== null) {
+            $this->ensureNotSepay($tran);
             $this->transactionService->update($request, $tran);
             return $this->successResponse();
         } else {
@@ -50,6 +54,7 @@ class TransactionController extends Controller
     }
     public function destroy(Request $request, $id){
 		$transaction = Transaction::findOrFail($id);
+		$this->ensureNotSepay($transaction);
 
 		// if ($transaction->type === 'addon') {
 		//     $order = Order::find($transaction->order_id);
@@ -60,11 +65,21 @@ class TransactionController extends Controller
 		return $this->successResponse(null,"Xóa gia hạn thành công.");
     }
 
+    private function ensureNotSepay(Transaction $transaction): void
+    {
+        if (Schema::hasTable('sepay_webhook_events')
+            && SepayWebhookEvent::where('transaction_id', $transaction->id)
+                ->orWhere('excess_transaction_id', $transaction->id)->exists()) {
+            throw ValidationException::withMessages(['transaction' => 'Giao dịch SePay không thể sửa hoặc xóa thủ công.']);
+        }
+    }
+
 	public function updateNew(Request $request) {
 		$id = $request->get('id', 0);
 		$created_at = $request->get('created_at', '');
 		if ( is_numeric( $id ) && $id > 0 && ! empty( $created_at ) ) {
 			$transaction = Transaction::findOrFail($id);
+			$this->ensureNotSepay($transaction);
 			$created_at_str = $created_at;
 			$created_at = DateTimeHelper::parse($created_at);
 

@@ -56,6 +56,14 @@ services:
         value: https://himoto.vn/wp-json/omg-leads/v1/leads?limit=-1
       - key: WORDPRESS_LEADS_TOKEN
         sync: false
+      - key: SEPAY_BANK_CODE
+        sync: false
+      - key: SEPAY_BANK_ID
+        sync: false
+      - key: SEPAY_ACCOUNT_NUMBER
+        sync: false
+      - key: SEPAY_WEBHOOK_API_KEY
+        sync: false
       - key: RUN_MIGRATIONS
         value: "true"
 
