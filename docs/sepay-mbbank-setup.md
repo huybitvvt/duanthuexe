@@ -42,8 +42,8 @@ SePay yêu cầu endpoint trả HTTP 200/201 với `{"success":true}`; API chỉ
 ## Kiểm tra trước khi dùng thật
 
 1. Tạo yêu cầu thu trên staging, quét QR và kiểm tra app ngân hàng hiện đúng tên người nhận, số tài khoản, số tiền và mã `HMT...`.
-2. Dùng chức năng **Gửi thử** của SePay; xác nhận cọc, phí thuê và gia hạn ghi đúng loại bút toán. Gia hạn chỉ đổi ngày trả khi nhận đủ.
-3. Gửi lại cùng `id` SePay; xác nhận không thêm bút toán. Thử tiền thiếu, đủ, dư, mã sai và khoản đã ghi thu thủ công; kiểm tra danh sách **Cần đối chiếu**.
-4. Khi test thật, chuyển khoản nhỏ vào đúng tài khoản và đối chiếu ID giao dịch, sao kê VPBank, phiếu thu và số dư ngân hàng trong HIMOTO. Dùng dữ liệu hợp đồng demo trên staging vì giao dịch thật sẽ ghi sổ thu tương ứng.
+2. Dùng chức năng **Gửi thử** của SePay để xác nhận endpoint và API Key trả HTTP 200. Payload mẫu có `id=0` chỉ được xác nhận kết nối, không ghi phiếu thu hay bút toán.
+3. Chuyển khoản thật số nhỏ với mã QR trên môi trường demo/staging để xác nhận cọc, phí thuê và gia hạn ghi đúng loại bút toán. Gia hạn chỉ đổi ngày trả khi nhận đủ. Gửi lại cùng `id` SePay phải không thêm bút toán; thử tiền thiếu, đủ, dư, mã sai và khoản đã ghi thu thủ công; kiểm tra danh sách **Cần đối chiếu**.
+4. Đối chiếu ID giao dịch, sao kê VPBank, phiếu thu và số dư ngân hàng trong HIMOTO. Dùng dữ liệu hợp đồng demo vì giao dịch thật sẽ ghi sổ thu tương ứng.
 
 **Lưu ý vận hành:** Nếu hợp đồng đã nhận tiền SePay, màn hình chỉnh hợp đồng không ghi lại các khoản thu; thay đổi số tiền đã thu bị từ chối để tránh ghi đúp. Các giao dịch **Cần đối chiếu** và tiền chuyển dư cần nhân viên xử lý thủ công trên sao kê trước khi kết luận công nợ.

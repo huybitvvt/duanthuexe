@@ -206,6 +206,23 @@ class SepayPaymentServiceTest extends TestCase
         $this->assertSame(1, Transaction::count());
     }
 
+    public function test_sepay_connectivity_payload_is_acknowledged_without_recording_money(): void
+    {
+        $payment = $this->service->createRequest(['store_id' => 2, 'amount' => 100000, 'note' => 'Thu dịch vụ'], $this->user);
+        $payload = $this->payload(0, $payment['code'], 100000);
+
+        $this->postJson('/api/sepay/webhook', $payload, ['Authorization' => 'Apikey wrong-secret'])
+            ->assertStatus(401);
+
+        $this->postJson('/api/sepay/webhook', $payload, ['Authorization' => 'Apikey unit-test-sepay-secret'])
+            ->assertStatus(200)
+            ->assertJson(['success' => true, 'status' => 'test']);
+
+        $this->assertSame(0, SepayWebhookEvent::count());
+        $this->assertSame(0, Transaction::count());
+        $this->assertSame('pending', SepayPaymentRequest::first()->status);
+    }
+
     public function test_deposit_is_allocated_only_when_not_previously_booked_and_overpay_is_separate(): void
     {
         $order = Order::create(['store_id' => 2, 'created_without_collect_deposit' => true]);
