@@ -63,7 +63,7 @@
 								title="Mở kho xe thuê / điều chuyển"
 								target="_blank"
 							>
-								<i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+								<i class="fas fa-warehouse mr-1"></i>Xem kho xe Thuê &rarr;
 							</router-link>
 						</div>
 						<div class="d-flex justify-content-end align-items-center" v-if="id && order && order.order_status == 'deposit_contract'">
@@ -200,7 +200,7 @@
                                     style="font-size: 12px;"
                                     title="Mở xem tồn kho xe của cơ sở này"
                                 >
-                                    <i class="fas fa-warehouse mr-1"></i>Kho xe PGD này &rarr;
+                                    <i class="fas fa-warehouse mr-1"></i>Xem kho PGD này &rarr;
                                 </router-link>
                             </div>
                             <ValidationProvider vid="store_id" name="Cửa hàng xe" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">

@@ -8,11 +8,11 @@
                 <div class="card-toolbar d-flex flex-wrap align-items-center">
                     <button @click="exportFile" class="btn btn-primary font-weight-bold mr-2 mb-1">Xuất Excel theo bộ lọc thời gian</button>
                     <router-link
-                        :to="{ name: 'warehouse' }"
+                        :to="rentalWarehouseLink"
                         class="btn btn-warning font-weight-bold mb-1 text-dark"
                         title="Mở kho xe thuê / điều chuyển"
                     >
-                        <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+                        <i class="fas fa-warehouse mr-1"></i>Xem kho xe Thuê &rarr;
                     </router-link>
                 </div>
             </div>
@@ -176,11 +176,11 @@
                             <h4 class="font-weight-bold mb-2">{{ activeCategoryLabel }}</h4>
                             <div class="d-flex flex-wrap align-items-center mb-2">
                                 <router-link
-                                    :to="{ name: 'warehouse' }"
+                                    :to="rentalWarehouseLink"
                                     class="btn btn-sm btn-warning font-weight-bold mr-2 text-dark"
                                     title="Mở kho xe thuê / điều chuyển"
                                 >
-                                    <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+                                    <i class="fas fa-warehouse mr-1"></i>Xem kho xe Thuê &rarr;
                                 </router-link>
                                 <button type="button" class="btn btn-sm btn-success font-weight-bold" @click="openModalCreate(activeCategory)">
                                     Thêm mới {{ activeCategoryLabel.toLowerCase() }}
@@ -230,11 +230,11 @@
                     <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
                         <h4 class="font-weight-bold mb-2">Danh sách tổng <small class="text-muted">Tất cả loại hồ sơ theo bộ lọc hiện tại</small></h4>
                         <router-link
-                            :to="{ name: 'warehouse' }"
+                            :to="rentalWarehouseLink"
                             class="btn btn-sm btn-warning font-weight-bold mb-2 text-dark"
                             title="Mở kho xe thuê / điều chuyển"
                         >
-                            <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+                            <i class="fas fa-warehouse mr-1"></i>Xem kho xe Thuê &rarr;
                         </router-link>
                     </div>
                     <HimotoErrorState v-if="errorMessage" title="Không thể tải danh sách tổng" :message="errorMessage" @retry="getList" />
@@ -552,6 +552,13 @@ export default {
         ...mapGetters(["currentUser"]),
         activeCategoryLabel() {
             return this.categoryLabel(this.activeCategory);
+        },
+        rentalWarehouseLink() {
+            const storeId = this.query.store_id;
+            return {
+                name: 'warehouse',
+                query: storeId ? { store_id: storeId } : {},
+            };
         },
         checkedCount() {
             return Object.values(this.checkedItems).filter(item => item).length;

@@ -19,7 +19,7 @@
                     class="btn btn-sm btn-outline-warning font-weight-bold"
                     title="Mở kho xe thuê / điều chuyển"
                 >
-                    <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê &rarr;
+                    <i class="fas fa-warehouse mr-1"></i>Xem kho xe Thuê &rarr;
                 </router-link>
                 <button
                     v-if="currentVehicle"
@@ -27,7 +27,7 @@
                     class="btn btn-sm btn-outline-primary font-weight-bold"
                     @click="openWarehouseForCurrentVehicle"
                 >
-                    Mở Kho xe
+                    Xem xe trong kho
                 </button>
                 <button
                     v-if="currentVehicle && order.order_status === 'renting'"
