@@ -67,7 +67,7 @@ class SepayPaymentController extends Controller
         }
 
         $payload = Validator::make($request->all(), [
-            'id' => 'required|integer|min:1',
+            'id' => 'required|integer|min:0',
             'gateway' => 'required|string|max:100',
             'accountNumber' => 'required|string|max:30',
             'transferType' => 'required|in:in,out',
@@ -76,6 +76,12 @@ class SepayPaymentController extends Controller
             'content' => 'nullable|string|max:2000',
             'referenceCode' => 'nullable|string|max:100',
         ])->validate();
+
+        // SePay uses transaction ID 0 for its "Gửi thử" payload. Acknowledge the
+        // connectivity check without creating a receipt or webhook event.
+        if ((int) $payload['id'] === 0) {
+            return response()->json(['success' => true, 'status' => 'test']);
+        }
 
         $result = $this->payments->processWebhook($payload);
         return response()->json(['success' => true, 'status' => $result['status']]);
