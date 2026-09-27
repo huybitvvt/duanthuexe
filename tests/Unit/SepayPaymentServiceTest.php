@@ -94,6 +94,7 @@ class SepayPaymentServiceTest extends TestCase
             'status' => 'Active',
         ]);
         config()->set('services.sepay', [
+            'bank_code' => 'MB',
             'bank_id' => $bank->id,
             'account_number' => '1234567890',
             'webhook_api_key' => 'unit-test-sepay-secret',
@@ -304,6 +305,26 @@ class SepayPaymentServiceTest extends TestCase
             'store_id' => 2, 'purpose' => 'rental', 'order_id' => $order->id,
             'amount' => 10000, 'note' => 'Phí thuê',
         ], $this->user);
+    }
+
+    public function test_vpbank_demo_qr_and_webhook_credit_only_matching_vpbank(): void
+    {
+        Bank::first()->update(['bank_name' => 'Ngân hàng TMCP Việt Nam Thịnh Vượng']);
+        config()->set('services.sepay.bank_code', 'VPB');
+
+        $payment = $this->service->createRequest([
+            'store_id' => 2, 'purpose' => 'general', 'amount' => 10000, 'note' => 'Demo VPBank',
+        ], $this->user);
+        $this->assertSame('VPBank', $payment['bank_name']);
+        $this->assertStringContainsString('bank=VPBank', $payment['qr_url']);
+        $payload = $this->payload(9020, $payment['code'], 10000);
+        $payload['gateway'] = 'VPBank';
+        $this->assertSame('matched', $this->service->processWebhook($payload)['status']);
+        $this->assertSame(10000, (int) Transaction::sum('value'));
+
+        $wrongBank = $this->payload(9021, $payment['code'], 10000);
+        $this->expectException(ValidationException::class);
+        $this->service->processWebhook($wrongBank);
     }
 
     private function payload(int $id, string $code, int $amount): array

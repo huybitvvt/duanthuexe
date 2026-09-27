@@ -13,6 +13,7 @@ class CreateSepayPaymentTables extends Migration
             $table->string('code', 20)->unique();
             $table->unsignedBigInteger('store_id');
             $table->unsignedBigInteger('bank_id');
+            $table->string('bank_code', 10)->default('MB');
             $table->string('account_number', 30);
             $table->string('account_holder', 100);
             $table->unsignedBigInteger('order_id')->nullable();

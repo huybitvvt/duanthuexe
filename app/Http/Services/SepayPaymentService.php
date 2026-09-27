@@ -22,9 +22,32 @@ class SepayPaymentService
 {
     private const CODE_PATTERN = '/^HMT[A-Z0-9]{10}$/';
 
+    private function bankDefinition(?string $bankCode = null): array
+    {
+        $code = strtoupper(trim((string) ($bankCode ?: config('services.sepay.bank_code', 'MB'))));
+        $banks = [
+            'MB' => [
+                'name' => 'MBBank',
+                'name_pattern' => '/\b(mb|mbbank|quan doi|military bank)\b/',
+                'gateways' => ['mb', 'mbbank', 'nganhangquandoi'],
+            ],
+            'VPB' => [
+                'name' => 'VPBank',
+                'name_pattern' => '/\b(vpb|vpbank|vp bank|viet nam thinh vuong)\b/',
+                'gateways' => ['vpb', 'vpbank', 'nganhangvietnamthinhvuong'],
+            ],
+        ];
+        if (!isset($banks[$code])) {
+            throw new ServiceUnavailableHttpException(null, 'Mã ngân hàng SePay không được hỗ trợ.');
+        }
+
+        return $banks[$code];
+    }
+
     public function configuredBank(): Bank
     {
         $bankId = config('services.sepay.bank_id');
+        $definition = $this->bankDefinition();
         $account = trim((string) config('services.sepay.account_number'));
         $key = (string) config('services.sepay.webhook_api_key');
 
@@ -34,11 +57,11 @@ class SepayPaymentService
 
         $bank = Bank::query()->whereKey($bankId)->where('account_number', $account)->first();
         if (!$bank || ($bank->status && $bank->status !== 'Active')) {
-            throw new ServiceUnavailableHttpException(null, 'Tài khoản MB của SePay chưa có hoặc không hoạt động trong hệ thống.');
+            throw new ServiceUnavailableHttpException(null, 'Tài khoản ngân hàng SePay chưa có hoặc không hoạt động trong hệ thống.');
         }
         $bankName = strtolower(Str::ascii((string) $bank->bank_name));
-        if (!preg_match('/\b(mb|mbbank|quan doi|military bank)\b/', $bankName)) {
-            throw new ServiceUnavailableHttpException(null, 'Tài khoản được chọn trong hệ thống không phải MBBank.');
+        if (!preg_match($definition['name_pattern'], $bankName)) {
+            throw new ServiceUnavailableHttpException(null, 'Tài khoản được chọn không phải ' . $definition['name'] . '.');
         }
 
         return $bank;
@@ -57,7 +80,7 @@ class SepayPaymentService
         $bank = $this->configuredBank();
         PilotAccess::store($user, $data['store_id']);
         if (!in_array((int) $bank->store_id, [0, (int) $data['store_id']], true)) {
-            throw ValidationException::withMessages(['store_id' => 'Tài khoản MB không thuộc cơ sở này hoặc ngân hàng dùng chung.']);
+            throw ValidationException::withMessages(['store_id' => 'Tài khoản ngân hàng không thuộc cơ sở này hoặc ngân hàng dùng chung.']);
         }
 
         $purpose = $data['purpose'] ?? 'general';
@@ -91,6 +114,7 @@ class SepayPaymentService
                 'code' => $this->newPaymentCode(),
                 'store_id' => $data['store_id'],
                 'bank_id' => $bank->id,
+                'bank_code' => strtoupper(trim((string) config('services.sepay.bank_code', 'MB'))),
                 'account_number' => $bank->account_number,
                 'account_holder' => $bank->owner_name,
                 'order_id' => $data['order_id'] ?? null,
@@ -174,8 +198,9 @@ class SepayPaymentService
     {
         $this->ensureSchema();
         $bank = $this->configuredBank();
+        $definition = $this->bankDefinition();
         $gateway = preg_replace('/[^a-z0-9]/', '', strtolower((string) $payload['gateway']));
-        if (!in_array($gateway, ['mb', 'mbbank', 'nganhangquandoi'], true)
+        if (!in_array($gateway, $definition['gateways'], true)
             || (string) $payload['accountNumber'] !== (string) $bank->account_number) {
             throw ValidationException::withMessages(['accountNumber' => 'Tài khoản hoặc ngân hàng không khớp cấu hình SePay.']);
         }
@@ -413,7 +438,7 @@ class SepayPaymentService
             && (string) $request->account_number === (string) $bank->account_number;
         $query = http_build_query([
             'acc' => $request->account_number,
-            'bank' => 'MBBank',
+            'bank' => $this->bankDefinition($request->bank_code)['name'],
             'amount' => $request->expected_amount,
             'des' => $request->code,
             'template' => 'compact',
@@ -433,6 +458,7 @@ class SepayPaymentService
             'note' => $request->note,
             'account_number' => $request->account_number,
             'account_holder' => $request->account_holder,
+            'bank_name' => $this->bankDefinition($request->bank_code)['name'],
             'qr_url' => $currentAccount ? 'https://vietqr.app/img?' . $query : null,
             'created_at' => $request->created_at,
         ];

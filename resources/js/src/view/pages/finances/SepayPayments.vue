@@ -5,7 +5,7 @@
             <div class="card-toolbar"><router-link :to="{ name: 'receipt' }" class="btn btn-light">Phiếu thu chi</router-link></div>
         </div>
         <div class="card-body">
-            <p class="text-muted">Tạo mã riêng cho từng khoản thu. Chỉ khi tài khoản MB nhận tiền, phiếu thu mới được ghi vào hệ thống.</p>
+            <p class="text-muted">Tạo mã riêng cho từng khoản thu. Chỉ khi tài khoản ngân hàng được cấu hình nhận tiền, phiếu thu mới được ghi vào hệ thống.</p>
             <div v-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
             <form class="row align-items-end" @submit.prevent="createPayment">
                 <div class="col-md-2 form-group">
@@ -57,14 +57,14 @@
             <div v-if="selected" class="card border mt-4 mb-5">
                 <div class="card-body row align-items-center">
                     <div class="col-md-4 text-center">
-                        <img v-if="selected.qr_url" :src="selected.qr_url" alt="Mã QR chuyển khoản MBBank" class="img-fluid" style="max-width: 280px;">
+                        <img v-if="selected.qr_url" :src="selected.qr_url" :alt="`Mã QR chuyển khoản ${selected.bank_name}`" class="img-fluid" style="max-width: 280px;">
                         <p v-else class="text-danger">Tài khoản SePay đã thay đổi. Không dùng mã QR cũ.</p>
                     </div>
                     <div class="col-md-8">
                         <h4>{{ selected.note }}</h4>
                         <p class="mb-1">Loại khoản thu: <strong>{{ purposeLabel(selected.purpose) }}</strong></p>
                         <p v-if="selected.order_id" class="mb-1">Hợp đồng: <strong>#{{ selected.order_id }}</strong></p>
-                        <p class="mb-1">Ngân hàng: <strong>MBBank</strong></p>
+                        <p class="mb-1">Ngân hàng: <strong>{{ selected.bank_name }}</strong></p>
                         <p class="mb-1">Chủ tài khoản: <strong>{{ selected.account_holder }}</strong></p>
                         <p class="mb-1">Số tài khoản: <strong>{{ selected.account_number }}</strong></p>
                         <p class="mb-1">Số tiền QR: <strong>{{ money(selected.expected_amount) }} VNĐ</strong></p>
