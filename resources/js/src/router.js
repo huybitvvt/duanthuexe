@@ -139,6 +139,12 @@ export default new Router({
                         import("@/view/pages/finances/ReceiptCreate.vue"),
                 },
                 {
+                    path: "/receipt/sepay",
+                    name: "receipt-sepay",
+                    component: () =>
+                        import("@/view/pages/finances/SepayPayments.vue"),
+                },
+                {
                     path: "/receipt/update",
                     name: "receipt-update",
                     component: () =>

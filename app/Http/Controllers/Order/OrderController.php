@@ -21,6 +21,7 @@ use App\Helpers\CarRentalHelper;
 use App\Helpers\DateTimeHelper;
 use App\Support\HimotoStores;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
@@ -432,6 +433,10 @@ class OrderController extends Controller
     }
 
     public function deleteOrderAndItsRelation($order){
+            if (\Illuminate\Support\Facades\Schema::hasTable('sepay_payment_requests')
+                && \App\Models\SepayPaymentRequest::query()->where('order_id', $order->id)->where('received_amount', '>', 0)->exists()) {
+                throw ValidationException::withMessages(['order' => 'Hợp đồng đã có tiền SePay; không thể xóa.']);
+            }
             $order->addOnOrders()->delete();
             
             $orderItems = $order->orderItems();

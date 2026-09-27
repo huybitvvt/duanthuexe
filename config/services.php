@@ -45,5 +45,10 @@ return [
 		'url' => env('WORDPRESS_LEADS_URL'),
 		'token' => env('WORDPRESS_LEADS_TOKEN'),
 	],
+	'sepay' => [
+		'bank_id' => env('SEPAY_BANK_ID'),
+		'account_number' => env('SEPAY_ACCOUNT_NUMBER'),
+		'webhook_api_key' => env('SEPAY_WEBHOOK_API_KEY'),
+	],
 
 ];

@@ -35,6 +35,7 @@ use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\CustomerReminderController;
 use App\Http\Controllers\LeaseOwnershipController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SepayPaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -71,6 +72,7 @@ Route::get('/health', function () {
 Route::get('/check-timezone', [Order\OrderController::class, 'check_timezone'])->middleware('auth.jwt');
 Route::post('/customer-reminders/webhook/{provider}', [CustomerReminderController::class, 'webhook'])
     ->middleware(['schema.ready:reminder', 'schema.ready:audit']);
+Route::post('/sepay/webhook', [SepayPaymentController::class, 'webhook']);
 
 Route::group(['middleware' => 'api'], function ($router) {
     Route::group(['middleware' => 'check.status'],function () {
@@ -102,6 +104,11 @@ Route::group(['middleware' => 'api'], function ($router) {
 });
 Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
     Route::group(['middleware' => 'non.sale'],function () {
+        Route::get('/auth/sepay/payment-requests', [SepayPaymentController::class, 'index']);
+        Route::post('/auth/sepay/payment-requests', [SepayPaymentController::class, 'store']);
+        Route::get('/auth/sepay/payment-requests/unmatched', [SepayPaymentController::class, 'unmatched']);
+        Route::get('/auth/sepay/payment-requests/{id}', [SepayPaymentController::class, 'show']);
+        Route::get('/auth/sepay/orders/{id}/options', [SepayPaymentController::class, 'orderOptions']);
         Route::get('/get-list-user', [AuthController::class, 'getListUser']);
         Route::group(['prefix' => 'auth'], function ($router) {
                   

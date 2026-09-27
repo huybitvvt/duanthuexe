@@ -4,6 +4,7 @@
             <div class="card-title col-md-12 d-flex justify-content-between">
                 <h3 class="card-label">Phiếu thu chi</h3>
                 <div>
+                    <router-link :to="{ name: 'receipt-sepay' }" class="btn btn-primary mr-2">Thu tiền qua QR SePay</router-link>
                     <router-link :to="{ name: 'receipt-create' }" class="btn btn-success">Thêm mới</router-link>
                 </div>
             </div>

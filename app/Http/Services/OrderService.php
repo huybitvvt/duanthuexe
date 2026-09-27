@@ -4,6 +4,8 @@
 namespace App\Http\Services;
 
 use App\Models\Transaction;
+use App\Models\SepayPaymentRequest;
+use App\Models\SepayWebhookEvent;
 use App\Models\Lead;
 use App\Http\Services\TransactionService;
 use App\Repositories\TransactionRepository;
@@ -94,6 +96,18 @@ class OrderService
             throw ValidationException::withMessages(['contract' => 'Hợp đồng đã chốt. Không thể ghi đè thông tin đã ký; các thao tác trả xe và gia hạn vẫn dùng luồng riêng.']);
         }
 
+        $sepayCollected = Schema::hasTable('sepay_payment_requests')
+            && SepayPaymentRequest::query()->where('order_id', $order->id)->where('purpose', '!=', 'general')
+                ->where('received_amount', '>', 0)->exists();
+        if ($sepayCollected) {
+            foreach (['first_deposit_amount', 'total_rental_fees', 'additional_deposit_amount'] as $field) {
+                if ($request->has($field) && (int) $request->get($field) !== (int) $order->{$field}) {
+                    throw ValidationException::withMessages([$field => 'Khoản này đã thu qua SePay. Không thể sửa từ màn hình hợp đồng.']);
+                }
+            }
+            $request->merge(['pid' => $order->pid]);
+        }
+
         $saveAsDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
         $customer = $saveAsDraft && !$request->filled('customer_name')
             ? null : $this->storeOrUpdateCustomer($request, $order->customer_id ? $order : null);
@@ -102,12 +116,16 @@ class OrderService
 
         $this->saveOrderLog($request, $order);
         
-        if (!$saveAsDraft) {
+        if (!$saveAsDraft && !$sepayCollected) {
             $this->updateTransactions($request, $order);
         }
         $transaction_ids_to_destroy = $request->get('transaction_ids_to_destroy');
         if (is_array($transaction_ids_to_destroy)) {
             foreach ($transaction_ids_to_destroy as $id){
+                if (Schema::hasTable('sepay_webhook_events') && SepayWebhookEvent::query()
+                    ->where('transaction_id', $id)->orWhere('excess_transaction_id', $id)->exists()) {
+                    throw ValidationException::withMessages(['transaction_ids_to_destroy' => 'Không thể xóa giao dịch SePay.']);
+                }
                 $deleted = Transaction::destroy($id);        
             }
         }
