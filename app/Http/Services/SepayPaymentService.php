@@ -302,8 +302,8 @@ class SepayPaymentService
 
     private function canAllocate(Order $order, string $purpose, ?OrderVehicleDetail $lineItem, ?SepayPaymentRequest $payment): bool
     {
+        if (in_array($order->order_status, ['completed', 'cancel_pending_settlement', 'cancelled'], true) || $order->deposit_closed) return false;
         if ($purpose === 'general') return true;
-        if (in_array($order->order_status, ['completed', 'cancelled'], true) || $order->deposit_closed) return false;
 
         if ($payment === null) {
             $active = SepayPaymentRequest::query()->where('order_id', $order->id)->where('purpose', $purpose)

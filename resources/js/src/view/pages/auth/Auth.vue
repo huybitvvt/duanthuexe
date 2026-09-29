@@ -372,9 +372,19 @@ export default {
                 .dispatch(LOGIN, { email: trimmedEmail, password: password })
                 .then(() => {
                     const user = this.$store.getters.currentUser;
-                    // Role 4 (Sale) is routed to leads; other roles to dashboard
+                    const caps = this.$store.getters.capabilities || [];
+                    const has = permission => caps.includes("*") || caps.includes(permission);
+                    // Start each role on a page that its account can open.
                     if (user && user.role_id === 4) {
                         this.$router.push({ name: "leads" });
+                    } else if (has("dashboard.view_store")) {
+                        this.$router.push({ name: "dashboard" });
+                    } else if (has("accounting.view")) {
+                        this.$router.push({ path: "/accounting" });
+                    } else if (has("hr.view")) {
+                        this.$router.push({ path: "/hr/duty-schedule" });
+                    } else if (has("vehicle.view_all") || has("vehicle.view_lease")) {
+                        this.$router.push({ path: "/warehouses" });
                     } else {
                         this.$router.push({ name: "dashboard" });
                     }

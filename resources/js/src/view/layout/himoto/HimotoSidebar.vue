@@ -14,7 +14,7 @@
     >
       <div class="sidebar-brand">
         <router-link
-          to="/dashboard"
+          :to="homeRoute"
           class="brand-link"
           aria-label="Về Tổng quan"
           @click.native="onNavClick"
@@ -144,6 +144,32 @@ const ADMIN_NAV_GROUPS = [
   }
 ];
 
+const NAV_PERMISSIONS = {
+  "/dashboard": ["dashboard.view_store"],
+  "/car-rental": ["order.view_store"],
+  "/lease-to-own": ["lease.view"],
+  "/warehouses": ["vehicle.view_all", "vehicle.view_lease"],
+  "/customer-reminders": ["reminder.view"],
+  "/leads": ["lead.manage"],
+  "/vehicles": ["vehicle.view_all"],
+  "/maintenance-schedule": ["vehicle.manage"],
+  "/maintenance-log": ["vehicle.manage"],
+  "/maintenance-rule": ["vehicle.manage"],
+  "/maintenance-type": ["vehicle.manage"],
+  "/customers": ["customer.manage"],
+  "/hr/duty-schedule": ["hr.view"],
+  "/finances/daily-cash-register": ["cash_register.view", "cash_register.view_all"],
+  "/banks": ["finance.bank.view_store", "finance.bank.view_all"],
+  "/cash": ["finance.cash.view_all"],
+  "/transactions": ["finance.transaction.view"],
+  "/receipt": ["finance.transaction.view"],
+  "/accounting": ["accounting.view"],
+  "/report/detail-report": ["accounting.view"],
+  "/report/kpi": ["kpi.view_store", "kpi.view_company"],
+  "/report/vehicle-revenue": ["accounting.view"],
+  "/pricing": ["vehicle.manage"]
+};
+
 export default {
   name: "HimotoSidebar",
   props: {
@@ -157,7 +183,15 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(["currentUser"]),
+    ...mapGetters(["currentUser", "capabilities"]),
+    homeRoute() {
+      const caps = this.capabilities || [];
+      if (caps.includes("*") || caps.includes("dashboard.view_store")) return "/dashboard";
+      if (caps.includes("accounting.view")) return "/accounting";
+      if (caps.includes("hr.view")) return "/hr/duty-schedule";
+      if (caps.includes("vehicle.view_all") || caps.includes("vehicle.view_lease")) return "/warehouses";
+      return "/dashboard";
+    },
     visibleNavGroups() {
       if (this.currentUser && Number(this.currentUser.role_id) === 4) {
         return [
@@ -167,7 +201,16 @@ export default {
           }
         ];
       }
-      return this.navGroups;
+      const caps = this.capabilities || [];
+      const unrestricted = caps.includes("*");
+      return this.navGroups.map(group => ({
+        ...group,
+        items: group.items.filter(item => {
+          if (item.to === "/user") return Number(this.currentUser?.role_id) === 1;
+          const required = NAV_PERMISSIONS[item.to];
+          return !required || unrestricted || required.some(permission => caps.includes(permission));
+        })
+      })).filter(group => group.items.length > 0);
     }
   },
   methods: {

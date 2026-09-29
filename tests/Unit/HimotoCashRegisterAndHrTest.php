@@ -222,6 +222,8 @@ class HimotoCashRegisterAndHrTest extends TestCase
             $table->decimal('cash_difference', 15, 2)->default(0);
             $table->text('difference_reason')->nullable();
             $table->string('status', 20)->default('open');
+            $table->unsignedBigInteger('submitted_by')->nullable();
+            $table->timestamp('submitted_at')->nullable();
             $table->unsignedBigInteger('closed_by')->nullable();
             $table->timestamp('closed_at')->nullable();
             $table->text('notes')->nullable();
@@ -245,6 +247,9 @@ class HimotoCashRegisterAndHrTest extends TestCase
             $table->date('end_date')->nullable();
             $table->string('status')->default('active');
             $table->unsignedBigInteger('assigned_user_id')->nullable();
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('approved_by')->nullable();
+            $table->timestamp('approved_at')->nullable();
             $table->text('notes')->nullable();
             $table->softDeletes();
             $table->timestamps();
@@ -580,6 +585,27 @@ class HimotoCashRegisterAndHrTest extends TestCase
         $this->assertEquals(800000, $summaryDay2['system_cash_balance']);
     }
 
+    public function testCashRegisterRequiresDifferentApproverAfterSubmission()
+    {
+        $date = '2026-09-17';
+        $submitted = $this->cashRegisterService->closeDailyRegister(
+            $this->store->id, $date, 0, null, $this->adminUser->id, null, true
+        );
+        $this->assertEquals('submitted', $submitted->status);
+        $this->assertNull($submitted->closed_by);
+
+        try {
+            $this->cashRegisterService->approveDailyRegister($this->store->id, $date, $this->adminUser->id);
+            $this->fail('The submitter approved their own register.');
+        } catch (\RuntimeException $e) {
+            $this->assertEquals('submitted', $submitted->fresh()->status);
+        }
+
+        $approved = $this->cashRegisterService->approveDailyRegister($this->store->id, $date, $this->adminUser->id + 1);
+        $this->assertEquals('closed', $approved->status);
+        $this->assertEquals($this->adminUser->id + 1, $approved->closed_by);
+    }
+
     /**
      * Test 4: Early settlement of Lease-to-own contract marks all installments paid and contract completed.
      */
@@ -636,6 +662,36 @@ class HimotoCashRegisterAndHrTest extends TestCase
             ->where('status', '!=', LeaseInstallment::STATUS_PAID)
             ->count();
         $this->assertEquals(0, $unpaidCount);
+    }
+
+    public function testLeaseContractStaffCreatesDraftAndManagerApproves()
+    {
+        $leaseStore = Store::create([
+            'code' => 'CS6', 'store_name' => 'Kho sở hữu',
+            'store_address' => 'Kho sở hữu', 'kind' => Store::KIND_LEASE_TO_OWN,
+        ]);
+        $makerRole = Role::create(['slug' => 'thue-so-huu-hop-dong', 'name' => 'Nhân viên hợp đồng']);
+        $checkerRole = Role::create(['slug' => 'thue-so-huu-truong-phong', 'name' => 'Trưởng phòng thuê sở hữu']);
+        $maker = User::create(['name' => 'Maker', 'email' => 'maker@example.test',
+            'role_id' => $makerRole->id, 'store_id' => $leaseStore->id, 'status' => 1]);
+        $checker = User::create(['name' => 'Checker', 'email' => 'checker@example.test',
+            'role_id' => $checkerRole->id, 'store_id' => $leaseStore->id, 'status' => 1]);
+        $customer = Customer::create(['name' => 'Khách UAT', 'phone' => '0912345678']);
+        $vehicle = Vehicle::create(['name' => 'Xe UAT', 'license' => '29X1-88889',
+            'store_id' => $leaseStore->id, 'current_store_id' => $leaseStore->id,
+            'status' => Vehicle::STATUS_READY]);
+        $contract = $this->leaseService->createContract([
+            'customer_id' => $customer->id, 'vehicle_id' => $vehicle->id,
+            'store_id' => $leaseStore->id, 'start_date' => '2026-09-29',
+            'total_amount' => 12000000, 'installment_count' => 12,
+        ], $maker);
+        $this->assertEquals(LeaseContract::STATUS_DRAFT, $contract->status);
+        $this->assertEquals(Vehicle::STATUS_READY, $vehicle->fresh()->status);
+        $this->assertEquals($maker->id, $contract->created_by);
+        $approved = $this->leaseService->approveContract($contract->id, $checker);
+        $this->assertEquals(LeaseContract::STATUS_ACTIVE, $approved->status);
+        $this->assertEquals($checker->id, $approved->approved_by);
+        $this->assertEquals(Vehicle::STATUS_USING, $vehicle->fresh()->status);
     }
 
     /**

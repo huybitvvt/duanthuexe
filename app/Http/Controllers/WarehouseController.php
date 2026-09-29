@@ -7,6 +7,7 @@ use App\Http\Services\VehicleTransferService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\PermissionAccess;
 
 class WarehouseController extends Controller
 {
@@ -25,6 +26,10 @@ class WarehouseController extends Controller
     public function summary(Request $request): JsonResponse
     {
         $user = Auth::user();
+        if (!PermissionAccess::allows($user, 'vehicle.view_all')
+            && !PermissionAccess::allows($user, 'vehicle.view_lease')) {
+            abort(403, 'Bạn không có quyền xem kho xe.');
+        }
         $summary = $this->warehouseService->getSummary($user);
         return $this->successResponse($summary);
     }

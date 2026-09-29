@@ -173,6 +173,7 @@
 
       <!-- Quick Create Contract Button -->
       <button
+        v-if="canManageOrders"
         type="button"
         class="btn btn-primary btn-sm btn-quick-order"
         @click="onQuickCreateOrder"
@@ -181,7 +182,7 @@
       </button>
 
       <!-- System Notification Bell Popover -->
-      <div class="header-notification-wrapper" ref="notificationContainer">
+      <div v-if="canViewNotifications" class="header-notification-wrapper" ref="notificationContainer">
         <button
           type="button"
           class="header-action-btn notification-bell-btn"
@@ -496,14 +497,25 @@ export default {
     }
   },
   computed: {
-    ...mapGetters(["currentUser"]),
+    ...mapGetters(["currentUser", "capabilities"]),
+    canManageOrders() {
+      return this.capabilities.includes("*") || this.capabilities.includes("order.create");
+    },
+    canViewNotifications() {
+      return this.capabilities.includes("*") || this.capabilities.includes("reminder.view");
+    },
     currentUserName() {
       return this.currentUser?.name || "Vận hành HIMOTO";
     },
     userRoleText() {
       if (this.currentUser?.role_id === 1) return "Quản trị viên";
       if (this.currentUser?.role_id === 4) return "Tư vấn Lead";
-      return "Quản lý chi nhánh";
+      if (this.capabilities.includes("*")) return "Ban giám đốc / Vận hành";
+      if (this.capabilities.includes("accounting.view")) return "Kế toán";
+      if (this.capabilities.includes("hr.view")) return "Nhân sự";
+      if (this.capabilities.includes("cash_register.view")) return "Phòng giao dịch";
+      if (this.capabilities.includes("vehicle.view_all")) return "Telesale";
+      return "Nhân viên";
     },
     userInitials() {
       const name = this.currentUserName;
@@ -549,7 +561,17 @@ export default {
   methods: {
     fetchStores() {
       this.$store.dispatch(STORE_GET_ALL, {}).then((res) => {
-        this.storeList = res?.data || [];
+        const stores = res?.data || [];
+        const isGlobal = this.capabilities.includes("*") ||
+          this.capabilities.includes("finance.bank.view_all") ||
+          this.capabilities.includes("hr.view");
+        this.storeList = !isGlobal && this.currentUser?.store_id
+          ? stores.filter(store => Number(store.id) === Number(this.currentUser.store_id))
+          : stores;
+        if (!isGlobal && this.currentUser?.store_id) {
+          this.selectedStoreId = String(this.currentUser.store_id);
+          this.onStoreChange();
+        }
       });
     },
     onStoreChange() {
@@ -794,6 +816,7 @@ export default {
       }
     },
     fetchNotifications() {
+      if (!this.canViewNotifications) return;
       const params = {};
       if (this.selectedStoreId && this.selectedStoreId !== "all") {
         params.store_id = this.selectedStoreId;

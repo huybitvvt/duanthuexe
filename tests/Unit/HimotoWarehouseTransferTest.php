@@ -321,9 +321,9 @@ class HimotoWarehouseTransferTest extends TestCase
         }
     }
 
-    public function test_w01_permissions_scoping_between_admin_and_staff()
+    public function test_w01_branch_staff_can_view_all_warehouses_but_unknown_role_cannot()
     {
-        // 1. Staff A can see summary cards of all stores
+        // The approved matrix gives counter staff inventory visibility across stores.
         $summary = $this->warehouseService->getSummary($this->staffUserA);
         $this->assertIsArray($summary);
         $this->assertGreaterThanOrEqual(2, count($summary));
@@ -331,13 +331,21 @@ class HimotoWarehouseTransferTest extends TestCase
         $ownCard = collect($summary)->firstWhere('id', $this->storeA->id);
         $otherCard = collect($summary)->firstWhere('id', $this->storeB->id);
         $this->assertTrue($ownCard['can_view_details']);
-        $this->assertFalse($otherCard['can_view_details']);
+        $this->assertTrue($otherCard['can_view_details']);
 
         $ownVehicles = $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->staffUserA);
         $this->assertEquals($this->storeA->id, $ownVehicles['store']['id']);
 
+        $otherVehicles = $this->warehouseService->getStoreVehicles($this->storeB->id, [], $this->staffUserA);
+        $this->assertEquals($this->storeB->id, $otherVehicles['store']['id']);
+
+        $unknownRole = User::create([
+            'name' => 'Unassigned role', 'email' => 'unknown@himoto.vn',
+            'password' => bcrypt('123456'), 'role_id' => 2,
+            'store_id' => $this->storeA->id, 'status' => 'active',
+        ]);
         $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
-        $this->warehouseService->getStoreVehicles($this->storeB->id, [], $this->staffUserA);
+        $this->warehouseService->getStoreVehicles($this->storeB->id, [], $unknownRole);
     }
 
     /**

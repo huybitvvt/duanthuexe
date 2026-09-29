@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Services\CashRegisterService;
 use App\Models\DailyCashRegister;
-use App\Support\PilotAccess;
+use App\Support\PermissionAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,7 +36,7 @@ class DailyCashRegisterController extends Controller
         $date = $request->input('date', date('Y-m-d'));
         $requestedStoreId = $request->input('store_id');
 
-        if (!PilotAccess::isAdmin($user)) {
+        if (!PermissionAccess::allows($user, 'cash_register.view_all')) {
             if (!$user->store_id) {
                 return $this->errorResponse('Tài khoản chưa được gán cơ sở.', 403);
             }
@@ -68,7 +68,10 @@ class DailyCashRegisterController extends Controller
     {
         $request->validate(['store_id' => 'required|integer']);
         try {
-            return $this->successResponse($this->cashRegisterService->getPaymentSources($this->resolveStoreId($request)));
+            $canViewCompanyBanks = PermissionAccess::allows(Auth::user(), 'finance.bank.view_all');
+            return $this->successResponse($this->cashRegisterService->getPaymentSources(
+                $this->resolveStoreId($request), $canViewCompanyBanks
+            ));
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return $this->errorResponse($e->getMessage(), 403);
         }
@@ -118,16 +121,15 @@ class DailyCashRegisterController extends Controller
             throw new \Illuminate\Auth\Access\AuthorizationException('Chưa đăng nhập.');
         }
         $storeId = (int)$request->input('store_id');
-        if (!PilotAccess::isAdmin($user) && (int)$user->store_id !== $storeId) {
+        if (!PermissionAccess::allows($user, 'cash_register.view_all')
+            && !PermissionAccess::allows($user, 'cash_register.manage')
+            && (int)$user->store_id !== $storeId) {
             throw new \Illuminate\Auth\Access\AuthorizationException('Bạn không có quyền thao tác sổ két của cơ sở khác.');
         }
         return $storeId;
     }
 
-    /**
-     * Chốt két ngày (Admin/Kế toán).
-     */
-    public function close(Request $request): JsonResponse
+    public function submit(Request $request): JsonResponse
     {
         $request->validate([
             'store_id' => 'required|integer',
@@ -138,21 +140,43 @@ class DailyCashRegisterController extends Controller
         ]);
 
         $user = Auth::user();
-        if (!$user || !PilotAccess::isAdmin($user)) {
-            return $this->errorResponse('Chỉ Admin hoặc Kế toán mới có quyền chốt két ngày.', 403);
+        $storeId = (int) $request->input('store_id');
+        if (!$user || !PermissionAccess::allows($user, 'cash_register.submit', $storeId)) {
+            return $this->errorResponse('Bạn không có quyền gửi chốt két của cơ sở này.', 403);
         }
 
         try {
             $register = $this->cashRegisterService->closeDailyRegister(
-                (int) $request->input('store_id'),
+                $storeId,
                 $request->input('date'),
                 (float) $request->input('actual_cash_counted'),
                 $request->input('difference_reason'),
                 $user->id,
-                $request->input('notes')
+                $request->input('notes'),
+                true
             );
 
-            return $this->successResponse($register, 'Chốt két ngày thành công.');
+            return $this->successResponse($register, 'Đã gửi số kiểm đếm chờ trưởng phòng duyệt.');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
+    }
+
+    public function close(Request $request): JsonResponse
+    {
+        $request->validate([
+            'store_id' => 'required|integer', 'date' => 'required|date_format:Y-m-d',
+        ]);
+        $user = Auth::user();
+        $storeId = (int) $request->input('store_id');
+        if (!$user || !PermissionAccess::allows($user, 'cash_register.approve', $storeId)) {
+            return $this->errorResponse('Bạn không có quyền duyệt chốt két của cơ sở này.', 403);
+        }
+        try {
+            $register = $this->cashRegisterService->approveDailyRegister(
+                $storeId, $request->input('date'), $user->id
+            );
+            return $this->successResponse($register, 'Đã duyệt chốt két.');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 422);
         }
@@ -169,7 +193,7 @@ class DailyCashRegisterController extends Controller
         ]);
 
         $user = Auth::user();
-        if (!$user || !PilotAccess::isAdmin($user)) {
+        if (!$user || !PermissionAccess::isSuperAdmin($user)) {
             return $this->errorResponse('Chỉ Admin mới có quyền mở lại sổ két.', 403);
         }
 
@@ -196,10 +220,10 @@ class DailyCashRegisterController extends Controller
             return $this->errorResponse('Chưa đăng nhập.', 401);
         }
 
-        $query = DailyCashRegister::with(['store', 'closedByUser'])
+        $query = DailyCashRegister::with(['store', 'submittedByUser', 'closedByUser'])
             ->orderBy('register_date', 'desc');
 
-        if (!PilotAccess::isAdmin($user)) {
+        if (!PermissionAccess::allows($user, 'cash_register.view_all')) {
             if (!$user->store_id) {
                 return $this->errorResponse('Tài khoản chưa được gán cơ sở.', 403);
             }

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Bank; 
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\Support\PermissionAccess;
 
  
 
@@ -23,7 +24,7 @@ class CashController extends Controller
     private function getAllCash(){
         $query = Cash::join('stores', 'cash.store_id', '=', 'stores.id')->where('cash.status', 'Active')->select('cash.*', 'stores.store_name');
         $user = auth()->user();
-        if ($user->role_rel->slug !== 'quan-tri-vien') {
+        if (!PermissionAccess::allows($user, 'finance.cash.view_all')) {
             $query->where('cash.store_id', $user->store_id);
         }     
         return $query;

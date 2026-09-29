@@ -9,7 +9,8 @@ class PilotAccess
 {
     public static function isAdmin(?User $user): bool
     {
-        return $user && ((int) $user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien'));
+        return $user && (PermissionAccess::isAdmin($user)
+            || in_array(PermissionAccess::getRoleSlug($user), ['ban-giam-doc', 'van-hanh'], true));
     }
 
     public static function store(?User $user, $storeId): void

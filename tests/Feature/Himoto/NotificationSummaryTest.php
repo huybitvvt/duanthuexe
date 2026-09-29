@@ -3,6 +3,7 @@
 namespace Tests\Feature\Himoto;
 
 use App\Http\Controllers\NotificationController;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +51,11 @@ class NotificationSummaryTest extends TestCase
         DB::table('vehicles')->insert(['id' => 7, 'name' => 'Xe thử', 'license' => 'TEST-001']);
         DB::table('order_vehicle_details')->insert(['order_id' => 1, 'vehicle_id' => 7]);
 
-        $response = app(NotificationController::class)->summary(Request::create('/api/auth/notifications/summary'));
+        $user = new User(['name' => 'Admin']);
+        $user->role_id = 1;
+        $request = Request::create('/api/auth/notifications/summary');
+        $request->setUserResolver(function () use ($user) { return $user; });
+        $response = app(NotificationController::class)->summary($request);
         $this->assertSame(200, $response->getStatusCode());
         $data = $response->getData(true)['data'];
         $this->assertSame(1, $data['orders']['count']);

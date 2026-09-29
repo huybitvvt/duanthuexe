@@ -29,7 +29,7 @@ class LeaseContractService
     public function createContract(array $data, User $user): LeaseContract
     {
         $requestedStore = data_get($data, 'store_id') ?: HimotoStores::query()->where('kind', Store::KIND_LEASE_TO_OWN)->value('id');
-        PermissionAccess::can($user, 'lease.create');
+        PermissionAccess::can($user, 'lease.create_draft');
         if (!PilotAccess::isAdmin($user) && (!HimotoStores::query()->whereKey((int) $user->store_id)->exists())) {
             throw new AuthorizationException('Nhân viên phải thuộc một trong sáu cơ sở HIMOTO.');
         }
@@ -66,6 +66,7 @@ class LeaseContractService
         if (!HimotoStores::isCanonical($store) || $store->kind !== Store::KIND_LEASE_TO_OWN) {
             throw ValidationException::withMessages(['store_id' => 'Chọn kho thuê sở hữu.']);
         }
+        PermissionAccess::can($user, 'lease.create_draft', (int) $storeId);
         $vehicle = Vehicle::where('id', $vehicleId)->lockForUpdate()->firstOrFail();
         if ($vehicle->status !== Vehicle::STATUS_READY || (int)($vehicle->current_store_id ?: $vehicle->store_id) !== (int)$storeId) {
             throw ValidationException::withMessages(['vehicle_id' => 'Xe phải sẵn sàng tại kho thuê sở hữu đã chọn.']);
@@ -107,7 +108,8 @@ class LeaseContractService
                 'deposit_amount' => $depositAmount,
                 'installment_count' => $installmentCount,
                 'period_amount' => $periodAmount,
-                'status' => LeaseContract::STATUS_ACTIVE,
+                'status' => PermissionAccess::getRoleSlug($user) === 'thue-so-huu-hop-dong'
+                    ? LeaseContract::STATUS_DRAFT : LeaseContract::STATUS_ACTIVE,
                 'assigned_user_id' => PermissionAccess::getRoleSlug($user) === 'nhan-vien'
                     ? $user->id : data_get($data, 'assigned_user_id', $user->id),
                 'notes' => data_get($data, 'notes', ''),
@@ -119,6 +121,9 @@ class LeaseContractService
             }
             if (Schema::hasColumn('lease_contracts', 'origin_store_id')) {
                 $attributes['origin_store_id'] = $user->store_id ?: $storeId;
+            }
+            if (Schema::hasColumn('lease_contracts', 'created_by')) {
+                $attributes['created_by'] = $user->id;
             }
             $contract = LeaseContract::create($attributes);
 
@@ -149,7 +154,7 @@ class LeaseContractService
             }
 
             // Update vehicle status to using
-            if ($vehicleId) {
+            if ($vehicleId && $contract->status !== LeaseContract::STATUS_DRAFT) {
                 Vehicle::where('id', $vehicleId)->update([
                     'status' => Vehicle::STATUS_USING,
                 ]);
@@ -158,7 +163,8 @@ class LeaseContractService
             // New installations capture the legal snapshot in the same
             // transaction as contract creation. The column guard preserves
             // backward compatibility for old databases until migration 000012.
-            if (Schema::hasColumn('lease_contracts', 'document_snapshot')
+            if ($contract->status !== LeaseContract::STATUS_DRAFT
+                && Schema::hasColumn('lease_contracts', 'document_snapshot')
                 && Schema::hasColumn('lease_contracts', 'document_snapshot_hash')
                 && Schema::hasColumn('lease_contracts', 'document_snapshot_locked_at')) {
                 app(LeaseDocumentSnapshotService::class)->captureSnapshot($contract, $user->id);
@@ -169,11 +175,45 @@ class LeaseContractService
         });
     }
 
+    public function approveContract(int $contractId, User $approver): LeaseContract
+    {
+        PermissionAccess::can($approver, 'lease.approve');
+        return DB::transaction(function () use ($contractId, $approver) {
+            $contract = LeaseContract::whereKey($contractId)->lockForUpdate()->firstOrFail();
+            $this->authorizeContract($contract, $approver);
+            if ($contract->status !== LeaseContract::STATUS_DRAFT) {
+                throw ValidationException::withMessages(['status' => 'Chỉ hợp đồng nháp mới được duyệt.']);
+            }
+            if (!$contract->created_by || (int) $contract->created_by === (int) $approver->id) {
+                throw new AuthorizationException('Người lập hợp đồng không được tự duyệt.');
+            }
+            $vehicle = Vehicle::whereKey($contract->vehicle_id)->lockForUpdate()->firstOrFail();
+            if ($vehicle->status !== Vehicle::STATUS_READY
+                || (int) ($vehicle->current_store_id ?: $vehicle->store_id) !== (int) $contract->store_id) {
+                throw ValidationException::withMessages(['vehicle_id' => 'Xe không còn sẵn sàng tại kho thuê sở hữu.']);
+            }
+            $contract->update([
+                'status' => LeaseContract::STATUS_ACTIVE,
+                'approved_by' => $approver->id,
+                'approved_at' => Carbon::now(),
+            ]);
+            $vehicle->update(['status' => Vehicle::STATUS_USING]);
+            if (Schema::hasColumn('lease_contracts', 'document_snapshot')) {
+                app(LeaseDocumentSnapshotService::class)->captureSnapshot($contract, $approver->id);
+            }
+            return $contract->fresh()->load(['customer', 'vehicle', 'store', 'installments']);
+        });
+    }
+
     /**
      * Allocate payment into installment schedule, generating cash/bank transaction.
      */
     public function allocatePayment(int $contractId, array $data, User $user): array
     {
+        $initialOnly = !PermissionAccess::allows($user, 'lease.collect');
+        if ($initialOnly) {
+            PermissionAccess::can($user, 'lease.collect_initial');
+        }
         $amount = (float)data_get($data, 'amount', 0);
         if ($amount <= 0) {
             throw ValidationException::withMessages([
@@ -196,7 +236,7 @@ class LeaseContractService
         $fingerprint = hash('sha256', json_encode($data));
         $targetInstallmentId = data_get($data, 'installment_id');
 
-        return DB::transaction(function () use ($contractId, $amount, $paymentDate, $notes, $paymentMethod, $bankId, $targetInstallmentId, $user, $requestKey, $fingerprint) {
+        return DB::transaction(function () use ($contractId, $amount, $paymentDate, $notes, $paymentMethod, $bankId, $targetInstallmentId, $user, $requestKey, $fingerprint, $initialOnly) {
             $contract = LeaseContract::where('id', $contractId)->lockForUpdate()->firstOrFail();
 
             $this->authorizeContract($contract, $user);
@@ -211,6 +251,14 @@ class LeaseContractService
             }
             if (!in_array($contract->status, [LeaseContract::STATUS_ACTIVE, LeaseContract::STATUS_DEFAULTED])) {
                 throw ValidationException::withMessages(['contract' => 'Hợp đồng không còn nhận thanh toán.']);
+            }
+            if ($initialOnly) {
+                $installment = $targetInstallmentId ? $contract->installments()
+                    ->whereKey($targetInstallmentId)->first() : null;
+                if (!$installment || !in_array((int) $installment->period_number, [0, 1], true)
+                    || $amount > ((float) $installment->amount_due - (float) $installment->amount_paid)) {
+                    throw ValidationException::withMessages(['installment_id' => 'Nhân viên hợp đồng chỉ được thu cọc hoặc kỳ đầu, đúng số dư kỳ đã chọn.']);
+                }
             }
             $activeAllocated = (float) $contract->allocations()->effectivePayments()->sum('amount');
             $discount = (float) ($contract->discount_amount ?? 0);
@@ -354,6 +402,9 @@ class LeaseContractService
         if ($contract->status === LeaseContract::STATUS_COMPLETED) {
             throw ValidationException::withMessages(['contract' => 'Hợp đồng này đã được tất toán trước đó.']);
         }
+        if (!in_array($contract->status, [LeaseContract::STATUS_ACTIVE, LeaseContract::STATUS_DEFAULTED], true)) {
+            throw ValidationException::withMessages(['contract' => 'Chỉ hợp đồng có hiệu lực mới được tất toán.']);
+        }
 
         return DB::transaction(function () use ($contract, $data, $user) {
             $contract = LeaseContract::where('id', $contract->id)->lockForUpdate()->firstOrFail();
@@ -400,7 +451,7 @@ class LeaseContractService
             }
 
             // 2. Kiểm tra quyền chiết khấu
-            if ($discountAmount > 0 && !PilotAccess::isAdmin($user)) {
+            if ($discountAmount > 0 && !PermissionAccess::allows($user, 'lease.discount_approve', (int) $contract->store_id)) {
                 throw ValidationException::withMessages([
                     'discount_amount' => 'Chỉ Quản trị viên mới có quyền áp dụng chiết khấu khi tất toán hợp đồng.'
                 ]);
@@ -663,6 +714,7 @@ class LeaseContractService
         $limit = max(1, min(10000, (int)data_get($params, 'limit', data_get($params, 'per_page', 15))));
         $bucket = data_get($params, 'aging_bucket');
         if ($bucket) {
+            $query->where('status', '!=', LeaseContract::STATUS_DRAFT);
             $today = Carbon::today('Asia/Ho_Chi_Minh');
             $open = function ($q) { $q->whereColumn('amount_due', '>', 'amount_paid'); };
             if ($bucket === 'current') {
@@ -747,6 +799,14 @@ class LeaseContractService
                 'created_at' => $latestNote->created_at ? $latestNote->created_at->format('d/m/Y H:i') : null,
             ] : null;
 
+            if ($contract->status === LeaseContract::STATUS_DRAFT) {
+                $contract->outstanding_balance = 0;
+                $contract->overdue_amount = 0;
+                $contract->overdue_days = 0;
+                $contract->aging_bucket = 'draft';
+                $contract->status_label = 'Nháp - chờ duyệt';
+            }
+
             return $contract;
         });
 
@@ -760,7 +820,7 @@ class LeaseContractService
     {
         $query = LeaseContract::with(['installments.allocations', 'allocations']);
         $this->scopeVisibleContracts($query, $user);
-        $contracts = $query->where('status', '!=', LeaseContract::STATUS_CANCELLED)->get();
+        $contracts = $query->whereNotIn('status', [LeaseContract::STATUS_CANCELLED, LeaseContract::STATUS_DRAFT])->get();
         $today = Carbon::today('Asia/Ho_Chi_Minh');
 
         $totalValue = $contracts->sum('total_amount');

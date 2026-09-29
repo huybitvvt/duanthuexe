@@ -12,34 +12,14 @@ class PermissionAccess
     /**
      * Standard role to permission fallback map.
      */
-    private static $roleCapabilities = [
-        'quan-tri-vien' => ['*'],
-        'ban-giam-doc' => [
-            'kpi.view_company', 'kpi.view_store', 'kpi.export',
-            'accounting.view', 'accounting.export',
-            'hr.view', 'hr.export',
-            'lease.view', 'lease.export', 'lease.ownership_approve',
-            'reminder.view', 'gps.view'
-        ],
-        'ke-toan' => [
-            'accounting.view', 'accounting.post', 'accounting.reverse',
-            'accounting.close_period', 'accounting.reconcile', 'accounting.export',
-            'kpi.view_store',
-            'lease.view', 'lease.collect', 'lease.reverse_payment',
-            'reminder.view'
-        ],
-        'nhan-su' => [
-            'hr.view', 'hr.manage_staff', 'hr.manage_attendance', 'hr.manage_schedule', 'hr.export'
-        ],
-        'quan-ly-cua-hang' => [
-            'lease.view', 'lease.create', 'lease.collect', 'lease.ownership_request',
-            'kpi.view_store', 'gps.view', 'reminder.view', 'hr.view'
-        ],
-        'nhan-vien' => [
-            'lease.view', 'lease.create', 'lease.collect', 'lease.ownership_request',
-            'reminder.view'
-        ]
-    ];
+    private static function fallbackCapabilities(?string $roleSlug): array
+    {
+        if (!$roleSlug || !isset(UatPermissionMatrix::ROLES[$roleSlug])) {
+            return [];
+        }
+
+        return UatPermissionMatrix::ROLES[$roleSlug][1];
+    }
 
     /**
      * Check if user is an administrator.
@@ -107,8 +87,8 @@ class PermissionAccess
         }
 
         // 2. Fallback to capability map
-        if (!$hasDatabaseMatrix && !$hasPermission && $roleSlug && isset(self::$roleCapabilities[$roleSlug])) {
-            $caps = self::$roleCapabilities[$roleSlug];
+        if (!$hasDatabaseMatrix && !$hasPermission) {
+            $caps = self::fallbackCapabilities($roleSlug);
             $hasPermission = in_array('*', $caps, true) || in_array($permission, $caps, true);
         }
 
@@ -119,13 +99,13 @@ class PermissionAccess
         // Check store scope
         if ($storeId !== null) {
             // Company-wide roles do not get blocked by store scope
-            if (in_array($roleSlug, ['ban-giam-doc', 'quan-tri-vien'], true) || $permission === 'kpi.view_company') {
+            if (in_array($roleSlug, ['ban-giam-doc', 'van-hanh', 'ke-toan', 'nhan-su', 'telesale'], true)
+                || in_array($permission, ['vehicle.view_all', 'finance.bank.view_all', 'finance.cash.view_all',
+                    'cash_register.view_all', 'kpi.view_company'], true)) {
                 return true;
             }
 
-            if ($user->store_id && (int) $user->store_id !== (int) $storeId) {
-                return false;
-            }
+            return $user->store_id && (int) $user->store_id === (int) $storeId;
         }
 
         return true;
@@ -173,8 +153,8 @@ class PermissionAccess
         }
 
         // Fallback map
-        if (!$hasDatabaseMatrix && empty($caps) && $roleSlug && isset(self::$roleCapabilities[$roleSlug])) {
-            $caps = self::$roleCapabilities[$roleSlug];
+        if (!$hasDatabaseMatrix && empty($caps)) {
+            $caps = self::fallbackCapabilities($roleSlug);
         }
 
         return array_values(array_unique($caps));

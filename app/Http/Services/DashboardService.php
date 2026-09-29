@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use App\Support\PermissionAccess;
 
 class DashboardService
 {
@@ -271,7 +272,13 @@ class DashboardService
             return null;
         }
 
-        if ((int) $user->role_id !== 1) {
+        if ($user->store_id && (!$requestedStoreId
+            || (int) $requestedStoreId === (int) $user->store_id)) {
+            return (int) $user->store_id;
+        }
+
+        if (!PermissionAccess::isAdmin($user)
+            && !in_array(PermissionAccess::getRoleSlug($user), ['ban-giam-doc', 'van-hanh'], true)) {
             return $user->store_id ? (int) $user->store_id : null;
         }
 
