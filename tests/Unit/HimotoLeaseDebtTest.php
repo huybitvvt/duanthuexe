@@ -6,6 +6,8 @@ use App\Entities\Customer;
 use App\Entities\SellOrder;
 use App\Entities\SellOrderItem;
 use App\Http\Services\LeaseContractService;
+use App\Http\Services\BusinessApprovalService;
+use App\Models\BusinessApprovalRequest;
 use App\Models\DebtNote;
 use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
@@ -98,11 +100,84 @@ class HimotoLeaseDebtTest extends TestCase
         $this->leaseService->allocatePayment($contract->id, $data, $this->user);
     }
 
-    public function testPhysicalBranchStaffCanCreateAtOwnershipWarehouseButOnlySeeOwnContracts()
+    public function testLeaseScheduleNeedsAnotherManagerAndPreservesAmounts(): void
     {
-        Schema::table('lease_contracts', function ($table) {
-            $table->integer('origin_store_id')->nullable();
-        });
+        require_once __DIR__.'/../../database/migrations/2026_09_30_000001_create_business_approval_requests.php';
+        (new \CreateBusinessApprovalRequests())->up();
+        \Illuminate\Support\Facades\DB::table('roles')->insert([
+            ['id' => 4, 'name' => 'Trưởng phòng thuê sở hữu', 'slug' => 'thue-so-huu-truong-phong'],
+            ['id' => 5, 'name' => 'Nhân viên hợp đồng', 'slug' => 'thue-so-huu-hop-dong'],
+        ]);
+        $staff = User::create(['name' => 'Người lập', 'email' => 'lease-staff@example.test',
+            'role_id' => 5, 'store_id' => $this->store->id]);
+        $manager = User::create(['name' => 'Người duyệt', 'email' => 'lease-manager@example.test',
+            'role_id' => 4, 'store_id' => $this->store->id]);
+        $contract = $this->leaseService->createContract([
+            'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
+            'store_id' => $this->store->id, 'start_date' => '2026-09-01',
+            'total_amount' => 6000000, 'installment_count' => 6,
+        ], $this->user);
+        $installment = $contract->installments()->where('period_number', 2)->firstOrFail();
+        $oldAmount = (float) $installment->amount_due;
+        $service = app(BusinessApprovalService::class);
+        $proposal = $service->submitLease($contract->id, 'lease_schedule', [
+            'installment_id' => $installment->id, 'new_due_date' => '2026-11-10',
+            'reason' => 'Khách đề nghị đổi ngày nhận lương',
+        ], $staff);
+        $this->assertSame('submitted', $proposal->status);
+        $this->assertSame('2026-11-01', $installment->fresh()->due_date->toDateString());
+        try {
+            $service->decide($proposal->id, true, 'Tự duyệt', $staff);
+            $this->fail('Requester cannot approve their own request.');
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            $this->assertSame('submitted', $proposal->fresh()->status);
+        }
+        $service->decide($proposal->id, true, 'Đã đối chiếu lịch thanh toán', $manager);
+        $this->assertSame('2026-11-10', $installment->fresh()->due_date->toDateString());
+        $this->assertEquals($oldAmount, (float) $installment->fresh()->amount_due);
+        $this->assertSame('approved', BusinessApprovalRequest::find($proposal->id)->status);
+    }
+
+    public function testRecoveryAndLiquidationRequireSeparateApprovalsWithoutMovingVehicle(): void
+    {
+        require_once __DIR__.'/../../database/migrations/2026_09_30_000001_create_business_approval_requests.php';
+        (new \CreateBusinessApprovalRequests())->up();
+        \Illuminate\Support\Facades\DB::table('roles')->insert([
+            ['id' => 4, 'name' => 'Trưởng phòng thuê sở hữu', 'slug' => 'thue-so-huu-truong-phong'],
+            ['id' => 6, 'name' => 'Thu hồi nợ', 'slug' => 'thue-so-huu-thu-hoi-no'],
+        ]);
+        $collector = User::create(['name' => 'Thu hồi', 'email' => 'collector@example.test',
+            'role_id' => 6, 'store_id' => $this->store->id]);
+        $manager = User::create(['name' => 'Trưởng phòng', 'email' => 'recovery-manager@example.test',
+            'role_id' => 4, 'store_id' => $this->store->id]);
+        $contract = $this->leaseService->createContract([
+            'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
+            'store_id' => $this->store->id, 'start_date' => '2026-01-01',
+            'total_amount' => 6000000, 'installment_count' => 6,
+        ], $this->user);
+        $contract->update(['status' => LeaseContract::STATUS_DEFAULTED]);
+        $vehicleStatus = $this->vehicle->fresh()->status;
+        $service = app(BusinessApprovalService::class);
+        try {
+            $service->submitLease($contract->id, 'lease_liquidation',
+                ['reason' => 'Quá hạn', 'plan' => 'Định giá xe'], $collector);
+            $this->fail('Liquidation must require approved recovery.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->assertSame(0, BusinessApprovalRequest::count());
+        }
+        $recovery = $service->submitLease($contract->id, 'lease_recovery',
+            ['reason' => 'Nợ quá hạn', 'plan' => 'Liên hệ nhận xe'], $collector);
+        $service->decide($recovery->id, true, 'Đã xác minh hồ sơ', $manager);
+        $liquidation = $service->submitLease($contract->id, 'lease_liquidation',
+            ['reason' => 'Không còn khả năng trả', 'plan' => 'Định giá công khai'], $collector);
+        $service->decide($liquidation->id, true, 'Đã duyệt phương án', $manager);
+        $this->assertSame(2, DebtNote::where('lease_contract_id', $contract->id)->count());
+        $this->assertSame($vehicleStatus, $this->vehicle->fresh()->status);
+        $this->assertEquals(6000000, $contract->fresh()->total_amount);
+    }
+
+    public function testPhysicalBranchStaffCannotCreateLeaseContractsWithoutLeaseCreatePermission()
+    {
         $branch = Store::create([
             'code' => 'CS1', 'store_name' => 'CS 1', 'kind' => Store::KIND_PHYSICAL,
         ]);
@@ -110,26 +185,16 @@ class HimotoLeaseDebtTest extends TestCase
             'name' => 'Sale CS 1', 'email' => 'sale-cs1@example.test',
             'password' => 'secret', 'role_id' => 3, 'store_id' => $branch->id,
         ]);
-        $colleague = User::create([
-            'name' => 'Sale khác', 'email' => 'sale-cs1-other@example.test',
-            'password' => 'secret', 'role_id' => 3, 'store_id' => $branch->id,
-        ]);
-        $manager = User::create([
-            'name' => 'Trưởng phòng', 'email' => 'manager-cs1@example.test',
-            'password' => 'secret', 'role_id' => 2, 'store_id' => $branch->id,
-        ]);
-
-        $contract = $this->leaseService->createContract([
-            'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
-            'store_id' => $this->store->id, 'total_amount' => 6000000,
-            'installment_count' => 6, 'assigned_user_id' => $colleague->id,
-        ], $staff);
-
-        $this->assertSame((int) $branch->id, (int) $contract->origin_store_id);
-        $this->assertSame((int) $staff->id, (int) $contract->assigned_user_id);
-        $this->assertSame(1, $this->leaseService->index([], $staff)->total());
-        $this->assertSame(0, $this->leaseService->index([], $colleague)->total());
-        $this->assertSame(1, $this->leaseService->index([], $manager)->total());
+        try {
+            $this->leaseService->createContract([
+                'customer_id' => $this->customer->id, 'vehicle_id' => $this->vehicle->id,
+                'store_id' => $this->store->id, 'total_amount' => 6000000,
+                'installment_count' => 6,
+            ], $staff);
+            $this->fail('Branch staff must not create lease contracts.');
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            $this->assertSame(0, LeaseContract::count());
+        }
     }
 
     public function test_branch_cannot_read_or_collect_another_branches_debt()

@@ -13,6 +13,7 @@ class LeaseContract extends Model
     use \App\Traits\HandlesPostgresDates;
     use SoftDeletes;
 
+    const STATUS_DRAFT = 'draft';
     const STATUS_ACTIVE = 'active';
     const STATUS_COMPLETED = 'completed';
     const STATUS_DEFAULTED = 'defaulted';
@@ -34,6 +35,9 @@ class LeaseContract extends Model
         'discount_amount',
         'settled_at',
         'assigned_user_id',
+        'created_by',
+        'approved_by',
+        'approved_at',
         'notes',
         'guardian_name',
         'guardian_phone',
@@ -48,6 +52,7 @@ class LeaseContract extends Model
         'period_amount' => 'float',
         'discount_amount' => 'float',
         'settled_at' => 'datetime',
+        'approved_at' => 'datetime',
         'document_snapshot' => 'array',
         'document_snapshot_locked_at' => 'datetime',
     ];

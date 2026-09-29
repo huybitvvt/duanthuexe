@@ -80,6 +80,7 @@ class LeadControllerSafetyTest extends TestCase
         DB::table('roles')->insert([
             ['id' => 1, 'name' => 'Admin', 'slug' => 'quan-tri-vien'],
             ['id' => 2, 'name' => 'Vận hành', 'slug' => 'van-hanh'],
+            ['id' => 3, 'name' => 'Nhân viên quầy', 'slug' => 'nhan-vien'],
         ]);
         $this->store = Store::create(['store_name' => 'Cơ sở được phép']);
         $this->otherStore = Store::create(['store_name' => 'Cơ sở khác']);
@@ -87,7 +88,7 @@ class LeadControllerSafetyTest extends TestCase
             'name' => 'Admin', 'email' => 'admin@example.test', 'role_id' => 1,
         ]);
         $this->staff = User::create([
-            'name' => 'Nhân viên', 'email' => 'staff@example.test', 'role_id' => 2,
+            'name' => 'Nhân viên', 'email' => 'staff@example.test', 'role_id' => 3,
             'store_id' => $this->store->id,
         ]);
     }

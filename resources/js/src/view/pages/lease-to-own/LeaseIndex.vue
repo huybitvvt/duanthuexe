@@ -9,7 +9,7 @@
         </span>
       </div>
       <div class="d-flex align-items-center">
-        <button class="btn btn-outline-success mr-2 font-weight-bold" :disabled="exporting" @click="handleExportExcel">
+        <button v-if="canExportLease" class="btn btn-outline-success mr-2 font-weight-bold" :disabled="exporting" @click="handleExportExcel">
           {{ exporting ? 'Đang xuất...' : 'Xuất Excel công nợ' }}
         </button>
 
@@ -21,7 +21,7 @@
           <i class="fas fa-warehouse mr-1"></i>Kho xe Thuê sở hữu &rarr;
         </router-link>
 
-        <button class="btn btn-primary font-weight-bold mr-2" @click="openCreateModal">
+        <button v-if="canCreateLease" class="btn btn-primary font-weight-bold mr-2" @click="openCreateModal">
           Tạo HĐ Thuê sở hữu
         </button>
 
@@ -168,6 +168,7 @@
               <el-option label="Đang thực hiện (active)" value="active" />
               <el-option label="Đã tất toán (completed)" value="completed" />
               <el-option label="Đã hủy" value="cancelled" />
+              <el-option label="Nháp - chờ duyệt" value="draft" />
               <el-option label="Vi phạm thanh toán" value="defaulted" />
             </el-select>
           </div>
@@ -273,7 +274,7 @@
                 <!-- Tình trạng nợ (Aging badge) -->
                 <td class="text-center">
                   <span :class="getAgingBadgeClass(item.aging_bucket)">
-                    {{ getAgingLabel(item.aging_bucket) }}
+                    {{ item.status === 'draft' ? 'Nháp - chờ duyệt' : getAgingLabel(item.aging_bucket) }}
                   </span>
                   <div v-if="item.overdue_days > 0" class="text-danger font-size-xs mt-1 font-weight-bold">
                     Trễ {{ item.overdue_days }} ngày
@@ -301,6 +302,8 @@
                 <!-- Thao tác -->
                 <td class="text-center">
                   <div class="btn-group" role="group">
+                    <button v-if="item.status === 'draft' && canApproveLease && Number(item.created_by) !== Number(currentUser.id)"
+                      type="button" class="btn btn-sm btn-primary mr-1" @click="approveLease(item)">Duyệt HĐ</button>
                     <!-- Lịch trả góp -->
                     <button
                       type="button"
@@ -313,7 +316,7 @@
 
                     <!-- Thu tiền kỳ -->
                     <button
-                      v-if="item.outstanding_balance > 0"
+                      v-if="item.status !== 'draft' && item.outstanding_balance > 0 && canCollectLease"
                       type="button"
                       class="btn btn-sm btn-light-success font-weight-bold mr-1"
                       title="Thu tiền kỳ / Trả góp"
@@ -323,7 +326,7 @@
                     </button>
 
                     <!-- Nhắc nợ / Ghi chú đôn đốc -->
-                    <button
+                    <button v-if="canNoteLease && item.status !== 'draft'"
                       type="button"
                       class="btn btn-sm btn-light-warning font-weight-bold mr-1"
                       title="Đôn đốc & ghi chú nhắc nợ"
@@ -333,7 +336,7 @@
                     </button>
 
                     <!-- Dropdown Hành động đôn đốc nợ -->
-                    <b-dropdown
+                    <b-dropdown v-if="canNoteLease && item.status !== 'draft'"
                       size="sm"
                       variant="outline-warning"
                       class="mr-1"
@@ -355,7 +358,7 @@
                       </b-dropdown-item>
                     </b-dropdown>
                     <!-- Dropdown In tài liệu: đủ 5 mẫu hợp đồng & biên bản theo yêu cầu -->
-                    <b-dropdown
+                    <b-dropdown v-if="item.status !== 'draft'"
                       size="sm"
                       variant="light-info"
                       class="ml-1"
@@ -408,6 +411,18 @@
       </div>
     </div>
 
+    <div class="card card-custom p-4 mt-3">
+      <label for="approval-contract-select">Đề nghị cho hợp đồng thuê sở hữu</label>
+      <select id="approval-contract-select" v-model.number="selectedApprovalContractId" class="form-control mb-2">
+        <option :value="0">Tất cả đề nghị trong phòng</option>
+        <option v-for="item in contracts" :key="item.id" :value="Number(item.id)">
+          #{{ item.id }} · {{ item.contract_code || item.customer_name || 'Hợp đồng' }}
+        </option>
+      </select>
+      <BusinessApprovalPanel subject-type="lease" :subject-id="selectedApprovalContractId"
+        :store-id="Number(currentUser && currentUser.store_id || 0)" @changed="refreshData" />
+    </div>
+
     <!-- Modals -->
     <ModalLeaseCreate ref="modalCreate" @success="handleModalSuccess" />
     <ModalLeasePayment ref="modalPayment" @success="handleModalSuccess" />
@@ -432,6 +447,8 @@ import ModalDebtNote from "./components/ModalDebtNote.vue";
 import ModalInstallmentSchedule from "./components/ModalInstallmentSchedule.vue";
 import Swal from "sweetalert2";
 import ApiService from "@/core/services/api.service";
+import BusinessApprovalPanel from "../approvals/BusinessApprovalPanel.vue";
+import { mapGetters } from "vuex";
 
 export default {
   name: "LeaseIndex",
@@ -440,10 +457,12 @@ export default {
     ModalLeasePayment,
     ModalDebtNote,
     ModalInstallmentSchedule,
+    BusinessApprovalPanel,
   },
   data() {
     return {
       loading: false,
+      selectedApprovalContractId: 0,
       loadingStats: false,
       exporting: false,
       downloadingDoc: null,
@@ -477,6 +496,12 @@ export default {
     };
   },
   computed: {
+    ...mapGetters(['currentUser', 'capabilities']),
+    canCreateLease() { return this.hasCapability('lease.create_draft'); },
+    canApproveLease() { return this.hasCapability('lease.approve'); },
+    canCollectLease() { return this.hasCapability('lease.collect') || this.hasCapability('lease.collect_initial'); },
+    canNoteLease() { return this.hasCapability('lease.note'); },
+    canExportLease() { return this.hasCapability('lease.export'); },
     overdueContracts() {
       const counts = this.stats?.buckets?.counts || {};
       return Number(counts.overdue_1_5 || 0) + Number(counts.overdue_6_30 || 0) + Number(counts.overdue_30_plus || 0);
@@ -510,6 +535,18 @@ export default {
     },
   },
   methods: {
+    hasCapability(capability) {
+      return (this.capabilities || []).includes('*') || (this.capabilities || []).includes(capability);
+    },
+    async approveLease(item) {
+      try {
+        await ApiService.post(`/api/auth/lease-contracts/${item.id}/approve`, {});
+        this.$message.success('Đã duyệt hiệu lực hợp đồng.');
+        this.refreshData();
+      } catch (error) {
+        this.$message.error(error.response?.data?.message || 'Không thể duyệt hợp đồng.');
+      }
+    },
     openAnnexDocument(item, months) {
       const query = months ? `?months=${months}` : '';
       this.openLegalDocument(item, `annex${query}`);
@@ -644,6 +681,7 @@ export default {
       this.$refs.modalPayment.open(contract, suggestedAmount);
     },
     async openPaymentFromQuery(contractId, suggestedAmount = null) {
+      if (!this.canCollectLease) return;
       try {
         const response = await ApiService.get(`/api/auth/lease-contracts/${contractId}`);
         const contract = response?.data?.data || response?.data;
@@ -655,14 +693,16 @@ export default {
       }
     },
     openDebtNoteModal(contract, defaultAction = null) {
+      if (!this.canNoteLease) return;
       this.$refs.modalDebtNote.open(contract, defaultAction);
     },
     handlePayFromSchedule({ contract, amount }) {
+      if (!this.canCollectLease) return;
       this.openPaymentModal(contract, amount);
     },
     handleModalSuccess(contract, documentType) {
       this.refreshData();
-      if (contract && contract.id && documentType) {
+      if (contract && contract.id && documentType && contract.status !== 'draft') {
         if (documentType === 'pdf') this.downloadPdf(contract, 'pdf');
         else if (documentType === 'handover') this.openLegalDocument(contract, 'handover');
         else this.openAnnexDocument(contract, Number(documentType.slice(5)));

@@ -6,7 +6,7 @@
                     <h3 class="card-label">Danh sách hợp đồng</h3>
                 </div>
                 <div class="card-toolbar d-flex flex-wrap align-items-center">
-                    <button @click="exportFile" class="btn btn-primary font-weight-bold mr-2 mb-1">Xuất Excel theo bộ lọc thời gian</button>
+                    <button v-if="canReportStore" @click="exportFile" class="btn btn-primary font-weight-bold mr-2 mb-1">Xuất Excel theo bộ lọc thời gian</button>
                     <router-link
                         :to="rentalWarehouseLink"
                         class="btn btn-warning font-weight-bold mb-1 text-dark"
@@ -27,13 +27,13 @@
                             <dd>{{ order_stats.total_out_of_date }}</dd>
                         </div>
                     </dl></div>
-                    <div class="contract-overview-card"><h4>Thu thực tế</h4><dl>
+                    <div v-if="canReportStore" class="contract-overview-card"><h4>Thu thực tế</h4><dl>
                         <div><dt>Tổng thu</dt><dd>{{ totalIn | formatPrice }}</dd></div>
                         <div><dt>Thu cọc</dt><dd>{{ money_stats.total_deposit | formatPrice }}</dd></div>
                         <div><dt>Thu gia hạn</dt><dd>{{ money_stats.total_renew | formatPrice }}</dd></div>
                         <div><dt>Thu phí thuê</dt><dd>{{ money_stats.total_rental_fees | formatPrice }}</dd></div>
                     </dl></div>
-                    <div class="contract-overview-card"><h4>Chi & hoàn trả</h4><dl>
+                    <div v-if="canReportStore" class="contract-overview-card"><h4>Chi & hoàn trả</h4><dl>
                         <div><dt>Tổng chi thực tế</dt><dd>{{ money_stats.total_real_refund | formatPrice }}</dd></div>
                         <div><dt>Tiền cọc phải trả</dt><dd>{{ money_stats.total_origin_refund | formatPrice }}</dd></div>
                         <div><dt>Hoàn do trả sớm</dt><dd>{{ Math.abs(money_stats.total_money_early) | formatPrice }}</dd></div>
@@ -148,7 +148,7 @@
                                 class=" btn btn-primary font-weight-bold " @click="search">
                                 Tìm kiếm
                             </el-button>
-                            <span class="" v-if="checkedCount > 0">
+                            <span class="" v-if="canDeleteOrder && checkedCount > 0">
                                 <el-button :loading="loading"
                                     class=" btn btn-danger font-weight-bold ml-2 " @click="deleteMany">
                                     Xóa đã chọn
@@ -208,7 +208,7 @@
                                             <button type="button" class="btn btn-xs btn-outline-info mr-1" @click="openShowOrder(item)">Xem</button>
                                             <button type="button" class="btn btn-xs btn-outline-primary mr-1" @click="printOrderContract(item)">In</button>
                                             <button v-if="item.order_status === 'renting'" type="button" class="btn btn-xs btn-warning mr-1" @click="openUpdateModal(item)">Thu thêm / Trả xe</button>
-                                            <button type="button" class="btn btn-xs btn-danger" @click="deleteOrder(item.id)">Xóa</button>
+                                            <button v-if="canDeleteOrder" type="button" class="btn btn-xs btn-danger" @click="deleteOrder(item.id)">Xóa</button>
                                         </td>
                                     </tr>
                                     <tr v-if="!categoryOrders.length">
@@ -394,7 +394,7 @@
 												@click="openUpdateModal(item)">
 												Thu thêm / Trả xe
 											</button>
-											<button class="btn btn-xs btn-danger font-weight-bold mr-2" title="Xóa hợp đồng"
+											<button v-if="canDeleteOrder" class="btn btn-xs btn-danger font-weight-bold mr-2" title="Xóa hợp đồng"
 												@click="deleteOrder(item.id)">
 												Xóa
 											</button>
@@ -549,7 +549,13 @@ export default {
     computed: {
 
 
-        ...mapGetters(["currentUser"]),
+        ...mapGetters(["currentUser", "capabilities"]),
+        canDeleteOrder() {
+            return this.capabilities.includes('*') || this.capabilities.includes('order.delete');
+        },
+        canReportStore() {
+            return this.capabilities.includes('*') || this.capabilities.includes('order.report_store');
+        },
         activeCategoryLabel() {
             return this.categoryLabel(this.activeCategory);
         },
@@ -751,9 +757,9 @@ export default {
             const p1 = this.$store.dispatch(GET_ORDER_CAR_RENTAL_REPORT, this.query).then(data => {
                 this.order_stats = data?.data || {};
             }).catch(() => {});
-            const p2 = this.$store.dispatch(REPORT_CAR_RENTAL_NEW, this.query).then((data) => {
+            const p2 = this.canReportStore ? this.$store.dispatch(REPORT_CAR_RENTAL_NEW, this.query).then((data) => {
                 this.money_stats = data?.data || {};
-            }).catch(() => {});
+            }).catch(() => {}) : Promise.resolve();
             Promise.all([p1, p2]).finally(() => {
                 this.is_loading_search = false;
             });

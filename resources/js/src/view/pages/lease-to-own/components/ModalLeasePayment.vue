@@ -39,7 +39,7 @@
             1 kỳ ({{ contract.period_amount | formatPrice }})
           </button>
           <button
-            v-if="contract && contract.outstanding_balance"
+            v-if="contract && contract.outstanding_balance && !initialOnly"
             type="button"
             class="btn btn-xs btn-outline-success"
             @click="form.amount = contract.outstanding_balance"
@@ -47,6 +47,14 @@
             Tất toán hết ({{ contract.outstanding_balance | formatPrice }})
           </button>
         </div>
+      </div>
+
+      <div v-if="initialOnly" class="form-group">
+        <label class="font-weight-bold">Kỳ được thu <span class="text-danger">*</span></label>
+        <el-select v-model="form.installment_id" class="w-100" placeholder="Chọn tiền cọc hoặc kỳ đầu">
+          <el-option v-for="item in initialInstallments" :key="item.id" :value="item.id"
+            :label="`${item.period_number === 0 ? 'Tiền cọc' : 'Kỳ đầu'} - ${Number(item.amount_due - item.amount_paid).toLocaleString('vi-VN')} đ`" />
+        </el-select>
       </div>
 
       <!-- Kênh thanh toán -->
@@ -139,6 +147,7 @@
 import { LEASE_ALLOCATE_PAYMENT } from "@/core/services/store/lease.module";
 import { BANK_GET_ALL } from "@/core/services/store/banks.module";
 import Swal from "sweetalert2";
+import { mapGetters } from "vuex";
 
 export default {
   name: "ModalLeasePayment",
@@ -151,6 +160,7 @@ export default {
       banks: [],
       form: {
         amount: null,
+        installment_id: null,
         payment_method: "cash",
         bank_id: null,
         paid_at: new Date().toISOString().substring(0, 10),
@@ -158,11 +168,26 @@ export default {
       },
     };
   },
+  computed: {
+    ...mapGetters(['capabilities']),
+    initialOnly() {
+      const caps = this.capabilities || [];
+      return !caps.includes('*') && !caps.includes('lease.collect');
+    },
+    initialInstallments() {
+      return (this.contract?.installments || []).filter(item =>
+        [0, 1].includes(Number(item.period_number)) && Number(item.amount_due) > Number(item.amount_paid));
+    },
+  },
   methods: {
     open(contract, suggestedAmount = null) {
       this.contract = contract;
       this.requestKey = window.crypto.randomUUID ? window.crypto.randomUUID() : Array.from(window.crypto.getRandomValues(new Uint32Array(4))).join('-');
       this.form.amount = suggestedAmount !== null ? suggestedAmount : (contract?.period_amount || contract?.outstanding_balance || 0);
+      this.form.installment_id = this.initialOnly && this.initialInstallments[0] ? this.initialInstallments[0].id : null;
+      if (this.initialOnly && this.initialInstallments[0]) {
+        this.form.amount = Number(this.initialInstallments[0].amount_due) - Number(this.initialInstallments[0].amount_paid);
+      }
       this.form.paid_at = new Date().toISOString().substring(0, 10);
       this.form.payment_method = "cash";
       this.form.bank_id = null;
@@ -184,6 +209,10 @@ export default {
         Swal.fire("Lỗi", "Vui lòng nhập số tiền thanh toán hợp lệ.", "warning");
         return;
       }
+      if (this.initialOnly && !this.form.installment_id) {
+        Swal.fire('Lỗi', 'Vui lòng chọn tiền cọc hoặc kỳ đầu.', 'warning');
+        return;
+      }
       if (this.form.payment_method === "bank_transfer" && !this.form.bank_id) {
         Swal.fire("Lỗi", "Vui lòng chọn tài khoản ngân hàng thụ hưởng.", "warning");
         return;
@@ -195,6 +224,7 @@ export default {
           contractId: this.contract.id,
           payload: {
             amount: amount,
+            installment_id: this.form.installment_id,
             payment_method: this.form.payment_method === 'cash' ? 1 : 2,
             idempotency_key: this.requestKey,
             bank_id: this.form.payment_method === "bank_transfer" ? this.form.bank_id : null,
@@ -223,6 +253,7 @@ export default {
       this.contract = null;
       this.form = {
         amount: null,
+        installment_id: null,
         payment_method: "cash",
         bank_id: null,
         paid_at: new Date().toISOString().substring(0, 10),

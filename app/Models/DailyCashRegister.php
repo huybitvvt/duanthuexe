@@ -39,6 +39,8 @@ class DailyCashRegister extends Model
         'cash_difference',
         'difference_reason',
         'status',
+        'submitted_by',
+        'submitted_at',
         'closed_by',
         'closed_at',
         'notes',
@@ -73,6 +75,7 @@ class DailyCashRegister extends Model
         'actual_cash_counted' => 'float',
         'cash_difference' => 'float',
         'closed_at' => 'datetime',
+        'submitted_at' => 'datetime',
     ];
 
     public function store()
@@ -83,5 +86,10 @@ class DailyCashRegister extends Model
     public function closedByUser()
     {
         return $this->belongsTo(User::class, 'closed_by');
+    }
+
+    public function submittedByUser()
+    {
+        return $this->belongsTo(User::class, 'submitted_by');
     }
 }

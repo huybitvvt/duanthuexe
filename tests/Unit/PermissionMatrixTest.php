@@ -10,6 +10,7 @@ use App\Models\AuditEvent;
 use App\Models\Store;
 use App\Models\User;
 use App\Support\PermissionAccess;
+use App\Support\UatPermissionMatrix;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -155,7 +156,7 @@ class PermissionMatrixTest extends TestCase
         $this->assertEquals(['*'], PermissionAccess::capabilities($this->adminUser));
     }
 
-    public function testBoardOfDirectorsCanViewCompanyKpiAndCannotPostJournals(): void
+    public function testBoardOfDirectorsHaveFullBusinessControl(): void
     {
         $this->assertFalse(PermissionAccess::isAdmin($this->bodUser));
         $this->assertTrue(PermissionAccess::allows($this->bodUser, 'kpi.view_company'));
@@ -163,10 +164,9 @@ class PermissionMatrixTest extends TestCase
         $this->assertTrue(PermissionAccess::allows($this->bodUser, 'hr.view'));
         $this->assertTrue(PermissionAccess::allows($this->bodUser, 'lease.ownership_approve'));
 
-        // BGĐ không tự sửa/post bút toán
-        $this->assertFalse(PermissionAccess::allows($this->bodUser, 'accounting.post'));
-        $this->assertFalse(PermissionAccess::allows($this->bodUser, 'accounting.reverse'));
-        $this->assertFalse(PermissionAccess::allows($this->bodUser, 'hr.manage_staff'));
+        $this->assertTrue(PermissionAccess::allows($this->bodUser, 'accounting.post'));
+        $this->assertTrue(PermissionAccess::allows($this->bodUser, 'accounting.reverse'));
+        $this->assertTrue(PermissionAccess::allows($this->bodUser, 'hr.manage_staff'));
     }
 
     public function testAccountantCanManageAccountingAndCannotManageHrOrGpsRecovery(): void
@@ -203,6 +203,81 @@ class PermissionMatrixTest extends TestCase
         $this->assertEquals(['accounting.view'], PermissionAccess::capabilities($this->accountantUser));
     }
 
+    public function testUatMigrationReplacesLegacyGrantsWithoutChangingAccounts(): void
+    {
+        Schema::create('permissions', function ($table) {
+            $table->increments('id');
+            $table->string('slug')->unique();
+            $table->string('name');
+            $table->timestamps();
+        });
+        Schema::create('roles_permissions', function ($table) {
+            $table->increments('id');
+            $table->integer('role_id');
+            $table->integer('permission_id');
+            $table->timestamps();
+        });
+        $legacyPermission = DB::table('permissions')->insertGetId([
+            'slug' => 'lease.view', 'name' => 'Legacy lease',
+        ]);
+        DB::table('roles_permissions')->insert([
+            'role_id' => $this->staffUser1->role_id,
+            'permission_id' => $legacyPermission,
+        ]);
+        $usersBefore = User::count();
+
+        require_once __DIR__.'/../../database/migrations/2026_09_29_000001_apply_uat_permission_matrix.php';
+        (new \ApplyUatPermissionMatrix())->up();
+
+        $staffGrants = DB::table('roles_permissions')
+            ->join('permissions', 'permissions.id', '=', 'roles_permissions.permission_id')
+            ->where('roles_permissions.role_id', $this->staffUser1->role_id)
+            ->pluck('permissions.slug')->toArray();
+        sort($staffGrants);
+        $expected = UatPermissionMatrix::ROLES['nhan-vien'][1];
+        sort($expected);
+        $this->assertSame($expected, $staffGrants);
+        $this->assertSame($usersBefore, User::count());
+        $this->assertTrue(PermissionAccess::allows($this->staffUser1, 'vehicle.view_all', $this->store2->id));
+        $this->assertFalse(PermissionAccess::allows($this->staffUser1, 'lease.view'));
+    }
+
+    public function testApprovalPermissionUpgradeReplacesReadOnlyGrantWithoutChangingAccounts(): void
+    {
+        Schema::create('permissions', function ($table) {
+            $table->increments('id');
+            $table->string('slug')->unique();
+            $table->string('name');
+            $table->timestamps();
+        });
+        Schema::create('roles_permissions', function ($table) {
+            $table->increments('id');
+            $table->integer('role_id');
+            $table->integer('permission_id');
+            $table->timestamps();
+        });
+        require_once __DIR__.'/../../database/migrations/2026_09_29_000001_apply_uat_permission_matrix.php';
+        (new \ApplyUatPermissionMatrix())->up();
+        $staffRoleId = $this->staffUser1->role_id;
+        DB::table('roles_permissions')->where('role_id', $staffRoleId)->delete();
+        $readOnlyId = DB::table('permissions')->where('slug', 'vehicle.view_all')->value('id');
+        DB::table('roles_permissions')->insert(['role_id' => $staffRoleId, 'permission_id' => $readOnlyId]);
+        $accountsBefore = User::count();
+
+        require_once __DIR__.'/../../database/migrations/2026_09_29_000003_expand_uat_approval_permissions.php';
+        (new \ExpandUatApprovalPermissions())->up();
+
+        $grants = DB::table('roles_permissions')->join('permissions', 'permissions.id', '=', 'roles_permissions.permission_id')
+            ->where('roles_permissions.role_id', $staffRoleId)->pluck('permissions.slug')->toArray();
+        sort($grants);
+        $expected = UatPermissionMatrix::ROLES['nhan-vien'][1];
+        sort($expected);
+        $this->assertSame($expected, $grants);
+        $this->assertSame($accountsBefore, User::count());
+        $this->assertNotContains('order.settle_return', $grants);
+        $this->assertContains('order.return', $grants);
+    }
+
     public function testHrStaffCanManageHrAndCannotAccessAccountingOrCompanyKpi(): void
     {
         $this->assertTrue(PermissionAccess::allows($this->hrUser, 'hr.view'));
@@ -214,15 +289,12 @@ class PermissionMatrixTest extends TestCase
         $this->assertFalse(PermissionAccess::allows($this->hrUser, 'kpi.view_company'));
     }
 
-    public function testStaffCannotAccessOtherStoreData(): void
+    public function testStaffInventoryIsCompanyWideButDashboardIsStoreScoped(): void
     {
-        // Nhân viên thuộc store 1 xem được store 1
-        $this->assertTrue(PermissionAccess::allows($this->staffUser1, 'lease.view', $this->store1->id));
-
-        // Nhân viên thuộc store 1 KHÔNG được xem store 2
-        $this->assertFalse(PermissionAccess::allows($this->staffUser1, 'lease.view', $this->store2->id));
-
-        // Nhân viên không được xem KPI toàn công ty
+        $this->assertTrue(PermissionAccess::allows($this->staffUser1, 'vehicle.view_all', $this->store2->id));
+        $this->assertTrue(PermissionAccess::allows($this->staffUser1, 'dashboard.view_store', $this->store1->id));
+        $this->assertFalse(PermissionAccess::allows($this->staffUser1, 'dashboard.view_store', $this->store2->id));
+        $this->assertFalse(PermissionAccess::allows($this->staffUser1, 'lease.view', $this->store1->id));
         $this->assertFalse(PermissionAccess::allows($this->staffUser1, 'kpi.view_company'));
     }
 
@@ -243,31 +315,25 @@ class PermissionMatrixTest extends TestCase
         $middleware = new \App\Http\Middleware\CheckPermission();
 
         // Staff 1 cố truy cập tài nguyên Store 2
-        $req = Request::create('/lease-contracts', 'GET', ['store_id' => $this->store2->id]);
+        $req = Request::create('/dashboard/report', 'GET', ['store_id' => $this->store2->id]);
         $req->setUserResolver(function () {
             return $this->staffUser1;
         });
 
         $response = $middleware->handle($req, function () {
             return response()->json(['status' => 'success']);
-        }, 'lease.view');
+        }, 'dashboard.view_store');
 
         $this->assertEquals(403, $response->getStatusCode());
         $data = json_decode($response->getContent(), true);
         $this->assertEquals('Forbidden', $data['error']);
-        $this->assertEquals('lease.view', $data['required_permission']);
+        $this->assertEquals('dashboard.view_store', $data['required_permission']);
     }
 
-    public function testBodCanViewAccountingButCannotPostJournalEntry(): void
+    public function testBodCanPostJournalEntryAcrossStores(): void
     {
-        // BGĐ được xem kế toán
         $this->assertTrue(PermissionAccess::allows($this->bodUser, 'accounting.view'));
-
-        // BGĐ KHÔNG có quyền post hạch toán
-        $this->assertFalse(PermissionAccess::allows($this->bodUser, 'accounting.post'));
-
-        // Gọi can() phải ném AuthorizationException
-        $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
+        $this->assertTrue(PermissionAccess::allows($this->bodUser, 'accounting.post', $this->store2->id));
         PermissionAccess::can($this->bodUser, 'accounting.post');
     }
 

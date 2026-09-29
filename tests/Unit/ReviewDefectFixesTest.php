@@ -312,9 +312,9 @@ class ReviewDefectFixesTest extends HimotoCashRegisterAndHrTest
 
         DB::table('roles')->insert([
             'id' => 2,
-            'name' => 'Quản lý cửa hàng',
-            'display_name' => 'Quản lý cửa hàng',
-            'slug' => 'quan-ly-cua-hang',
+            'name' => 'Nhân sự',
+            'display_name' => 'Nhân sự',
+            'slug' => 'nhan-su',
         ]);
         $this->staffUser->role_id = 2;
         $this->staffUser->save();

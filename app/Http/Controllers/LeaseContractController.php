@@ -83,7 +83,9 @@ class LeaseContractController extends Controller
 
         try {
             $contract = $this->leaseService->createContract($request->all(), $user);
-            return $this->successResponse($contract, 'Tạo hợp đồng thuê sở hữu và lịch trả góp thành công.');
+            return $this->successResponse($contract, $contract->status === LeaseContract::STATUS_DRAFT
+                ? 'Đã lập nháp hợp đồng thuê sở hữu, chờ trưởng phòng duyệt.'
+                : 'Tạo hợp đồng thuê sở hữu và lịch trả góp thành công.');
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'status' => 'error',
@@ -94,6 +96,20 @@ class LeaseContractController extends Controller
             return $this->errorResponse($e->getMessage(), 403);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    public function approve(int $id): JsonResponse
+    {
+        try {
+            return $this->successResponse(
+                $this->leaseService->approveContract($id, Auth::user()),
+                'Đã duyệt hiệu lực hợp đồng thuê sở hữu.'
+            );
+        } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+            return $this->errorResponse($e->getMessage(), 403);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
         }
     }
 
@@ -232,6 +248,10 @@ class LeaseContractController extends Controller
     {
         $user = Auth::user();
         $contract = LeaseContract::findOrFail($id);
+        $this->leaseService->authorizeContract($contract, $user);
+        if ($contract->status === LeaseContract::STATUS_DRAFT) {
+            return $this->errorResponse('Hợp đồng nháp chưa được phát hành.', 422);
+        }
         $pdfContent = $pdfService->generateContractPdf($contract, $user);
         $fileName = 'hop-dong-thue-so-huu-' . ($contract->contract_code ?: $contract->id) . '.pdf';
 
@@ -245,6 +265,9 @@ class LeaseContractController extends Controller
     {
         $contract = LeaseContract::findOrFail($id);
         $this->leaseService->authorizeContract($contract, Auth::user());
+        if ($contract->status === LeaseContract::STATUS_DRAFT) {
+            return $this->errorResponse('Hợp đồng nháp chưa được bàn giao xe.', 422);
+        }
         return $this->legalHtml($documents->leaseHandover($contract));
     }
 
@@ -252,6 +275,9 @@ class LeaseContractController extends Controller
     {
         $contract = LeaseContract::findOrFail($id);
         $this->leaseService->authorizeContract($contract, Auth::user());
+        if ($contract->status === LeaseContract::STATUS_DRAFT) {
+            return $this->errorResponse('Hợp đồng nháp chưa được phát hành phụ lục.', 422);
+        }
         $months = $request->query('months');
         return $this->legalHtml($documents->leaseAnnex($contract, $months ? (int)$months : null));
     }

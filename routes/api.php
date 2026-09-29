@@ -36,6 +36,7 @@ use App\Http\Controllers\CustomerReminderController;
 use App\Http\Controllers\LeaseOwnershipController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SepayPaymentController;
+use App\Http\Controllers\BusinessApprovalController;
 
 /*
 |--------------------------------------------------------------------------
@@ -87,9 +88,9 @@ Route::group(['middleware' => 'api'], function ($router) {
                 Route::get('/{store}', [StoreController::class, 'show']);
             });
             Route::group(['prefix' => 'vehicle', 'middleware' => 'auth.jwt'], function ($router) {
-                Route::get('/vehicles', [VehicleController::class, 'index']);
+                Route::get('/vehicles', [VehicleController::class, 'index'])->middleware('permission:vehicle.view_all');
             });
-            Route::group(['prefix' => 'leads', 'middleware' => 'auth.jwt'], function () {
+            Route::group(['prefix' => 'leads', 'middleware' => ['auth.jwt', 'permission:lead.manage']], function () {
                 Route::get('/', [LeadController::class, 'index']);
                 Route::get('/unique-users', [LeadController::class, 'uniqueUsers']);
                 Route::get('/{id}', [LeadController::class, 'show']);
@@ -104,55 +105,55 @@ Route::group(['middleware' => 'api'], function ($router) {
 });
 Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
     Route::group(['middleware' => 'non.sale'],function () {
-        Route::get('/auth/sepay/payment-requests', [SepayPaymentController::class, 'index']);
-        Route::post('/auth/sepay/payment-requests', [SepayPaymentController::class, 'store']);
-        Route::get('/auth/sepay/payment-requests/unmatched', [SepayPaymentController::class, 'unmatched']);
-        Route::get('/auth/sepay/payment-requests/{id}', [SepayPaymentController::class, 'show']);
-        Route::get('/auth/sepay/orders/{id}/options', [SepayPaymentController::class, 'orderOptions']);
-        Route::get('/get-list-user', [AuthController::class, 'getListUser']);
+        Route::get('/auth/sepay/payment-requests', [SepayPaymentController::class, 'index'])->middleware('permission:finance.transaction.view');
+        Route::post('/auth/sepay/payment-requests', [SepayPaymentController::class, 'store'])->middleware('permission:finance.transaction.manage');
+        Route::get('/auth/sepay/payment-requests/unmatched', [SepayPaymentController::class, 'unmatched'])->middleware('permission:finance.transaction.view');
+        Route::get('/auth/sepay/payment-requests/{id}', [SepayPaymentController::class, 'show'])->middleware('permission:finance.transaction.view');
+        Route::get('/auth/sepay/orders/{id}/options', [SepayPaymentController::class, 'orderOptions'])->middleware('permission:finance.transaction.view');
+        Route::get('/get-list-user', [AuthController::class, 'getListUser'])->middleware('admin');
         Route::group(['prefix' => 'auth'], function ($router) {
                   
             Route::group(['prefix' => 'order'], function ($router) {
             
-                Route::put('/car-rental/deposit/{order}', [Order\OrderController::class, 'deposit']);
-                Route::put('/car-rental/complete/{order}', [Order\OrderController::class, 'complete']);
-                Route::get('/car-rental', [Order\OrderController::class, 'index']);
-                Route::get('/car-rental/{order}', [Order\OrderController::class, 'show']);
-                Route::put('/car-rental/{order}', [Order\OrderController::class, 'update']);
-                Route::post('/car-rental', [Order\OrderController::class, 'store']);
-                Route::delete('/car-rental/{data}', [Order\OrderController::class, 'destroy']);
-                Route::post('/add-on-price', [Order\OrderController::class, 'addOnPrice']);
-				Route::post('/start-contract', [Order\OrderController::class, 'startContract']);
-				Route::post('/close-deposit-order', [Order\OrderController::class, 'closeDeposit']);
-				Route::post('/calc_return_early_amount', [Order\OrderController::class, 'calc_return_early_amount']);
-				Route::post('/calc_order_before_complete', [Order\OrderController::class, 'calc_order_before_complete']);
-				Route::post('/car-rental/preview', [Order\OrderController::class, 'preview']);
-				Route::get('/car-rental/{order}/document', [Order\OrderController::class, 'document']);
-				Route::get('/car-rental/{order}/handover', [Order\OrderController::class, 'handover']);
-				Route::post('/car-rental/lock-contract/{order}', [Order\OrderController::class, 'lockContract']);
+                Route::put('/car-rental/deposit/{order}', [Order\OrderController::class, 'deposit'])->middleware('permission:order.update');
+                Route::post('/car-rental/check-in/{order}', [Order\OrderController::class, 'checkIn'])->middleware('permission:order.return');
+                Route::put('/car-rental/complete/{order}', [Order\OrderController::class, 'complete'])->middleware('permission:order.settle_return');
+                Route::get('/car-rental', [Order\OrderController::class, 'index'])->middleware('permission:order.view_store');
+                Route::get('/car-rental/{order}', [Order\OrderController::class, 'show'])->middleware('permission:order.view_store');
+                Route::put('/car-rental/{order}', [Order\OrderController::class, 'update'])->middleware('permission:order.update');
+                Route::post('/car-rental', [Order\OrderController::class, 'store'])->middleware('permission:order.create');
+                Route::delete('/car-rental/{data}', [Order\OrderController::class, 'destroy'])->middleware('permission:order.delete');
+                Route::post('/add-on-price', [Order\OrderController::class, 'addOnPrice'])->middleware('permission:order.renewal_fee');
+				Route::post('/close-deposit-order', [Order\OrderController::class, 'closeDeposit'])->middleware('permission:order.close_deposit');
+				Route::post('/calc_return_early_amount', [Order\OrderController::class, 'calc_return_early_amount'])->middleware('permission:order.settle_return');
+				Route::post('/calc_order_before_complete', [Order\OrderController::class, 'calc_order_before_complete'])->middleware('permission:order.settle_return');
+				Route::post('/car-rental/preview', [Order\OrderController::class, 'preview'])->middleware('permission:order.create');
+				Route::get('/car-rental/{order}/document', [Order\OrderController::class, 'document'])->middleware('permission:order.view_store');
+				Route::get('/car-rental/{order}/handover', [Order\OrderController::class, 'handover'])->middleware('permission:order.view_store');
+				Route::post('/car-rental/lock-contract/{order}', [Order\OrderController::class, 'lockContract'])->middleware('permission:order.handover');
             });
         
-            Route::group(['prefix' => 'dashboard'], function ($router) {
+            Route::group(['prefix' => 'dashboard', 'middleware' => 'permission:dashboard.view_store'], function ($router) {
                 Route::get('/overview', [DashboardController::class, 'overview']);
                 Route::get('/report', [DashboardController::class, 'report']);
                 Route::get('/report-chart', [DashboardController::class, 'reportChart']);
             });
             Route::group(['prefix' => 'report'], function () {
-                Route::get('/quick-report', [ReportController::class, 'quickReport']);
-                Route::get('/detail-report', [ReportController::class, 'detailReport']);
-                Route::get('/detail-report-new', [ReportController::class, 'detailReportNew']);
-                Route::get('/detail-report-day-by-day', [ReportController::class, 'detailReportDayByDay']);
-                Route::get('/kpi', [KpiReportController::class, 'index'])->middleware(['schema.ready:kpi', 'schema.ready:rbac']);
+                Route::get('/quick-report', [ReportController::class, 'quickReport'])->middleware('permission:order.count');
+                Route::get('/detail-report', [ReportController::class, 'detailReport'])->middleware('permission:accounting.view');
+                Route::get('/detail-report-new', [ReportController::class, 'detailReportNew'])->middleware('permission:order.report_store');
+                Route::get('/detail-report-day-by-day', [ReportController::class, 'detailReportDayByDay'])->middleware('permission:accounting.view');
+                Route::get('/kpi', [KpiReportController::class, 'index'])->middleware(['permission:accounting.view', 'schema.ready:kpi', 'schema.ready:rbac']);
             });
             Route::group(['prefix' => 'vehicle'], function ($router) {
                 
-                Route::get('/vehicles_with_revenue', [VehicleController::class, 'indexWithRevenue']);
-                Route::get('/vehicles/report', [VehicleController::class, 'report']);
-                Route::post('/vehicles/store', [VehicleController::class, 'store']);
-                Route::post('/vehicles/update', [VehicleController::class, 'update']);
-                Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy']);
+                Route::get('/vehicles_with_revenue', [VehicleController::class, 'indexWithRevenue'])->middleware('permission:accounting.view');
+                Route::get('/vehicles/report', [VehicleController::class, 'report'])->middleware('permission:vehicle.view_all');
+                Route::post('/vehicles/store', [VehicleController::class, 'store'])->middleware('permission:vehicle.manage');
+                Route::post('/vehicles/update', [VehicleController::class, 'update'])->middleware('permission:vehicle.manage');
+                Route::delete('/vehicles/{vehicle}', [VehicleController::class, 'destroy'])->middleware('permission:vehicle.manage');
             });
-            Route::group(['prefix' => 'order-sell'], function ($router) {
+            Route::group(['prefix' => 'order-sell', 'middleware' => 'permission:order.manage'], function ($router) {
                 Route::get('/', [OrderSellController::class, 'index']);
                 Route::get('/report', [OrderSellController::class, 'report']);
                 Route::post('/store', [OrderSellController::class, 'store']);
@@ -162,12 +163,12 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             Route::group(['prefix' => 'stores'], function () {
             
                 Route::get('/', [StoreController::class, 'index']);
-                Route::post('/', [StoreController::class, 'store']);
+                Route::post('/', [StoreController::class, 'store'])->middleware('permission:store.manage');
             
-                Route::put('/{store}', [StoreController::class, 'update']);
-                Route::delete('/{store}', [StoreController::class, 'destroy']);
+                Route::put('/{store}', [StoreController::class, 'update'])->middleware('permission:store.manage');
+                Route::delete('/{store}', [StoreController::class, 'destroy'])->middleware('permission:store.manage');
             });
-            Route::group(['prefix' => 'customers'], function () {
+            Route::group(['prefix' => 'customers', 'middleware' => 'permission:customer.manage'], function () {
                 Route::get('/', [CustomerController::class, 'index']);
                 Route::post('/', [CustomerController::class, 'store']);
                 Route::get('/search-by-id-card', [CustomerController::class, 'searchCustomerByIdCard']);
@@ -176,23 +177,23 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::delete('/{customer}', [CustomerController::class, 'destroy']);
             });
             Route::group(['prefix' => 'transactions'], function () {
-				Route::post('/update', [TransactionController::class, 'updateNew']);
-                Route::get('/', [TransactionController::class, 'index']);
-                Route::get('/stats', [TransactionController::class, 'stats']);
-                Route::delete('/{transaction}', [TransactionController::class, 'destroy']);
-				Route::match(['put', 'post'],'/{transaction?}', [TransactionController::class, 'putOrPost']);
+                Route::post('/update', [TransactionController::class, 'updateNew'])->middleware('permission:finance.transaction.manage');
+                Route::get('/', [TransactionController::class, 'index'])->middleware('permission:finance.transaction.view');
+                Route::get('/stats', [TransactionController::class, 'stats'])->middleware('permission:finance.transaction.view');
+                Route::delete('/{transaction}', [TransactionController::class, 'destroy'])->middleware('permission:finance.transaction.manage');
+                Route::match(['put', 'post'],'/{transaction?}', [TransactionController::class, 'putOrPost'])->middleware('permission:finance.transaction.manage');
             });
-            Route::group(['prefix' => 'priceVehicles'], function () {
+            Route::group(['prefix' => 'priceVehicles', 'middleware' => 'permission:vehicle.manage'], function () {
                 Route::get('/', [PriceVehicleController::class, 'index']);
                 Route::post('/', [PriceVehicleController::class, 'storeOrUpdate']);
                 Route::delete('/{priceVehicle}', [PriceVehicleController::class, 'destroy']);
             });
-            Route::group(['prefix' => 'role'], function () {
+            Route::group(['prefix' => 'role', 'middleware' => 'admin'], function () {
                 Route::get('/all', [RoleController::class, 'all']);
             });
             Route::group(['prefix' => 'users'], function () {
-                Route::get('/', [UserController::class, 'index']);
-                Route::get('/get-staff-by-store', [UserController::class, 'getStaffByStore']);
+                Route::get('/', [UserController::class, 'index'])->middleware('admin');
+                Route::get('/get-staff-by-store', [UserController::class, 'getStaffByStore'])->middleware('permission:hr.view');
                 Route::group(['middleware' => ['admin']], function () {
                     Route::post('/store', [UserController::class, 'store']);
                     Route::post('/update', [UserController::class, 'update']);
@@ -208,40 +209,40 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::get('/', [BankController::class, 'index']);
                 Route::get('/{bank}', [BankController::class, 'show']);                 
             });
-            Route::group(['prefix' => 'cash'], function () {
+            Route::group(['prefix' => 'cash', 'middleware' => 'permission:finance.cash.view_all'], function () {
                 Route::get('/all', [CashController::class, 'all']);
                 Route::get('/', [CashController::class, 'index']);
                 Route::get('/{cash}', [CashController::class, 'show']); 
                             
             });
-            Route::group(['prefix' => 'receipt'], function () {
+            Route::group(['prefix' => 'receipt', 'middleware' => 'permission:finance.transaction.view'], function () {
                 Route::get('/', [ReceiptController::class, 'index']);
                 Route::get('/{transaction}', [ReceiptController::class, 'show']);   
-                Route::match(['put', 'post'],'/{receipt?}', [ReceiptController::class, 'putOrPost']);  
-                Route::delete('/{transaction}', [ReceiptController::class, 'destroy']);         
+                Route::match(['put', 'post'],'/{receipt?}', [ReceiptController::class, 'putOrPost'])->middleware('permission:finance.transaction.manage');
+                Route::delete('/{transaction}', [ReceiptController::class, 'destroy'])->middleware('permission:finance.transaction.manage');
             });   
             Route::group(['prefix' => 'export'], function () {
-            Route::get('/customers', [ExportsController::class, 'customers']);
-            Route::get('/vehicles', [ExportsController::class, 'vehicles']);
-            Route::get('/transactions', [ExportsController::class, 'transactions']);
-            Route::get('/orders', [ExportsController::class, 'orders']);
-            Route::get('/general_reports', [ExportsController::class, 'generalReports']);
-            Route::get('/vehicle_revenue', [ExportsController::class, 'vehicleRevenue']);
-            Route::get('/banks', [ExportsController::class, 'banks']);
-            Route::get('/cash', [ExportsController::class, 'cash']);
+            Route::get('/customers', [ExportsController::class, 'customers'])->middleware('permission:customer.manage');
+            Route::get('/vehicles', [ExportsController::class, 'vehicles'])->middleware('permission:vehicle.manage');
+            Route::get('/transactions', [ExportsController::class, 'transactions'])->middleware('permission:accounting.export');
+            Route::get('/orders', [ExportsController::class, 'orders'])->middleware('permission:order.manage');
+            Route::get('/general_reports', [ExportsController::class, 'generalReports'])->middleware('permission:accounting.export');
+            Route::get('/vehicle_revenue', [ExportsController::class, 'vehicleRevenue'])->middleware('permission:accounting.export');
+            Route::get('/banks', [ExportsController::class, 'banks'])->middleware('permission:accounting.export');
+            Route::get('/cash', [ExportsController::class, 'cash'])->middleware('permission:accounting.export');
             }); 
-            Route::group(['prefix' => 'maintenance-rules'], function () {
+            Route::group(['prefix' => 'maintenance-rules', 'middleware' => 'permission:vehicle.manage'], function () {
                 Route::get('/', [MaintenanceRuleController::class, 'index']);
                 Route::post('/', [MaintenanceRuleController::class, 'putOrPost']);
                 Route::put('/', [MaintenanceRuleController::class, 'putOrPost']);
                 Route::delete('/{maintenanceRule}', [MaintenanceRuleController::class, 'destroy']); 
             });      
-            Route::group(['prefix' => 'maintenance-vehicle'], function () {
+            Route::group(['prefix' => 'maintenance-vehicle', 'middleware' => 'permission:vehicle.manage'], function () {
                 Route::get('/', [MaintenanceVehicleController::class, 'index']);
                 Route::match(['put', 'post'],'/{maintenanceVehicle?}', [MaintenanceVehicleController::class, 'putOrPost'])   ;  
                 Route::delete('/{maintenanceVehicle}', [MaintenanceVehicleController::class, 'destroy']); 
             });     
-            Route::group(['prefix' => 'maintenance-schedules'], function () {
+            Route::group(['prefix' => 'maintenance-schedules', 'middleware' => 'permission:vehicle.manage'], function () {
                 Route::get('/upcoming', [MaintenanceScheduleController::class, 'upcoming']);
                 Route::get('/', [MaintenanceScheduleController::class, 'index']);
                 Route::post('/', [MaintenanceScheduleController::class, 'putOrPost']);
@@ -251,12 +252,12 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             Route::group(['prefix' => 'notifications'], function () {
                 Route::get('/summary', [NotificationController::class, 'summary']);
             });   
-            Route::group(['prefix' => 'maintenance-log'], function () {
+            Route::group(['prefix' => 'maintenance-log', 'middleware' => 'permission:vehicle.manage'], function () {
                 Route::get('/', [MaintenanceLogController::class, 'index']);
                 Route::match(['put', 'post'],'/{maintenanceLogs?}', [MaintenanceLogController::class, 'putOrPost'])   ;  
                 Route::delete('/{maintenanceLog}', [MaintenanceLogController::class, 'destroy']); 
             });   
-            Route::group(['prefix' => 'maintenance-types'], function () {
+            Route::group(['prefix' => 'maintenance-types', 'middleware' => 'permission:vehicle.manage'], function () {
                 Route::get('/', [MaintenanceTypeController::class, 'index']);
                 Route::post('/', [MaintenanceTypeController::class, 'putOrPost']);
                 Route::put('/', [MaintenanceTypeController::class, 'putOrPost']);
@@ -264,22 +265,30 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             }); 
 
 			Route::group(['prefix' => 'file'], function ($router) {
-                Route::post('/upload-images', [FileController::class, 'uploadImages']);
-				Route::delete('/{file_id}', [FileController::class, 'destroy']); 
+                Route::post('/upload-images', [FileController::class, 'uploadImages'])->middleware('permission:file.upload');
+				Route::delete('/{file_id}', [FileController::class, 'destroy'])->middleware('permission:business.manage');
             });
 
             Route::group(['prefix' => 'warehouses'], function () {
                 Route::get('/summary', [WarehouseController::class, 'summary']);
-                Route::get('/transfers', [WarehouseController::class, 'transfers']);
-                Route::get('/return-lookup', [WarehouseController::class, 'lookupReturnByLicense']);
+                Route::get('/transfers', [WarehouseController::class, 'transfers'])->middleware('permission:vehicle.manage');
+                Route::get('/return-lookup', [WarehouseController::class, 'lookupReturnByLicense'])->middleware('permission:vehicle.manage');
                 Route::get('/{storeId}/vehicles', [WarehouseController::class, 'vehicles']);
-                Route::post('/transfers', [WarehouseController::class, 'dispatchTransfer']);
-                Route::post('/transfers/{id}/receive', [WarehouseController::class, 'receiveTransfer']);
-                Route::post('/transfers/{id}/cancel', [WarehouseController::class, 'cancelTransfer']);
-                Route::post('/return-different-store', [WarehouseController::class, 'returnDifferentStore']);
-                Route::post('/vehicle-exchange', [WarehouseController::class, 'exchangeVehicle']);
+                Route::post('/transfers', [WarehouseController::class, 'dispatchTransfer'])->middleware('permission:vehicle.manage');
+                Route::post('/transfers/{id}/receive', [WarehouseController::class, 'receiveTransfer'])->middleware('permission:vehicle.manage');
+                Route::post('/transfers/{id}/cancel', [WarehouseController::class, 'cancelTransfer'])->middleware('permission:vehicle.manage');
+                Route::post('/return-different-store', [WarehouseController::class, 'returnDifferentStore'])->middleware('permission:vehicle.manage');
+                Route::post('/vehicle-exchange', [WarehouseController::class, 'exchangeVehicle'])->middleware('permission:vehicle.manage');
             });
-            Route::get('/vehicles/{vehicleId}/movement-history', [WarehouseController::class, 'movementHistory']);
+            Route::get('/vehicles/{vehicleId}/movement-history', [WarehouseController::class, 'movementHistory'])->middleware('permission:vehicle.view_all');
+
+            Route::group(['prefix' => 'business-approvals', 'middleware' => ['schema.ready:rbac', 'schema.ready:business_approvals']], function () {
+                Route::get('/', [BusinessApprovalController::class, 'index'])->middleware('permission:approval.view');
+                Route::post('/order/{id}', [BusinessApprovalController::class, 'submitOrder'])->middleware('permission:approval.view');
+                Route::post('/lease/{id}', [BusinessApprovalController::class, 'submitLease'])->middleware('permission:approval.view');
+                Route::post('/{id}/decide', [BusinessApprovalController::class, 'decide'])->middleware('permission:approval.decide');
+                Route::post('/{id}/settle-cancellation', [BusinessApprovalController::class, 'settleCancellation'])->middleware('permission:order.cancel_settle');
+            });
 
             Route::group(['prefix' => 'lease-contracts', 'middleware' => ['schema.ready:lease', 'schema.ready:audit', 'schema.ready:rbac']], function () {
                 Route::get('/', [LeaseContractController::class, 'index'])->middleware('permission:lease.view');
@@ -290,11 +299,12 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::get('/{id}/handover', [LeaseContractController::class, 'handover'])->middleware('permission:lease.view');
                 Route::get('/{id}/annex', [LeaseContractController::class, 'annex'])->middleware('permission:lease.view');
                 Route::get('/{id}/debt-statement.pdf', [LeaseContractController::class, 'debtStatementPdf'])->middleware(['schema.ready:lease_document', 'permission:lease.view']);
-                Route::post('/', [LeaseContractController::class, 'store'])->middleware(['schema.ready:lease_document', 'permission:lease.create']);
-                Route::post('/{id}/payments', [LeaseContractController::class, 'allocatePayment'])->middleware('permission:lease.collect');
+                Route::post('/', [LeaseContractController::class, 'store'])->middleware(['schema.ready:lease_document', 'permission:lease.create_draft']);
+                Route::post('/{id}/approve', [LeaseContractController::class, 'approve'])->middleware('permission:lease.approve');
+                Route::post('/{id}/payments', [LeaseContractController::class, 'allocatePayment'])->middleware('permission:lease.collect_initial');
                 Route::post('/{id}/settle', [LeaseContractController::class, 'settle'])->middleware('permission:lease.collect');
                 Route::post('/reverse-allocation/{allocationId}', [LeaseContractController::class, 'reverse'])->middleware('permission:lease.reverse_payment');
-                Route::post('/{id}/notes', [LeaseContractController::class, 'addNote'])->middleware('permission:lease.view');
+                Route::post('/{id}/notes', [LeaseContractController::class, 'addNote'])->middleware('permission:lease.note');
                 Route::post('/{id}/ownership-requests', [LeaseOwnershipController::class, 'createDraft'])->middleware(['schema.ready:ownership', 'permission:lease.ownership_request']);
             });
 
@@ -308,14 +318,15 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             });
 
             Route::group(['prefix' => 'daily-cash-registers', 'middleware' => 'schema.ready:cash_register'], function () {
-                Route::get('/summary', [DailyCashRegisterController::class, 'summary']);
-                Route::get('/transactions', [DailyCashRegisterController::class, 'transactions']);
-                Route::get('/sources', [DailyCashRegisterController::class, 'sources']);
-                Route::post('/entries', [DailyCashRegisterController::class, 'storeEntry']);
-                Route::post('/exchanges', [DailyCashRegisterController::class, 'storeExchange']);
-                Route::post('/close', [DailyCashRegisterController::class, 'close']);
-                Route::post('/reopen', [DailyCashRegisterController::class, 'reopen']);
-                Route::get('/history', [DailyCashRegisterController::class, 'history']);
+                Route::get('/summary', [DailyCashRegisterController::class, 'summary'])->middleware('permission:cash_register.view');
+                Route::get('/transactions', [DailyCashRegisterController::class, 'transactions'])->middleware('permission:cash_register.view');
+                Route::get('/sources', [DailyCashRegisterController::class, 'sources'])->middleware('permission:cash_register.view');
+                Route::post('/entries', [DailyCashRegisterController::class, 'storeEntry'])->middleware('permission:cash_register.manage');
+                Route::post('/exchanges', [DailyCashRegisterController::class, 'storeExchange'])->middleware('permission:cash_register.manage');
+                Route::post('/submit', [DailyCashRegisterController::class, 'submit'])->middleware('permission:cash_register.submit');
+                Route::post('/close', [DailyCashRegisterController::class, 'close'])->middleware('permission:cash_register.approve');
+                Route::post('/reopen', [DailyCashRegisterController::class, 'reopen'])->middleware('admin');
+                Route::get('/history', [DailyCashRegisterController::class, 'history'])->middleware('permission:cash_register.view');
             });
 
             Route::group(['prefix' => 'hr', 'middleware' => ['schema.ready:audit', 'schema.ready:rbac']], function () {

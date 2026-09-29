@@ -63,6 +63,7 @@ class OrderController extends Controller
      */
     public function show(Request $request, Order $order): JsonResponse
     {
+		\App\Support\PilotAccess::store(auth()->user(), $order->store_id);
 		$order_detail = $order->load(
 			[
 				'addOnOrders.user:id,name', 'customer', 'vehicles', 'store', 'orderItems.orderItemFees',  'orderItems.vehicle', 'responsibleUser:id,name',
@@ -137,6 +138,7 @@ class OrderController extends Controller
 			&& !$request->filled('store_id') && auth()->user() && auth()->user()->store_id) {
 			$request->merge(['store_id' => auth()->user()->store_id]);
 		}
+		\App\Support\PilotAccess::store(auth()->user(), $request->get('store_id'));
 		$this->normalizeOrderPaymentMethods($request);
 		$isDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
 
@@ -176,6 +178,7 @@ class OrderController extends Controller
 				}
 			}
 		}
+		$this->guardCounterPricing($request);
 		if ((!filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) || $request->filled('store_id'))
 			&& !HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {
 			return $this->errorResponse('Kho/cơ sở không thuộc danh mục 6 kho HIMOTO.', 422);
@@ -202,6 +205,14 @@ class OrderController extends Controller
      */
     public function update(Request $request, Order $order): JsonResponse
     {
+		\App\Support\PilotAccess::store(auth()->user(), $order->store_id);
+		$this->assertNotCancellationPending($order);
+		if ((int) $order->approved_discount_amount > 0
+			&& \App\Support\PermissionAccess::allows(auth()->user(), 'order.discount_approve')) {
+			throw ValidationException::withMessages(['order' => 'Đơn đã có giảm giá được duyệt. Chỉ được sửa thông tin tiếp nhận qua tài khoản nhân viên quầy.']);
+		}
+		\App\Support\PilotAccess::store(auth()->user(), $request->get('store_id'));
+		$this->guardCounterPricing($request, $order);
 		if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) && $order->order_status !== OrderValidator::ORDER_DRAFT) {
 			return $this->errorResponse('Không thể chuyển hợp đồng đã phát hành về bản nháp.', 422);
 		}
@@ -239,6 +250,119 @@ class OrderController extends Controller
             DB::rollBack();
             return $this->errorResponse($exception->getMessage(), 422);
         }
+	}
+
+	private function guardCounterPricing(Request $request, ?Order $order = null): void
+	{
+		if (\App\Support\PermissionAccess::allows(auth()->user(), 'order.discount_approve')) {
+			foreach (['discount', 'discount_amount', 'special_discount'] as $field) {
+				if ((float) $request->input($field, 0) !== 0.0) {
+					throw ValidationException::withMessages([$field => 'Giảm giá đặc biệt phải qua đề nghị có lý do và phê duyệt.']);
+				}
+			}
+			if ($order) {
+				if ($order->order_status === OrderValidator::ORDER_DRAFT
+					&& !filter_var($request->input('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
+					&& (int) $request->input('contract_type', 1) === 1) {
+					\App\Support\CounterOrderPricing::validate($request);
+				}
+				if (($request->has('total') && (float) $request->input('total') < (float) $order->total)
+					|| ($request->has('total_rental_fees') && (float) $request->input('total_rental_fees') < (float) $order->total_rental_fees)) {
+					throw ValidationException::withMessages(['total' => 'Giảm tổng tiền đơn cần đề nghị và phê duyệt riêng.']);
+				}
+				$storedItems = $order->orderItems()->get()->keyBy('id');
+				foreach ((array) $request->input('order_items', []) as $item) {
+					$stored = $storedItems->get((int) ($item['id'] ?? 0));
+					if ($stored && ((float) ($item['total_money'] ?? $stored->total_money) < (float) $stored->total_money
+						|| (float) ($item['handler_price'] ?? $stored->handler_price) < (float) $stored->handler_price
+						|| (float) ($item['custom_total_money'] ?? $stored->hiring_fee) < (float) $stored->hiring_fee)) {
+						throw ValidationException::withMessages(['order_items' => 'Giảm giá xe cần đề nghị và phê duyệt riêng.']);
+					}
+				}
+			} elseif (!filter_var($request->input('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
+				&& (int) $request->input('contract_type', 1) === 1) {
+				\App\Support\CounterOrderPricing::validate($request);
+			}
+			return;
+		}
+		if ((!$order || $order->order_status === OrderValidator::ORDER_DRAFT)
+			&& ((int) $request->input('contract_type', 1) !== 1
+				|| $request->input('order_status') === OrderValidator::ORDER_BAD_DEBT)) {
+			throw ValidationException::withMessages(['order' => 'Hợp đồng cọc hoặc đánh dấu nợ xấu cần trưởng phòng duyệt.']);
+		}
+		if (!$order) {
+			$request->merge(['created_at' => DateTimeHelper::now()->toDateTimeString()]);
+		}
+		foreach (['discount', 'discount_amount', 'special_discount'] as $field) {
+			if ((float) $request->input($field, 0) !== 0.0) {
+				throw \Illuminate\Validation\ValidationException::withMessages([$field => 'Giảm giá cần trưởng phòng duyệt.']);
+			}
+		}
+		foreach ((array) $request->input('order_items', []) as $item) {
+			if ((float) ($item['handler_price'] ?? 0) !== 0.0
+				|| (float) ($item['substitute_unit_price'] ?? 0) !== 0.0) {
+				throw \Illuminate\Validation\ValidationException::withMessages(['order_items' => 'Giá tùy chỉnh cần trưởng phòng duyệt.']);
+			}
+		}
+		if ($order) {
+			if ($order->order_status === OrderValidator::ORDER_DRAFT) {
+				if (!filter_var($request->input('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)) {
+					\App\Support\CounterOrderPricing::validate($request);
+				}
+				return;
+			}
+			if (!empty($request->input('transaction_ids_to_destroy'))
+				|| filter_var($request->input('editing_order_created_at', false), FILTER_VALIDATE_BOOLEAN)
+				|| filter_var($request->input('start_this_contract', false), FILTER_VALIDATE_BOOLEAN)
+				|| $request->input('order_status', $order->order_status) !== $order->order_status) {
+				throw ValidationException::withMessages(['order' => 'Thay đổi tài chính hoặc trạng thái đơn cần trưởng phòng duyệt.']);
+			}
+			foreach (['total', 'pid', 'first_deposit_amount', 'total_rental_fees', 'additional_deposit_amount'] as $field) {
+				if ($request->has($field) && (float) $request->input($field) !== (float) $order->{$field}) {
+					throw \Illuminate\Validation\ValidationException::withMessages([$field => 'Nhân viên quầy không được đổi số tiền trên đơn đã lập.']);
+				}
+			}
+			$storedItems = $order->orderItems()->get()->keyBy('id');
+			$inputItems = (array) $request->input('order_items', []);
+			if (count($inputItems) !== $storedItems->count()) {
+				throw ValidationException::withMessages(['order_items' => 'Thay đổi danh sách xe cần trưởng phòng duyệt.']);
+			}
+			foreach ($inputItems as $item) {
+				$stored = $storedItems->get((int) ($item['id'] ?? 0));
+				$rentAt = \App\Helpers\DateTimeHelper::parse($item['rent_at'] ?? null);
+				$returnAt = \App\Helpers\DateTimeHelper::parse($item['return_at'] ?? null);
+				if (!$stored || (int) ($item['vehicle_id'] ?? 0) !== (int) $stored->vehicle_id
+					|| ($item['type'] ?? $stored->type) !== $stored->type
+					|| (float) ($item['total_money'] ?? 0) !== (float) $stored->total_money
+					|| ((float) ($item['custom_total_money'] ?? 0) > 0 && (float) $item['custom_total_money'] !== (float) $stored->hiring_fee)
+					|| (float) ($item['money_out_date'] ?? 0) !== (float) $stored->money_out_date
+					|| !$rentAt || !$returnAt
+					|| !$rentAt->equalTo(\App\Helpers\DateTimeHelper::parse($stored->rent_at))
+					|| !$returnAt->equalTo(\App\Helpers\DateTimeHelper::parse($stored->return_at))) {
+					throw ValidationException::withMessages(['order_items' => 'Nhân viên quầy chỉ được sửa thông tin tiếp nhận, không được đổi giá hoặc thời gian thuê.']);
+				}
+			}
+			$request->merge(['order_items' => array_map(function ($item) use ($storedItems) {
+				$stored = $storedItems->get((int) $item['id']);
+				unset($item['order_item_fees'], $item['vehicle']);
+				$item['price_id'] = $stored->price_id;
+				$item['pricing_scheme'] = $stored->pricing_scheme;
+				$item['custom_total_money'] = $stored->hiring_fee;
+				$item['total_money'] = $stored->total_money;
+				$item['money_out_date'] = $stored->money_out_date;
+				return $item;
+			}, $inputItems)]);
+			$request->merge($order->only(['total', 'pid', 'first_deposit_amount', 'total_rental_fees', 'additional_deposit_amount']));
+			foreach (['first_deposit_payment_method', 'total_rental_payment_method', 'additional_deposit_payment_method'] as $field) {
+				$request->request->remove($field);
+			}
+			$request->request->remove('leads');
+			return;
+		}
+		if (filter_var($request->input('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)) {
+			return;
+		}
+		\App\Support\CounterOrderPricing::validate($request);
 	}
 
 	private function validateOrderVehicleLocations(Request $request, ?Order $order = null): ?JsonResponse
@@ -349,6 +473,9 @@ class OrderController extends Controller
      */
     public function deposit(Request $request, Order $order): JsonResponse
     {
+		$this->assertNotCancellationPending($order);
+        \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
+        $request->merge(['store_id' => $order->store_id]);
         $request->validate(OrderValidator::deposit());
         try {
             DB::beginTransaction();
@@ -368,6 +495,16 @@ class OrderController extends Controller
      */
     public function complete(Request $request, Order $order): JsonResponse
     {
+		$this->assertNotCancellationPending($order);
+        \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
+        $request->merge(['store_id' => $order->store_id]);
+        if ($checkedAt = $this->checkedInAt($order)) {
+            $request->merge(['completed_at' => $checkedAt]);
+        }
+        if (!\App\Support\PermissionAccess::allows(auth()->user(), 'order.discount_approve')
+            && filter_var($request->input('editing_custom_refund', false), FILTER_VALIDATE_BOOLEAN)) {
+            throw ValidationException::withMessages(['custom_refund_amount' => 'Hoàn tiền tùy chỉnh cần trưởng phòng duyệt.']);
+        }
         $request->validate(OrderValidator::complete());
         try {
 			$order_paid = $request->has('isPaid') ? filter_var($request->get('isPaid'), FILTER_VALIDATE_BOOLEAN) : true;
@@ -403,6 +540,56 @@ class OrderController extends Controller
         }
     }
 
+    public function checkIn(Request $request, Order $order): JsonResponse
+    {
+		$this->assertNotCancellationPending($order);
+        \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
+        $request->validate([
+            'order_items' => 'required|array|min:1',
+            'order_items.*.id' => 'required|integer',
+            'order_items.*.odometer_after' => 'nullable|integer|min:0',
+        ]);
+
+        return DB::transaction(function () use ($order, $request) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($order->order_status !== OrderValidator::ORDER_RENTING) {
+                throw ValidationException::withMessages(['order' => 'Chỉ ghi nhận xe trả cho đơn đang thuê.']);
+            }
+            $items = $order->orderItems()->get()->keyBy('id');
+            $submitted = collect($request->input('order_items'))->keyBy('id');
+            if ($items->count() !== $submitted->count()
+                || $items->keys()->sort()->values()->all() !== $submitted->keys()->sort()->values()->all()
+                || $items->contains(function ($item) { return $item->completed_at !== null; })) {
+                throw ValidationException::withMessages(['order_items' => 'Danh sách xe không khớp hoặc đã ghi nhận trả.']);
+            }
+            $checkedAt = DateTimeHelper::now();
+            foreach ($items as $item) {
+                $input = $submitted->get($item->id);
+                $item->update([
+                    'completed_at' => $checkedAt,
+                    'odometer_after' => $input['odometer_after'] ?? $item->odometer_after,
+                ]);
+            }
+            \App\Models\ActivityLog::create([
+                'order_id' => $order->id,
+                'user_id' => auth()->id(),
+                'name' => 'order:check-in',
+                'action' => 'create',
+                'content' => 'Đã nhận xe; chờ trưởng phòng quyết toán hoàn trả.',
+            ]);
+            return $this->successResponse(['checked_in_at' => $checkedAt->toDateTimeString()], 'Đã ghi nhận nhận xe, chờ quyết toán.');
+        });
+    }
+
+    private function checkedInAt(Order $order): ?string
+    {
+        $items = $order->orderItems()->get();
+        if ($items->isEmpty() || $items->contains(function ($item) { return !$item->completed_at; })) {
+            return null;
+        }
+        return DateTimeHelper::parse($items->first()->completed_at)->format('d-m-Y H:i:s');
+    }
+
     /**
      * @param Order $order
      * @return JsonResponse
@@ -433,6 +620,10 @@ class OrderController extends Controller
     }
 
     public function deleteOrderAndItsRelation($order){
+            if (!$order) {
+                throw ValidationException::withMessages(['order' => 'Không tìm thấy đơn.']);
+            }
+            $this->assertNotCancellationPending($order);
             if (\Illuminate\Support\Facades\Schema::hasTable('sepay_payment_requests')
                 && \App\Models\SepayPaymentRequest::query()->where('order_id', $order->id)->where('received_amount', '>', 0)->exists()) {
                 throw ValidationException::withMessages(['order' => 'Hợp đồng đã có tiền SePay; không thể xóa.']);
@@ -453,6 +644,10 @@ class OrderController extends Controller
     }
     public function addOnPrice(Request $request)
     {
+        $order = Order::findOrFail((int) $request->input('order_id'));
+		$this->assertNotCancellationPending($order);
+        \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
+        $request->merge(['store_id' => $order->store_id]);
         $this->validate($request, [
             'order_id' => 'required|integer',
             'price' => 'required|integer|min:1',
@@ -503,6 +698,7 @@ class OrderController extends Controller
     {
         try {
 			$order = Order::find( $request->get('order_id') ) ;
+            \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
             $data = $this->orderService->calcOrderReturnEarlyAmount($request, $order);
             return $this->successResponse($data, 'Tính toán thành công');
         } catch (\Exception $exception) {
@@ -514,6 +710,10 @@ class OrderController extends Controller
 	public function calc_order_before_complete(Request $request) {
 		try {
 			$order = Order::find( $request->get('order_id') ) ;
+            \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
+			if ($checkedAt = $this->checkedInAt($order)) {
+				$request->merge(['completed_at' => $checkedAt]);
+			}
 
 			$outdate_details = CarRentalHelper::writeMoneyOutDateAndTotal($order, $request);
 			$early_details = CarRentalHelper::whenOrderReturnEarly($order, $request);
@@ -549,6 +749,10 @@ class OrderController extends Controller
 
 	public function closeDeposit(Request $request) {
 		try {
+			$order = Order::findOrFail((int) $request->input('order_id'));
+			$this->assertNotCancellationPending($order);
+            \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
+            $request->merge(['store_id' => $order->store_id]);
 			$data = $this->orderService->closeDeposit($request);
             return $this->successResponse($data, 'Thanh lý hợp đồng thành công');
         } catch (\Exception $exception) {
@@ -590,12 +794,20 @@ class OrderController extends Controller
 	}
 
 	public function lockContract(Order $order) {
+		$this->assertNotCancellationPending($order);
         \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
 		try {
 			$lockedOrder = $this->orderService->lockContract($order);
 			return $this->successResponse(new OrderResource($lockedOrder), 'Chốt hợp đồng thành công');
 		} catch (\Exception $exception) {
 			return $this->errorResponse($exception->getMessage(), 422);
+		}
+	}
+
+	private function assertNotCancellationPending(Order $order): void
+	{
+		if (in_array($order->order_status, [OrderValidator::ORDER_CANCEL_PENDING_SETTLEMENT, OrderValidator::ORDER_CANCELLED], true)) {
+			throw ValidationException::withMessages(['order' => 'Đơn đang chờ quyết toán hủy hoặc đã hủy; không được thay đổi.']);
 		}
 	}
 }

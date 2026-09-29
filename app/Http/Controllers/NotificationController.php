@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\PermissionAccess;
 
 class NotificationController extends Controller
 {
@@ -20,20 +21,31 @@ class NotificationController extends Controller
      */
     public function summary(Request $request): JsonResponse
     {
+        $user = $request->user();
+        PermissionAccess::can($user, 'reminder.view');
         $now = DateTimeHelper::now();
         $storeId = $request->input('store_id');
+        if (!PermissionAccess::isAdmin($user)
+            && !in_array(PermissionAccess::getRoleSlug($user), ['ban-giam-doc', 'van-hanh'], true)) {
+            if (!$user->store_id || ($storeId && $storeId !== 'all'
+                && (int) $storeId !== (int) $user->store_id)) {
+                abort(403, 'Bạn không có quyền xem thông báo của cơ sở khác.');
+            }
+            $storeId = (int) $user->store_id;
+        }
         $limitDate = $now->copy()->addDays(7)->endOfDay();
 
         // 1. Maintenance alerts
         $maintenanceQuery = MaintenanceSchedule::query()
             ->with(['maintenanceType:id,name', 'vehicle:id,name,license,store_id'])
             ->where(function ($q) use ($limitDate) {
-                $q->whereNotNull('next_time_manual')
-                  ->where('next_time_manual', '<=', $limitDate);
-            })
-            ->orWhere(function ($q) use ($limitDate) {
-                $q->whereNotNull('next_time_auto')
-                  ->where('next_time_auto', '<=', $limitDate);
+                $q->where(function ($due) use ($limitDate) {
+                    $due->whereNotNull('next_time_manual')
+                        ->where('next_time_manual', '<=', $limitDate);
+                })->orWhere(function ($due) use ($limitDate) {
+                    $due->whereNotNull('next_time_auto')
+                        ->where('next_time_auto', '<=', $limitDate);
+                });
             });
 
         if ($storeId && $storeId !== 'all') {

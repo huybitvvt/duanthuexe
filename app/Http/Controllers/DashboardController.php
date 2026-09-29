@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Helpers\CarRentalHelper;
 use App\Helpers\DateTimeHelper;
+use App\Support\PermissionAccess;
 
 class DashboardController extends Controller
 {
@@ -23,7 +24,7 @@ class DashboardController extends Controller
      */
     public function report(Request $request)
     {
-        return $this->successResponse($this->dashboardService->report($request->input('store_id')));
+        return $this->successResponse($this->dashboardService->report($this->authorizedStoreId($request)));
     }
 
     /**
@@ -31,7 +32,7 @@ class DashboardController extends Controller
      */
     public function overview(Request $request)
     {
-        return $this->successResponse($this->dashboardService->overview($request->input('store_id')));
+        return $this->successResponse($this->dashboardService->overview($this->authorizedStoreId($request)));
     }
 
     /**
@@ -43,6 +44,19 @@ class DashboardController extends Controller
         $now = DateTimeHelper::now();
         $startDate = $now->copy()->startOfMonth();
         $endDate = $now;
-        return $this->successResponse($this->dashboardService->reportChart($startDate, $endDate, $request->input('store_id')));
+        return $this->successResponse($this->dashboardService->reportChart($startDate, $endDate, $this->authorizedStoreId($request)));
+    }
+
+    private function authorizedStoreId(Request $request)
+    {
+        $user = $request->user();
+        $requestedStoreId = $request->filled('store_id') ? (int) $request->input('store_id') : null;
+        $storeId = $requestedStoreId ?: ($user->store_id ? (int) $user->store_id : null);
+        PermissionAccess::can($user, 'dashboard.view_store', $storeId);
+        if (!$storeId && !in_array(PermissionAccess::getRoleSlug($user), ['ban-giam-doc', 'van-hanh'], true)
+            && !PermissionAccess::isAdmin($user)) {
+            abort(403, 'Tài khoản chưa được gán cơ sở.');
+        }
+        return $storeId;
     }
 }

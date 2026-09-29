@@ -265,6 +265,9 @@ class OrderCalculationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Controller tests below exercise validation and rollback; authenticate
+        // their default caller so store authorization does not mask that result.
+        \Illuminate\Support\Facades\Auth::setUser(new User(['id' => 1, 'role_id' => 1, 'store_id' => 1]));
         if (!\Illuminate\Support\Facades\Schema::hasTable('transactions')) {
             \Illuminate\Support\Facades\Schema::create('transactions', function ($table) {
                 $table->increments('id');
@@ -545,7 +548,7 @@ class OrderCalculationTest extends TestCase
      */
     public function testOrderControllerAddOnPriceSuccess()
     {
-        $user = new User(['name' => 'Staff Tester']);
+        $user = new User(['name' => 'Staff Tester', 'role_id' => 1, 'store_id' => 1]);
         $user->id = 1;
         $this->actingAs($user);
         \Illuminate\Support\Facades\Auth::setUser($user);
