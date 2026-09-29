@@ -68,4 +68,9 @@ class CustomerReminderOutbox extends Model
     {
         return $this->hasMany(ReminderDeliveryEvent::class, 'outbox_id', 'id');
     }
+
+    public function contactLogs()
+    {
+        return $this->hasMany(ReminderContactLog::class, 'reminder_id', 'id')->orderBy('id', 'desc');
+    }
 }

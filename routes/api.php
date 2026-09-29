@@ -35,6 +35,7 @@ use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\CustomerReminderController;
 use App\Http\Controllers\LeaseOwnershipController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SepayPaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -71,6 +72,7 @@ Route::get('/health', function () {
 Route::get('/check-timezone', [Order\OrderController::class, 'check_timezone'])->middleware('auth.jwt');
 Route::post('/customer-reminders/webhook/{provider}', [CustomerReminderController::class, 'webhook'])
     ->middleware(['schema.ready:reminder', 'schema.ready:audit']);
+Route::post('/sepay/webhook', [SepayPaymentController::class, 'webhook']);
 
 Route::group(['middleware' => 'api'], function ($router) {
     Route::group(['middleware' => 'check.status'],function () {
@@ -102,6 +104,11 @@ Route::group(['middleware' => 'api'], function ($router) {
 });
 Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
     Route::group(['middleware' => 'non.sale'],function () {
+        Route::get('/auth/sepay/payment-requests', [SepayPaymentController::class, 'index']);
+        Route::post('/auth/sepay/payment-requests', [SepayPaymentController::class, 'store']);
+        Route::get('/auth/sepay/payment-requests/unmatched', [SepayPaymentController::class, 'unmatched']);
+        Route::get('/auth/sepay/payment-requests/{id}', [SepayPaymentController::class, 'show']);
+        Route::get('/auth/sepay/orders/{id}/options', [SepayPaymentController::class, 'orderOptions']);
         Route::get('/get-list-user', [AuthController::class, 'getListUser']);
         Route::group(['prefix' => 'auth'], function ($router) {
                   
@@ -121,6 +128,7 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
 				Route::post('/calc_order_before_complete', [Order\OrderController::class, 'calc_order_before_complete']);
 				Route::post('/car-rental/preview', [Order\OrderController::class, 'preview']);
 				Route::get('/car-rental/{order}/document', [Order\OrderController::class, 'document']);
+				Route::get('/car-rental/{order}/handover', [Order\OrderController::class, 'handover']);
 				Route::post('/car-rental/lock-contract/{order}', [Order\OrderController::class, 'lockContract']);
             });
         
@@ -279,8 +287,10 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::get('/export', [LeaseContractController::class, 'export'])->middleware('permission:lease.export');
                 Route::get('/{id}', [LeaseContractController::class, 'show'])->middleware('permission:lease.view');
                 Route::get('/{id}/pdf', [LeaseContractController::class, 'pdf'])->middleware(['schema.ready:lease_document', 'permission:lease.view']);
+                Route::get('/{id}/handover', [LeaseContractController::class, 'handover'])->middleware('permission:lease.view');
+                Route::get('/{id}/annex', [LeaseContractController::class, 'annex'])->middleware('permission:lease.view');
                 Route::get('/{id}/debt-statement.pdf', [LeaseContractController::class, 'debtStatementPdf'])->middleware(['schema.ready:lease_document', 'permission:lease.view']);
-                Route::post('/', [LeaseContractController::class, 'store'])->middleware(['schema.ready:lease_document', 'permission:lease.view']);
+                Route::post('/', [LeaseContractController::class, 'store'])->middleware(['schema.ready:lease_document', 'permission:lease.create']);
                 Route::post('/{id}/payments', [LeaseContractController::class, 'allocatePayment'])->middleware('permission:lease.collect');
                 Route::post('/{id}/settle', [LeaseContractController::class, 'settle'])->middleware('permission:lease.collect');
                 Route::post('/reverse-allocation/{allocationId}', [LeaseContractController::class, 'reverse'])->middleware('permission:lease.reverse_payment');
@@ -344,6 +354,7 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
 
             Route::group(['prefix' => 'customer-reminders', 'middleware' => ['schema.ready:reminder', 'schema.ready:audit', 'schema.ready:rbac']], function () {
                 Route::get('/action-list', [CustomerReminderController::class, 'actionList'])->middleware('permission:reminder.view');
+                Route::post('/{id}/contact', [CustomerReminderController::class, 'contact'])->middleware('permission:reminder.view');
                 Route::post('/scan', [CustomerReminderController::class, 'scan'])->middleware('permission:reminder.manage');
                 Route::post('/dispatch', [CustomerReminderController::class, 'dispatchOutbox'])->middleware('permission:reminder.view');
             });

@@ -4,6 +4,8 @@
 namespace App\Http\Services;
 
 use App\Models\Transaction;
+use App\Models\SepayPaymentRequest;
+use App\Models\SepayWebhookEvent;
 use App\Models\Lead;
 use App\Http\Services\TransactionService;
 use App\Repositories\TransactionRepository;
@@ -20,6 +22,7 @@ use App\Repositories\CustomerRepository;
 use App\Repositories\OrderRepository;
 use App\Repositories\VehicleRepository;
 use App\Validators\OrderValidator;
+use App\Support\RentalPricing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Repositories\OrderVehicleDetailRepositoryEloquent;
@@ -29,6 +32,7 @@ use App\Helpers\DateTimeHelper;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use App\Http\Services\ContractNumberService;
 
@@ -68,8 +72,9 @@ class OrderService
 
     public function store(Request $request)
     {
-        $isDraft = $request->boolean('save_as_draft');
-        $customer = $this->storeOrUpdateCustomer($request);
+        $isDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
+        $customer = $isDraft && !$request->filled('customer_name')
+            ? null : $this->storeOrUpdateCustomer($request);
         $order = $this->updateOrCreateOrder($request, null, $customer);
         $this->updateVehicles($request, $order);
         if (!$isDraft) {
@@ -91,19 +96,36 @@ class OrderService
             throw ValidationException::withMessages(['contract' => 'Hợp đồng đã chốt. Không thể ghi đè thông tin đã ký; các thao tác trả xe và gia hạn vẫn dùng luồng riêng.']);
         }
 
-        $saveAsDraft = $request->boolean('save_as_draft');
-        $customer = $this->storeOrUpdateCustomer($request, $order);
+        $sepayCollected = Schema::hasTable('sepay_payment_requests')
+            && SepayPaymentRequest::query()->where('order_id', $order->id)->where('purpose', '!=', 'general')
+                ->where('received_amount', '>', 0)->exists();
+        if ($sepayCollected) {
+            foreach (['first_deposit_amount', 'total_rental_fees', 'additional_deposit_amount'] as $field) {
+                if ($request->has($field) && (int) $request->get($field) !== (int) $order->{$field}) {
+                    throw ValidationException::withMessages([$field => 'Khoản này đã thu qua SePay. Không thể sửa từ màn hình hợp đồng.']);
+                }
+            }
+            $request->merge(['pid' => $order->pid]);
+        }
 
-        $this->updateOrCreateOrder($request, $order, null);
+        $saveAsDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
+        $customer = $saveAsDraft && !$request->filled('customer_name')
+            ? null : $this->storeOrUpdateCustomer($request, $order->customer_id ? $order : null);
+
+		$this->updateOrCreateOrder($request, $order, $customer);
 
         $this->saveOrderLog($request, $order);
         
-        if (!$saveAsDraft) {
+        if (!$saveAsDraft && !$sepayCollected) {
             $this->updateTransactions($request, $order);
         }
         $transaction_ids_to_destroy = $request->get('transaction_ids_to_destroy');
         if (is_array($transaction_ids_to_destroy)) {
             foreach ($transaction_ids_to_destroy as $id){
+                if (Schema::hasTable('sepay_webhook_events') && SepayWebhookEvent::query()
+                    ->where('transaction_id', $id)->orWhere('excess_transaction_id', $id)->exists()) {
+                    throw ValidationException::withMessages(['transaction_ids_to_destroy' => 'Không thể xóa giao dịch SePay.']);
+                }
                 $deleted = Transaction::destroy($id);        
             }
         }
@@ -173,6 +195,23 @@ class OrderService
 			'note' => $request->get('note'),
 			'note_payment' => $request->get('note_item'),
 		];
+		if ($order === null && Schema::hasColumn('orders', 'order_mode')) {
+			$dataOrder['order_mode'] = in_array($request->get('order_mode'), ['standard', 'draft', 'handover'], true)
+				? $request->get('order_mode') : 'standard';
+		}
+		foreach (['guardian_name', 'guardian_phone', 'guardian_id_card'] as $guardianField) {
+			if (Schema::hasColumn('orders', $guardianField) && $request->has($guardianField)) {
+				$dataOrder[$guardianField] = $request->get($guardianField) ?: null;
+			}
+		}
+		if (Schema::hasColumn('orders', 'draft_payload')) {
+			$dataOrder['draft_payload'] = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
+				? ['order_items' => (array) $request->get('order_items', [])] : null;
+		}
+		$manualNumber = trim((string) $request->get('manual_contract_number', ''));
+		if (Schema::hasColumn('orders', 'draft_reference') && $request->has('draft_reference')) {
+			$dataOrder['draft_reference'] = trim((string) $request->get('draft_reference')) ?: null;
+		}
 
 		// Bổ sung các trường thông tin hợp đồng từ request
 		$contractFields = [
@@ -205,9 +244,9 @@ class OrderService
 		if ($order === null) {
 			$created_at = DateTimeHelper::parse($request->get('created_at'));
 
-			$dataOrder['customer_id'] = $customer->id;
+			$dataOrder['customer_id'] = $customer ? $customer->id : null;
 			$dataOrder['order_type'] = OrderValidator::ORDER_TYPE_RENTING;
-			$dataOrder['order_status'] = $request->boolean('save_as_draft')
+			$dataOrder['order_status'] = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
 				? OrderValidator::ORDER_DRAFT
 				: OrderValidator::ORDER_RENTING;
 			$dataOrder['data_version'] = 2;
@@ -238,24 +277,48 @@ class OrderService
 			} elseif ($dataOrder['order_status'] === OrderValidator::ORDER_DRAFT) {
 				$dataOrder['contract_number'] = null;
 				$dataOrder['contract_issued_at'] = null;
+				if ($manualNumber !== '') {
+					$dataOrder['draft_reference'] = $manualNumber;
+				}
 			} else {
 				// Sinh số HĐ dạng YYYY/MM/DD-0001
-				$dataOrder['contract_number'] = ContractNumberService::generate($dataOrder['contract_signed_on']);
+				$dataOrder['contract_number'] = $manualNumber !== ''
+					? $manualNumber : ContractNumberService::generate($dataOrder['contract_signed_on']);
 				$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
 			}
 
 			return $this->orderRepository->store($dataOrder);
 		} else { // update existing order
+			if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) && !$request->filled('customer_name')) {
+				$dataOrder['customer_id'] = null;
+			}
+			if ($customer && !$order->customer_id) {
+				$dataOrder['customer_id'] = $customer->id;
+			}
 			$additional_deposit_amount = $request->get('additional_deposit_amount');
 
-			if ($request->boolean('save_as_draft')) {
+			if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)) {
 				$dataOrder['order_status'] = OrderValidator::ORDER_DRAFT;
+				if ($manualNumber !== '') {
+					$dataOrder['draft_reference'] = $manualNumber;
+				}
 			} elseif ($order->order_status === OrderValidator::ORDER_DRAFT) {
 				$dataOrder['order_status'] = OrderValidator::ORDER_RENTING;
-				if (empty($order->contract_number)) {
+				if (empty($order->contract_number) || $manualNumber !== '') {
 					$signDate = $request->get('contract_signed_on') ?: ($order->contract_signed_on ?: Carbon::now('Asia/Ho_Chi_Minh'));
-					$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+					$paperNumber = $manualNumber !== '' ? $manualNumber : trim((string) ($dataOrder['draft_reference'] ?? $order->draft_reference ?? ''));
+					if ($paperNumber !== '' && Order::where('contract_number', $paperNumber)->where('id', '!=', $order->id)->exists()) {
+						throw ValidationException::withMessages(['manual_contract_number' => 'Mã giấy/bản nháp này đã dùng cho hợp đồng khác.']);
+					}
+					$dataOrder['contract_number'] = $paperNumber !== '' ? $paperNumber : ContractNumberService::generate($signDate);
 					$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
+				}
+			} else {
+				if ($manualNumber !== '' && $manualNumber !== $order->contract_number) {
+					if (Order::where('contract_number', $manualNumber)->where('id', '!=', $order->id)->exists()) {
+						throw ValidationException::withMessages(['manual_contract_number' => 'Mã hợp đồng này đã được sử dụng cho hợp đồng khác.']);
+					}
+					$dataOrder['contract_number'] = $manualNumber;
 				}
 			}
 
@@ -280,14 +343,18 @@ class OrderService
 				// Kích hoạt hợp đồng cọc -> cấp Số HĐ nếu chưa có
 				if (empty($order->contract_number)) {
 					$signDate = $request->get('contract_signed_on') ? DateTimeHelper::parse($request->get('contract_signed_on')) : Carbon::now('Asia/Ho_Chi_Minh');
-					$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+					$paperNumber = $manualNumber !== '' ? $manualNumber : trim((string) ($dataOrder['draft_reference'] ?? $order->draft_reference ?? ''));
+					$dataOrder['contract_number'] = $paperNumber !== '' ? $paperNumber : ContractNumberService::generate($signDate);
 					$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
 				}
-			} elseif (!$request->boolean('save_as_draft') && empty($order->contract_number) && !in_array($order->order_status, [OrderValidator::ORDER_DEPOSIT_CONTRACT, OrderValidator::ORDER_DRAFT])) {
+			} elseif (!filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) && empty($order->contract_number) && !in_array($order->order_status, [OrderValidator::ORDER_DEPOSIT_CONTRACT, OrderValidator::ORDER_DRAFT])) {
 				// Đơn thuê cũ chưa có số -> cấp số dựa trên ngày ký hoặc ngày tạo
 				$signDate = $order->contract_signed_on ?: ($order->created_at ?: Carbon::now('Asia/Ho_Chi_Minh'));
-				$dataOrder['contract_number'] = ContractNumberService::generate($signDate);
+				$dataOrder['contract_number'] = $manualNumber !== '' ? $manualNumber : ContractNumberService::generate($signDate);
 				$dataOrder['contract_issued_at'] = Carbon::now('Asia/Ho_Chi_Minh');
+			}
+			if ($manualNumber !== '' && $order->contract_number && $order->contract_number !== $manualNumber) {
+				$dataOrder['contract_number'] = $manualNumber;
 			}
 
 			$order->update($dataOrder);
@@ -361,6 +428,8 @@ class OrderService
 			'bank_id' => $bank_amount > 0 && isset($payment_method['bank_id']) && is_numeric($payment_method['bank_id'])
 				? intval($payment_method['bank_id'])
 				: null,
+			'unregistered_bank' => $bank_amount > 0 && !empty($payment_method['unregistered_bank']),
+			'other_method_note' => trim((string)($payment_method['other_method_note'] ?? '')),
 			'bank_transfer_amount' => $bank_amount,
 			'cash_amount' => $cash_amount,
 		];
@@ -505,13 +574,23 @@ class OrderService
 	}
 	protected function updateVehicles(Request $request, Order $order)
 	{
-		$order_items = $request->get('order_items');
+		$order_items = (array) $request->get('order_items', []);
+		if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)) {
+			$order_items = array_values(array_filter($order_items, function ($item) {
+				return !empty($item['vehicle_id']) && !empty($item['rent_at']) && !empty($item['return_at']);
+			}));
+		}
 		$sync_data = [];
 		$money_outdate = 0;
 		$need_release_vehicle_ids = [];
+		$hasPricingScheme = Schema::hasColumn('order_vehicle_details', 'pricing_scheme');
+		$existingPricingSchemes = $hasPricingScheme
+			? $order->orderItems()->pluck('pricing_scheme', 'vehicle_id') : collect();
 
 		foreach ($order_items as $order_item) {
 			$vehicle_id = $order_item['vehicle_id'];
+			$pricingScheme = array_key_exists('pricing_scheme', $order_item)
+				? $order_item['pricing_scheme'] : $existingPricingSchemes->get($vehicle_id);
 			if ( isset( $order_item['vehicle'] ) ) {
 				$old_vehicle = $order_item['vehicle'];
 				if ( $old_vehicle && isset( $old_vehicle['id'] ) && $vehicle_id != $old_vehicle['id'] ) { // The vehicle id is changed, so need to release this vehicle.
@@ -528,6 +607,14 @@ class OrderService
 			}
 
 			$total_money = data_get($order_item, 'total_money', 0);
+			$isFlatDaily = $pricingScheme === RentalPricing::FLAT_DAILY_SCHEME
+				&& data_get($order_item, 'type', 'day') === 'day';
+			if ($isFlatDaily) {
+				$total_money = RentalPricing::flatDailyAmount(
+					DateTimeHelper::parse($order_item['rent_at']),
+					DateTimeHelper::parse($order_item['return_at'])
+				);
+			}
 			$custom_total_money = data_get($order_item, 'custom_total_money', 0);
 
 			$hiring_fee = $total_money;
@@ -541,15 +628,19 @@ class OrderService
 				'return_at' => DateTimeHelper::parse($order_item['return_at']),
 				'total_money' => $total_money,
 				'borrow_hats' => data_get($order_item, 'borrow_hats', 0),
-				'type' => $order_item['type'] ?? 'total',
+				'type' => $order_item['type'] ?? ($isFlatDaily ? 'day' : 'total'),
 				'handler_price' => $order_item['handler_price'] ?? 0,
-				'substitute_unit_price' => $order_item['substitute_unit_price'],
+			'substitute_unit_price' => $order_item['substitute_unit_price'] ?? 0,
 				'hiring_fee' => $hiring_fee,
 				'driver_name' => data_get($order_item, 'driver_name') ?: $request->get('customer_name'),
 				'driver_license_number' => data_get($order_item, 'driver_license_number'),
 				'driver_license_issued_on' => data_get($order_item, 'driver_license_issued_on') ? DateTimeHelper::parse($order_item['driver_license_issued_on']) : null,
 				'borrow_raincoats' => (int) data_get($order_item, 'borrow_raincoats', 0),
 			];
+			if ($hasPricingScheme) {
+				$item_sync_data['pricing_scheme'] = $pricingScheme === RentalPricing::FLAT_DAILY_SCHEME
+					? RentalPricing::FLAT_DAILY_SCHEME : null;
+			}
 
 			if ( isset( $order_item['odometer_before'] ) && is_numeric( $order_item['odometer_before'] ) ) {
 				$item_sync_data['odometer_before'] = intval( $order_item['odometer_before'] );
@@ -606,7 +697,9 @@ class OrderService
 			return $order->customer;
 		}
 	
-		$customer = Customer::query()->where('id_card', $request->get('customer_id_card'))->first();
+		$customer = $request->filled('customer_id_card')
+			? Customer::query()->where('id_card', $request->get('customer_id_card'))->first()
+			: null;
 		if (!$customer) {
 			$customer = $this->customerRepository->skipPresenter()->create($dataCustomer);
 		} else {
@@ -639,15 +732,13 @@ class OrderService
 		$headOffice = config('contract.head_office', 'Sn 31 dãy C1 Tổ 28 Khu tập thể Đồng Bát, Bệnh viện 198 Bộ Công An, P. Từ Liêm, Tp. Hà Nội, VN');
 		$repName = $order->contract_signer_a_name
 			?: ($order->responsibleUser ? $order->responsibleUser->name : (Auth::user() ? Auth::user()->name : ''));
-		$repTitle = 'Nhân viên hợp đồng tại ca';
+		$repTitle = 'Nhân viên quầy giao dịch';
 
 		$store = $order->store;
 		$customer = $order->customer;
 
 		$existingSnapshot = is_array($order->contract_snapshot) ? $order->contract_snapshot : [];
-		$contractNumber = !empty($existingSnapshot['contract_number'])
-			? $existingSnapshot['contract_number']
-			: $order->contract_number;
+		$contractNumber = $order->contract_number ?: ($existingSnapshot['contract_number'] ?? null);
 
 		$issuedAt = !empty($existingSnapshot['issued_at'])
 			? $existingSnapshot['issued_at']
@@ -676,7 +767,9 @@ class OrderService
 					$unitPrice = (float) ($item->hiring_fee ?: $item->total_money);
 				}
 			} else {
-				if ($item->substitute_unit_price > 0) {
+				if ($item->pricing_scheme === RentalPricing::FLAT_DAILY_SCHEME) {
+					$unitPrice = RentalPricing::FLAT_DAILY_RATE;
+				} elseif ($item->substitute_unit_price > 0) {
 					$unitPrice = (float) $item->substitute_unit_price;
 				} else {
 					$catalogPrice = 0;
@@ -767,7 +860,7 @@ class OrderService
 				'company_name' => $companyName,
 				'tax_code' => $taxCode,
 				'head_office_address' => $headOffice,
-				'representative_name' => $repName,
+				'representative_name' => mb_strtoupper($repName, 'UTF-8'),
 				'representative_title' => $repTitle,
 				'branch_name' => $store ? $store->store_name : '',
 				'branch_address' => $store ? $store->store_address : '',
@@ -1481,10 +1574,10 @@ class OrderService
         $log->metadata = json_encode([
             'old_data' => [
                 'store_id' => $order->store_id,
-                'customer_name' => $order->customer->name,
-                'customer_phone' => $order->customer->phone,
-                'customer_address' => $order->customer->address,
-                'customer_idnumber' => $order->customer->id_card,
+                'customer_name' => optional($order->customer)->name,
+                'customer_phone' => optional($order->customer)->phone,
+                'customer_address' => optional($order->customer)->address,
+                'customer_idnumber' => optional($order->customer)->id_card,
                 'vehicle_ids' => $order->vehicles()->get()->toArray(),
                 'order_type' => $order->order_type,
                 'order_status' => $order->status,

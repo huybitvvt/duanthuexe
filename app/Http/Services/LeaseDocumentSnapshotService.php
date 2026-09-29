@@ -51,6 +51,11 @@ class LeaseDocumentSnapshotService
             'version' => '1.0',
             'created_at' => Carbon::now('Asia/Ho_Chi_Minh')->toIso8601String(),
             'parties' => [
+                'guardian' => [
+                    'name' => $contract->guardian_name,
+                    'phone' => $contract->guardian_phone,
+                    'id_card' => $contract->guardian_id_card,
+                ],
                 'lessor' => [
                     'company_name' => config('contract.company_name'),
                     'brand_name' => 'HIMOTO',
@@ -83,6 +88,7 @@ class LeaseDocumentSnapshotService
                 'end_date' => $contract->end_date ? $contract->end_date->toDateString() : '',
                 'installment_count' => (int) $contract->installment_count,
                 'total_amount' => $totalAmount,
+                'asset_value' => $vehicle && (float) $vehicle->sale_price > 0 ? (float) $vehicle->sale_price : null,
                 'total_amount_in_words' => self::numberToWordsVietnamese($totalAmount),
                 'deposit_amount' => $depositAmount,
                 'deposit_amount_in_words' => self::numberToWordsVietnamese($depositAmount),

@@ -77,7 +77,7 @@ class ReminderDispatchConcurrencyTest extends TestCase
     {
         $storeOneContract = LeaseContract::create([
             'contract_code' => 'STORE-1', 'customer_id' => 1, 'vehicle_id' => 1,
-            'store_id' => 1, 'total_amount' => 1000000, 'status' => 'active',
+            'store_id' => 1, 'assigned_user_id' => 10, 'total_amount' => 1000000, 'status' => 'active',
         ]);
         $storeTwoContract = LeaseContract::create([
             'contract_code' => 'STORE-2', 'customer_id' => 2, 'vehicle_id' => 2,
@@ -93,6 +93,7 @@ class ReminderDispatchConcurrencyTest extends TestCase
         ]);
 
         $staff = new User(['role' => 'nhan-vien', 'store_id' => 1]);
+        $staff->id = 10;
         $result = $this->service->getStaffActionList(['per_page' => 20], $staff);
 
         $this->assertEquals(1, $result['total']);
@@ -262,6 +263,7 @@ class ReminderDispatchConcurrencyTest extends TestCase
             $table->integer('customer_id');
             $table->integer('vehicle_id');
             $table->integer('store_id');
+            $table->integer('assigned_user_id')->nullable();
             $table->decimal('total_amount', 15, 2);
             $table->string('status')->default('active');
             $table->softDeletes();

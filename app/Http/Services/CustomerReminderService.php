@@ -4,10 +4,12 @@ namespace App\Http\Services;
 
 use App\Contracts\ReminderProviderInterface;
 use App\Models\CustomerReminderOutbox;
+use App\Models\DebtNote;
 use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
 use App\Models\Order;
 use App\Models\OrderVehicleDetail;
+use App\Models\ReminderContactLog;
 use App\Models\ReminderDeliveryEvent;
 use App\Models\User;
 use App\Services\Reminders\SandboxReminderProvider;
@@ -16,6 +18,7 @@ use App\Validators\OrderValidator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -65,10 +68,10 @@ class CustomerReminderService
                     $stage = 'due_soon_1d';
                 } elseif ($diffDays === 0) {
                     $stage = 'due_today';
-                } elseif ($diffDays < 0 && $diffDays >= -7) {
-                    $stage = 'overdue_1_7d';
-                } elseif ($diffDays < -7 && $diffDays >= -30) {
-                    $stage = 'overdue_8_30d';
+                } elseif ($diffDays < 0 && $diffDays >= -5) {
+                    $stage = 'overdue_1_5d';
+                } elseif ($diffDays < -5 && $diffDays >= -30) {
+                    $stage = 'overdue_6_30d';
                 } elseif ($diffDays < -30) {
                     $stage = 'overdue_30_plus';
                 }
@@ -120,7 +123,13 @@ class CustomerReminderService
             ->get();
 
         foreach ($rentingOrders as $order) {
-            $endDate = Carbon::parse($order->real_rental_end_date ?: $order->rental_end_date, 'Asia/Ho_Chi_Minh')->toDateString();
+            // Orders have no rental_end_date column. The latest vehicle return
+            // date is the actual due date for a multi-vehicle rental contract.
+            $lastReturnAt = $order->orderItems->max('return_at');
+            if (!$lastReturnAt) {
+                continue;
+            }
+            $endDate = Carbon::parse($lastReturnAt, 'Asia/Ho_Chi_Minh')->toDateString();
             $diffDays = Carbon::parse($today)->diffInDays(Carbon::parse($endDate), false);
 
             $stage = null;
@@ -128,10 +137,12 @@ class CustomerReminderService
                 $stage = 'due_soon_1d';
             } elseif ($diffDays === 0) {
                 $stage = 'due_today';
-            } elseif ($diffDays < 0 && $diffDays >= -3) {
-                $stage = 'overdue_1_7d';
-            } elseif ($diffDays < -3) {
-                $stage = 'overdue_8_30d';
+            } elseif ($diffDays < 0 && $diffDays >= -5) {
+                $stage = 'overdue_1_5d';
+            } elseif ($diffDays < -5 && $diffDays >= -30) {
+                $stage = 'overdue_6_30d';
+            } elseif ($diffDays < -30) {
+                $stage = 'overdue_30_plus';
             }
 
             if (!$stage) {
@@ -154,7 +165,8 @@ class CustomerReminderService
                 $plate = $order->orderItems->first()->vehicle->license ?? $order->orderItems->first()->vehicle->plate_number;
             }
 
-            $message = "Kính gửi {$customerName}, đơn thuê xe {$order->order_code} (xe {$plate}) đến hạn kết thúc thuê ngày {$endDate}. Trạng thái: {$stage}.";
+            $reference = $order->contract_number ?: '#' . $order->id;
+            $message = "Kính gửi {$customerName}, đơn thuê xe {$reference} (xe {$plate}) đến hạn kết thúc thuê ngày {$endDate}. Trạng thái: {$stage}.";
 
             CustomerReminderOutbox::create([
                 'contract_type' => 'rental_order',
@@ -191,28 +203,44 @@ class CustomerReminderService
         $query = CustomerReminderOutbox::with(['customer', 'installment'])
             ->orderBy('id', 'desc');
 
-        // A store-scoped operator must not see reminder recipients from other
-        // stores simply by omitting store_id from the request.
-        if ($user && !PermissionAccess::isAdmin($user)
-            && !PermissionAccess::allows($user, 'kpi.view_company')
-            && $user->store_id) {
-            $storeId = (int) $user->store_id;
-            $query->where(function ($scope) use ($storeId) {
-                $scope->where(function ($lease) use ($storeId) {
-                    $lease->where('contract_type', 'lease')
-                        ->whereIn('contract_id', LeaseContract::select('id')->where('store_id', $storeId));
-                })->orWhere(function ($rental) use ($storeId) {
-                    $rental->where('contract_type', 'rental_order')
-                        ->whereIn('contract_id', Order::select('id')->where('store_id', $storeId));
+        $this->scopeActionList($query, $user);
+
+        // A paid lease installment or a rental order that has already been
+        // closed must disappear from the operational reminder list without
+        // waiting for a separate cleanup job.
+        $query->where(function ($active) {
+            $active->where('contract_type', '!=', 'lease')
+                ->orWhereDoesntHave('installment')
+                ->orWhereHas('installment', function ($installment) {
+                    $installment->where('status', '!=', LeaseInstallment::STATUS_PAID);
                 });
-            });
-        }
+        })->where(function ($active) {
+            $active->where('contract_type', '!=', 'rental_order')
+                ->orWhereIn('contract_id', Order::select('id')->where('order_status', OrderValidator::ORDER_RENTING));
+        });
 
         if (!empty($params['status'])) {
             $query->where('status', $params['status']);
         }
         if (!empty($params['contract_type'])) {
             $query->where('contract_type', $params['contract_type']);
+        }
+        if (!empty($params['store_id'])) {
+            $storeId = (int) $params['store_id'];
+            $query->where(function ($sub) use ($storeId) {
+                $sub->where(function ($lease) use ($storeId) {
+                    $contracts = LeaseContract::select('id');
+                    if (Schema::hasColumn('lease_contracts', 'origin_store_id')) {
+                        $contracts->where('origin_store_id', $storeId);
+                    } else {
+                        $contracts->where('store_id', $storeId);
+                    }
+                    $lease->where('contract_type', 'lease')->whereIn('contract_id', $contracts);
+                })->orWhere(function ($rental) use ($storeId) {
+                    $rental->where('contract_type', 'rental_order')
+                        ->whereIn('contract_id', Order::select('id')->where('store_id', $storeId));
+                });
+            });
         }
         if (!empty($params['search'])) {
             $search = trim($params['search']);
@@ -223,8 +251,319 @@ class CustomerReminderService
             });
         }
 
+        // Stats before filtering by stage / debt_group
+        $statsBase = clone $query;
+        $stats = [
+            'total' => (clone $statsBase)->count(),
+            'overdue_1_5' => (clone $statsBase)->where('stage', 'overdue_1_5d')->count(),
+            'overdue_6_30' => (clone $statsBase)->where('stage', 'overdue_6_30d')->count(),
+            'overdue_30_plus' => (clone $statsBase)->where('stage', 'overdue_30_plus')->count(),
+            'due_today' => (clone $statsBase)->where('stage', 'due_today')->count(),
+        ];
+
+        if (!empty($params['debt_group'])) {
+            if ($params['debt_group'] === 'overdue_1_5' || $params['debt_group'] === 'early') {
+                $query->where('stage', 'overdue_1_5d');
+            } elseif ($params['debt_group'] === 'overdue_6_30' || $params['debt_group'] === 'late') {
+                $query->where('stage', 'overdue_6_30d');
+            } elseif ($params['debt_group'] === 'overdue_30_plus' || $params['debt_group'] === 'recall') {
+                $query->where('stage', 'overdue_30_plus');
+            }
+        } elseif (!empty($params['stage'])) {
+            $query->where('stage', $params['stage']);
+        }
+
         $perPage = !empty($params['per_page']) ? (int)$params['per_page'] : 20;
-        return $query->paginate($perPage)->toArray();
+        $page = $query->paginate($perPage);
+
+        $collection = $page->getCollection();
+
+        $leaseIds = $collection->where('contract_type', 'lease')->pluck('contract_id')->unique()->filter()->values();
+        $orderIds = $collection->where('contract_type', 'rental_order')->pluck('contract_id')->unique()->filter()->values();
+
+        $hasLeases = Schema::hasTable('lease_contracts');
+        $hasOrders = Schema::hasTable('orders');
+        $hasVehicles = Schema::hasTable('vehicles');
+
+        $leaseWith = ['customer', 'installments'];
+        if ($hasVehicles) {
+            $leaseWith[] = 'vehicle';
+        }
+        if (Schema::hasTable('debt_notes')) {
+            $leaseWith[] = 'debtNotes';
+        }
+
+        $orderWith = ['customer'];
+        if (Schema::hasTable('order_vehicle_details')) {
+            $orderWith[] = $hasVehicles ? 'orderItems.vehicle' : 'orderItems';
+        }
+        if (Schema::hasTable('stores')) {
+            $orderWith[] = 'store';
+        }
+
+        $leases = ($hasLeases && $leaseIds->isNotEmpty())
+            ? LeaseContract::with($leaseWith)->whereIn('id', $leaseIds)->get()->keyBy('id')
+            : collect();
+
+        $orders = ($hasOrders && $orderIds->isNotEmpty())
+            ? Order::with($orderWith)->whereIn('id', $orderIds)->get()->keyBy('id')
+            : collect();
+
+        if (Schema::hasTable('reminder_contact_logs')) {
+            $collection->load('contactLogs');
+        }
+
+        $today = Carbon::today('Asia/Ho_Chi_Minh');
+        $todayStr = $today->toDateString();
+
+        $collection->each(function ($item) use ($leases, $orders, $today, $todayStr) {
+            if (Schema::hasTable('reminder_contact_logs') && $item->relationLoaded('contactLogs')) {
+                $item->contacted_today = $item->contactLogs->contains('contact_date', $todayStr);
+                $latestLog = $item->contactLogs->first();
+                $item->last_contact_note = optional($latestLog)->note;
+                $item->last_action = optional($latestLog)->action;
+            }
+
+            if ($item->contract_type === 'lease') {
+                $contract = $leases->get($item->contract_id);
+                $installment = $item->installment;
+                if (!$installment && $contract && $contract->installments) {
+                    $installment = $contract->installments->where('id', $item->installment_id)->first() 
+                        ?: $contract->installments->where('status', '!=', LeaseInstallment::STATUS_PAID)->sortBy('due_date')->first();
+                }
+
+                $customer = ($contract && $contract->relationLoaded('customer')) ? $contract->customer : null;
+                $vehicle = ($contract && $contract->relationLoaded('vehicle')) ? $contract->vehicle : null;
+                $debtNotes = ($contract && $contract->relationLoaded('debtNotes')) ? $contract->debtNotes : collect();
+
+                $rentalStartDate = $contract ? ($contract->start_date ?: ($contract->created_at ? $contract->created_at->toDateString() : null)) : null;
+                $customerName = $customer ? $customer->name : $item->recipient_name;
+                $customerPhone = $customer ? $customer->phone : $item->recipient_phone;
+                $customerRelatives = $customer ? $customer->relatives : [];
+                $packageLabel = $contract ? (($contract->installment_count ?: $contract->term_months ?: 12) . ' tháng') : 'Thuê sở hữu';
+                $vehicleType = $vehicle ? ($vehicle->name ?: ($vehicle->brand . ' ' . $vehicle->model_name)) : 'Xe máy';
+                $plateNumber = $vehicle ? ($vehicle->license ?: $vehicle->plate_number) : null;
+                
+                $dueDate = $installment ? $installment->due_date : ($contract ? $contract->next_due_date : null);
+                $overdueDays = 0;
+                if ($dueDate) {
+                    $dueCarbon = Carbon::parse($dueDate, 'Asia/Ho_Chi_Minh')->startOfDay();
+                    $diff = $dueCarbon->diffInDays($today->copy()->startOfDay(), false);
+                    $overdueDays = $diff > 0 ? (int)$diff : 0;
+                }
+                
+                $remainingAmount = $installment 
+                    ? ($installment->remaining_amount ?? ($installment->amount_due - $installment->amount_paid))
+                    : ($contract ? $contract->outstanding_balance : 0);
+
+                if ($overdueDays > 30 || $item->stage === 'overdue_30_plus') {
+                    $autoDebtGroup = 'Cần thu hồi';
+                } elseif ($overdueDays >= 6 || $item->stage === 'overdue_6_30d') {
+                    $autoDebtGroup = 'Nợ muộn';
+                } elseif ($overdueDays >= 1 || $item->stage === 'overdue_1_5d') {
+                    $autoDebtGroup = 'Nợ sớm';
+                } else {
+                    $autoDebtGroup = 'Đến hạn';
+                }
+
+                $item->rental_start_date = $rentalStartDate;
+                $item->customer_name = $customerName;
+                $item->customer_phone = $customerPhone;
+                $item->customer_relatives = $customerRelatives;
+                $item->package_label = $packageLabel;
+                $item->vehicle_type = trim($vehicleType) ?: 'Xe máy';
+                $item->plate_number = $plateNumber ?: 'Chưa gán';
+                $item->due_date = $dueDate;
+                $item->overdue_days = $overdueDays;
+                $item->debt_amount = (float)$remainingAmount;
+                $item->auto_debt_group = $autoDebtGroup;
+                $item->contract_code = ($contract && $contract->contract_code) ? $contract->contract_code : ('SH#' . $item->contract_id);
+                $item->contract_details = $contract ? [
+                    'id' => $contract->id,
+                    'contract_code' => $contract->contract_code,
+                    'overdue_days' => $overdueDays,
+                    'outstanding_balance' => (float)$contract->outstanding_balance,
+                    'customer' => $customer,
+                    'vehicle' => $vehicle,
+                    'debt_notes' => $debtNotes,
+                ] : null;
+            } else {
+                $order = $orders->get($item->contract_id);
+                $orderItems = ($order && $order->relationLoaded('orderItems')) ? $order->orderItems : collect();
+                $firstItem = $orderItems->first();
+                $vehicle = ($firstItem && $firstItem->relationLoaded('vehicle')) ? $firstItem->vehicle : null;
+                $customer = ($order && $order->relationLoaded('customer')) ? $order->customer : null;
+
+                $rentalStartDate = ($firstItem && $firstItem->rent_at) ? Carbon::parse($firstItem->rent_at)->toDateString() : (($order && $order->created_at) ? $order->created_at->toDateString() : null);
+                $customerName = $customer ? $customer->name : $item->recipient_name;
+                $customerPhone = $customer ? $customer->phone : $item->recipient_phone;
+                $customerRelatives = $customer ? $customer->relatives : [];
+                
+                $packageLabel = ($firstItem && $firstItem->pricing_scheme) ? $firstItem->pricing_scheme : 'Thuê xe';
+                if ($firstItem && $firstItem->rent_at && $firstItem->return_at) {
+                    $days = Carbon::parse($firstItem->rent_at)->diffInDays(Carbon::parse($firstItem->return_at)) ?: 1;
+                    $packageLabel = $days . ' ngày';
+                }
+                
+                $vehicleType = $vehicle ? ($vehicle->name ?: ($vehicle->brand ?: 'Xe máy')) : 'Xe máy';
+                $plateNumber = $vehicle ? ($vehicle->license ?: $vehicle->plate_number) : null;
+                
+                $lastReturnAt = $orderItems->isNotEmpty() ? $orderItems->max('return_at') : null;
+                $dueDate = $lastReturnAt ? Carbon::parse($lastReturnAt)->toDateString() : null;
+                $overdueDays = 0;
+                if ($dueDate) {
+                    $dueCarbon = Carbon::parse($dueDate, 'Asia/Ho_Chi_Minh')->startOfDay();
+                    $diff = $dueCarbon->diffInDays($today->copy()->startOfDay(), false);
+                    $overdueDays = $diff > 0 ? (int)$diff : 0;
+                }
+
+                $totalAmount = (float)($order ? ($order->total ?: 0) : 0);
+                $totalAmount += (float)($order ? ($order->outdate_or_early_amount ?: 0) : 0);
+                $paidAmount = (float)($order ? ($order->pid ?: ($order->paid ?: 0)) : 0);
+                $remainingAmount = max(0, $totalAmount - $paidAmount);
+
+                if ($overdueDays > 30 || $item->stage === 'overdue_30_plus') {
+                    $autoDebtGroup = 'Cần thu hồi';
+                } elseif ($overdueDays >= 6 || $item->stage === 'overdue_6_30d') {
+                    $autoDebtGroup = 'Nợ muộn';
+                } elseif ($overdueDays >= 1 || $item->stage === 'overdue_1_5d') {
+                    $autoDebtGroup = 'Nợ sớm';
+                } else {
+                    $autoDebtGroup = 'Đến hạn';
+                }
+
+                $item->rental_start_date = $rentalStartDate;
+                $item->customer_name = $customerName;
+                $item->customer_phone = $customerPhone;
+                $item->customer_relatives = $customerRelatives;
+                $item->package_label = $packageLabel;
+                $item->vehicle_type = trim($vehicleType) ?: 'Xe máy';
+                $item->plate_number = $plateNumber ?: 'Chưa gán';
+                $item->due_date = $dueDate;
+                $item->overdue_days = $overdueDays;
+                $item->debt_amount = (float)$remainingAmount;
+                $item->auto_debt_group = $autoDebtGroup;
+                $item->contract_code = ($order && $order->contract_number) ? $order->contract_number : ('ĐH#' . $item->contract_id);
+                $item->contract_details = $order ? [
+                    'id' => $order->id,
+                    'contract_code' => $order->contract_number ?: ('ĐH#' . $order->id),
+                    'overdue_days' => $overdueDays,
+                    'outstanding_balance' => (float)$remainingAmount,
+                    'customer' => $customer,
+                    'vehicle' => $vehicle,
+                ] : null;
+            }
+        });
+
+        $result = $page->toArray();
+        $result['stats'] = $stats;
+        return $result;
+    }
+
+    public function recordContact(int $id, string $note, User $user, array $extra = []): ReminderContactLog
+    {
+        if ($note === '' && empty($extra['action'])) {
+            throw ValidationException::withMessages(['note' => 'Cần nhập ghi chú liên hệ hoặc chọn hành động.']);
+        }
+        if (!Schema::hasTable('reminder_contact_logs')) {
+            throw ValidationException::withMessages(['note' => 'Chưa tạo bảng lịch sử liên hệ.']);
+        }
+        $query = CustomerReminderOutbox::query();
+        $this->scopeActionList($query, $user);
+        $reminder = $query->findOrFail($id);
+
+        $actionMap = [
+            'contacted' => 'Đã liên hệ',
+            'promise' => 'Hứa thanh toán',
+            'no_answer' => 'Ko nghe máy',
+            'lost_contact' => 'Mất liên lạc',
+            'uncooperative' => 'Không hợp tác',
+            'paid' => 'Đã thanh toán',
+            'recall_vehicle' => 'Cần thu hồi xe',
+            'check_vehicle' => 'Cần check xe',
+            'collect_money' => 'Đi thu tiền',
+        ];
+
+        $actionKey = $extra['action'] ?? null;
+        $actionLabel = $actionMap[$actionKey] ?? $actionKey;
+
+        $prefix = '';
+        if ($actionLabel) {
+            $prefix .= "[{$actionLabel}] ";
+        }
+        if (!empty($extra['paid_amount']) && is_numeric($extra['paid_amount']) && (float)$extra['paid_amount'] > 0) {
+            $prefix .= "[Đã thanh toán: " . number_format((float)$extra['paid_amount'], 0, ',', '.') . "đ] ";
+        }
+        if (!empty($extra['appointment_date'])) {
+            $prefix .= "[Hẹn: {$extra['appointment_date']}] ";
+        }
+
+        $fullNote = $prefix . ($note ?: ($actionLabel ?: 'Đã liên hệ'));
+
+        $logData = [
+            'reminder_id' => $reminder->id,
+            'user_id' => $user->id,
+            'contact_date' => Carbon::today('Asia/Ho_Chi_Minh')->toDateString(),
+            'note' => $fullNote,
+        ];
+
+        if (Schema::hasColumn('reminder_contact_logs', 'action')) {
+            $logData['action'] = $actionKey;
+        }
+        if (Schema::hasColumn('reminder_contact_logs', 'paid_amount')) {
+            $logData['paid_amount'] = !empty($extra['paid_amount']) ? (float)$extra['paid_amount'] : 0;
+        }
+        if (Schema::hasColumn('reminder_contact_logs', 'appointment_date')) {
+            $logData['appointment_date'] = !empty($extra['appointment_date']) ? Carbon::parse($extra['appointment_date'])->toDateString() : null;
+        }
+
+        $log = ReminderContactLog::create($logData);
+
+        if ($reminder->contract_type === 'lease' && Schema::hasTable('debt_notes')) {
+            DebtNote::create([
+                'lease_contract_id' => $reminder->contract_id,
+                'customer_id' => $reminder->customer_id,
+                'note_content' => $fullNote,
+                'appointment_date' => !empty($extra['appointment_date']) ? Carbon::parse($extra['appointment_date']) : null,
+                'debt_classification' => 'reminder',
+                'created_by' => $user->id,
+            ]);
+        }
+
+        return $log;
+    }
+
+    private function scopeActionList($query, ?User $user): void
+    {
+
+        // A store-scoped operator must not see reminder recipients from other
+        // stores simply by omitting store_id from the request.
+        if ($user && !PermissionAccess::isAdmin($user)
+            && !PermissionAccess::allows($user, 'kpi.view_company')) {
+            if (!$user->store_id) {
+                $query->whereRaw('1 = 0');
+                return;
+            }
+            $storeId = (int) $user->store_id;
+            $query->where(function ($scope) use ($storeId, $user) {
+                $scope->where(function ($lease) use ($storeId, $user) {
+                    $contracts = LeaseContract::select('id');
+                    if (Schema::hasColumn('lease_contracts', 'origin_store_id')) {
+                        $contracts->where('origin_store_id', $storeId);
+                    } else {
+                        $contracts->where('store_id', $storeId);
+                    }
+                    if (PermissionAccess::getRoleSlug($user) === 'nhan-vien') {
+                        $contracts->where('assigned_user_id', $user->id);
+                    }
+                    $lease->where('contract_type', 'lease')
+                        ->whereIn('contract_id', $contracts);
+                })->orWhere(function ($rental) use ($storeId) {
+                    $rental->where('contract_type', 'rental_order')
+                        ->whereIn('contract_id', Order::select('id')->where('store_id', $storeId));
+                });
+            });
+        }
     }
 
     /**

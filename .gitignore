@@ -1,4 +1,10 @@
 /node_modules
+/frontend/.next
+/frontend/node_modules
+/backend/node_modules
+/backend/dist
+/frontend/.env.local
+/backend/.env
 /vendor
 /static-dist
 /composer.phar

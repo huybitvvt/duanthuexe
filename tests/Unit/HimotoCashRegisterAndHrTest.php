@@ -586,8 +586,9 @@ class HimotoCashRegisterAndHrTest extends TestCase
     public function testLeaseContractEarlySettlement()
     {
         $ltoStore = Store::create([
-            'store_name' => 'Kho Thuê Sở Hữu',
-            'store_address' => 'Hà Nội',
+            'code' => 'CS6',
+            'store_name' => 'Kho sở hữu',
+            'store_address' => 'Kho sở hữu',
             'kind' => Store::KIND_LEASE_TO_OWN,
         ]);
         DB::table('cash')->insert(['store_id' => $ltoStore->id, 'status' => 'Active']);
@@ -643,7 +644,8 @@ class HimotoCashRegisterAndHrTest extends TestCase
     public function testLeasePaymentReversal()
     {
         $ltoStore = Store::create([
-            'store_name' => 'Kho Thuê Sở Hữu 2',
+            'code' => 'CS6',
+            'store_name' => 'Kho sở hữu',
             'kind' => Store::KIND_LEASE_TO_OWN,
         ]);
         DB::table('cash')->insert(['store_id' => $ltoStore->id, 'status' => 'Active']);
@@ -732,6 +734,34 @@ class HimotoCashRegisterAndHrTest extends TestCase
         $this->assertCount(1, $roster[0]['schedules']);
         $this->assertEquals('Lê Văn Trọng', $roster[0]['schedules'][0]['staff_name']);
         $this->assertEquals('0933444555', $roster[0]['schedules'][0]['staff_phone']);
+    }
+
+    public function testOrganizationChartIncludesStaffWithoutDepartment()
+    {
+        $departmentId = DB::table('departments')->insertGetId([
+            'name' => 'Vận hành',
+            'code' => 'VAN_HANH',
+        ]);
+        $this->hrService->saveStaffProfile([
+            'full_name' => 'Nhân viên có phòng ban',
+            'phone' => '0900000001',
+            'department_id' => $departmentId,
+            'store_id' => $this->store->id,
+        ]);
+        $this->hrService->saveStaffProfile([
+            'full_name' => 'Nhân viên chưa phân bổ',
+            'phone' => '0900000002',
+            'store_id' => $this->store->id,
+        ]);
+
+        $units = $this->hrService->getOrganizationChart();
+
+        $this->assertCount(2, $units);
+        $this->assertSame('Vận hành', $units[0]['name']);
+        $this->assertSame(1, $units[0]['staff_count']);
+        $this->assertSame('Chưa phân phòng ban', $units[1]['name']);
+        $this->assertSame(1, $units[1]['staff_count']);
+        $this->assertSame('Nhân viên chưa phân bổ', $units[1]['members'][0]->full_name);
     }
 
     public function testAttendanceCalculatesWorkMinutesAndUpdatesSameDay()

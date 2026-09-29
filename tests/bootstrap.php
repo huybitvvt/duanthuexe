@@ -2,15 +2,21 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// Local development may share vendor/ via a junction with another checkout.
+// Resolve project classes from this checkout before Composer's vendor map so
+// tests exercise the actual working tree, not the adjacent project's app/.
 spl_autoload_register(function ($class) {
-    if (strpos($class, 'Tests\\') === 0) {
-        $relativeClass = substr($class, 6);
-        $file = __DIR__ . '/' . str_replace('\\', '/', $relativeClass) . '.php';
-        if (file_exists($file)) {
-            require_once $file;
-        }
+    $prefix = strpos($class, 'Tests\\') === 0 ? 'Tests\\' : (strpos($class, 'App\\') === 0 ? 'App\\' : null);
+    if ($prefix === null) {
+        return;
     }
-});
+    $root = $prefix === 'Tests\\' ? __DIR__ : __DIR__ . '/../app';
+    $relativeClass = substr($class, strlen($prefix));
+    $file = $root . '/' . str_replace('\\', '/', $relativeClass) . '.php';
+    if (file_exists($file)) {
+        require_once $file;
+    }
+}, true, true);
 
 // Guard: Enforce test isolation using SQLite in-memory database
 putenv('DB_CONNECTION=sqlite');

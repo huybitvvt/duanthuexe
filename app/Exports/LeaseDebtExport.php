@@ -36,8 +36,8 @@ class LeaseDebtExport implements FromCollection, WithHeadings, WithStrictNullCom
         return $contracts->map(function ($c) {
             $bucketLabel = [
                 'current' => 'Chưa đến hạn',
-                'overdue_1_7' => 'Quá hạn 1-7 ngày',
-                'overdue_8_30' => 'Quá hạn 8-30 ngày',
+                'overdue_1_5' => 'Nợ sớm (1-5 ngày)',
+                'overdue_6_30' => 'Nợ muộn (6-30 ngày)',
                 'overdue_30_plus' => 'Quá hạn >30 ngày',
             ][$c->aging_bucket] ?? $c->aging_bucket;
 

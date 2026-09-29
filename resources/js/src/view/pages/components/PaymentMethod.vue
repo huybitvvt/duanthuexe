@@ -4,6 +4,16 @@
 			<label><strong>{{ label }}</strong></label>
 			<span class="payment-method-summary">{{ paymentMethodLabel }}</span>
 		</div>
+		<div class="payment-channel-toggles mt-2" role="group" aria-label="Kênh thu tiền">
+			<label class="payment-channel-toggle">
+				<input type="checkbox" :checked="hasCashPayment" @change="toggleChannel('cash', $event.target.checked)">
+				<span>Tiền mặt</span>
+			</label>
+			<label class="payment-channel-toggle">
+				<input type="checkbox" :checked="hasBankTransfer" @change="toggleChannel('bank', $event.target.checked)">
+				<span>Chuyển khoản qua tài khoản ngân hàng</span>
+			</label>
+		</div>
 
 		<div class="row mt-2 payment-amount-fields">
             <slot name="amount"></slot>
@@ -29,7 +39,7 @@
 					<el-select
 						filterable
 						class="w-100"
-						:placeholder="hasBankTransfer ? 'Chọn tài khoản' : 'Không có chuyển khoản'"
+						:placeholder="hasBankTransfer ? 'Chọn tài khoản ngân hàng' : 'Không có chuyển khoản'"
 						v-model="settings.bank_id"
 						:disabled="!hasBankTransfer"
 						clearable
@@ -40,6 +50,9 @@
 								<span v-if="item.owner_type === 'company'" class="badge badge-light-primary ml-1" style="font-size: 10px;">Công ty</span>
 								<span v-else-if="item.owner_type === 'personal'" class="badge badge-light-info ml-1" style="font-size: 10px;">Cá nhân</span>
 							</span>
+						</el-option>
+						<el-option label="-- Khác / Chuyển khoản ví khác (tự điền) --" :value="'other'">
+							<span class="text-primary font-weight-bold">+ Khác / Chuyển khoản ví khác (tự điền)</span>
 						</el-option>
 					</el-select>
 					<error-message :errors="errors" field="bank_id"></error-message>
@@ -57,8 +70,15 @@
 		</div>
 
 		<div class="form-group mt-3 mb-0">
-			<label><strong>Hình thức khác (nếu có)</strong></label>
-			<el-input v-model="settings.other_method_note" clearable placeholder="VD: Ví điện tử, bù trừ công nợ..."></el-input>
+			<label><strong>{{ settings.bank_id === 'other' ? 'Ngân hàng / hình thức chuyển khoản khác (*)' : 'Hình thức khác (nếu có)' }}</strong></label>
+			<ValidationProvider vid="other_method_note" name="Ngân hàng / hình thức khác" :rules="settings.bank_id === 'other' ? 'required' : ''" v-slot="{ errors }">
+				<el-input
+					v-model="settings.other_method_note"
+					clearable
+					:placeholder="settings.bank_id === 'other' ? 'VD: Momo 09..., ngân hàng khác...' : 'VD: Ví điện tử, bù trừ công nợ...'"
+				></el-input>
+				<error-message :errors="errors" field="other_method_note"></error-message>
+			</ValidationProvider>
 		</div>
 	</div>
 </template>
@@ -148,6 +168,21 @@ export default {
 
 			if (bankAmount === 0 && this.settings.bank_id !== null) {
 				this.$set(this.settings, "bank_id", null);
+			}
+		},
+		toggleChannel(channel, enabled) {
+			const field = channel === 'bank' ? 'bank_transfer_amount' : 'cash_amount';
+			const otherField = channel === 'bank' ? 'cash_amount' : 'bank_transfer_amount';
+			if (!enabled) {
+				this.$set(this.settings, field, 0);
+				if (channel === 'bank') this.$set(this.settings, 'bank_id', null);
+				return;
+			}
+			const total = this.amount(this.fixedAmount);
+			const other = this.amount(this.settings[otherField]);
+			this.$set(this.settings, field, Math.max(total - other, 0));
+			if (channel === 'bank' && !this.settings.bank_id && this.banks.length === 1) {
+				this.$set(this.settings, 'bank_id', this.banks[0].id);
 			}
 		},
 		syncAllocation(field, value, oldValue) {
@@ -250,6 +285,9 @@ export default {
 		hasBankTransfer() {
 			return this.amount(this.settings.bank_transfer_amount) > 0;
 		},
+		hasCashPayment() {
+			return this.amount(this.settings.cash_amount) > 0;
+		},
 		selectedBank() {
 			if (!this.settings.bank_id || !this.banks || !this.banks.length) {
 				return null;
@@ -302,6 +340,20 @@ export default {
 .payment-method-summary {
 	color: #606266;
 	font-size: 12px;
+}
+
+.payment-channel-toggles {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+}
+
+.payment-channel-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	cursor: pointer;
 }
 
 .payment-allocation-summary {

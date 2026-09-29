@@ -32,11 +32,11 @@ class PermissionAccess
             'hr.view', 'hr.manage_staff', 'hr.manage_attendance', 'hr.manage_schedule', 'hr.export'
         ],
         'quan-ly-cua-hang' => [
-            'lease.view', 'lease.collect', 'lease.ownership_request',
+            'lease.view', 'lease.create', 'lease.collect', 'lease.ownership_request',
             'kpi.view_store', 'gps.view', 'reminder.view', 'hr.view'
         ],
         'nhan-vien' => [
-            'lease.view', 'lease.collect', 'lease.ownership_request',
+            'lease.view', 'lease.create', 'lease.collect', 'lease.ownership_request',
             'reminder.view'
         ]
     ];

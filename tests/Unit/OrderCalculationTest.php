@@ -231,6 +231,37 @@ class OrderCalculationTest extends TestCase
         $this->assertNull($response, "validate_input_payment must return null when payment sums match perfectly");
     }
 
+    public function testOrderControllerAcceptsNamedUnregisteredTransferAccount()
+    {
+        $orderServiceMock = $this->createMock(\App\Http\Services\OrderService::class);
+        $controller = new \App\Http\Controllers\Order\OrderController($orderServiceMock);
+
+        $paymentMethod = [
+            'payment_method' => 2,
+            'bank_transfer_amount' => 500000,
+            'cash_amount' => 0,
+            'bank_id' => null,
+            'unregistered_bank' => true,
+            'other_method_note' => 'Momo 0988 111 222',
+        ];
+
+        $this->assertNull($controller->validate_input_payment(
+            'Tổng số tiền đặt cọc không khớp',
+            $paymentMethod,
+            500000,
+            1
+        ));
+
+        $paymentMethod['other_method_note'] = '';
+        $response = $controller->validate_input_payment(
+            'Tổng số tiền đặt cọc không khớp',
+            $paymentMethod,
+            500000,
+            1
+        );
+        $this->assertSame(422, $response->getStatusCode());
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -383,6 +414,7 @@ class OrderCalculationTest extends TestCase
             'store_id' => 1,
             'total' => 500000,
             'customer_name' => 'Nguyen Van A',
+            'customer_phone' => '0987654321',
             'customer_id_card' => 123456789,
             'first_deposit_amount' => 0,
             'total_rental_fees' => 0,

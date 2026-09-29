@@ -42,10 +42,10 @@ class ReportService
         }
 
         $stats = $query
-            ->selectRaw('COUNT(*) as total_order')
+            ->selectRaw('COALESCE(SUM(CASE WHEN order_status IS NULL OR order_status != ? THEN 1 ELSE 0 END), 0) as total_order', [\App\Validators\OrderValidator::ORDER_DRAFT])
             ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END), 0) as total_contracts_completed', [\App\Validators\OrderValidator::ORDER_COMPLETED])
             ->selectRaw('COALESCE(SUM(CASE WHEN order_status = ? THEN 1 ELSE 0 END), 0) as total_contracts_renting', [\App\Validators\OrderValidator::ORDER_RENTING])
-            ->selectRaw('COALESCE(SUM(CASE WHEN out_dated_at > 0 AND order_status != ? THEN 1 ELSE 0 END), 0) as total_out_of_date', [\App\Validators\OrderValidator::ORDER_COMPLETED])
+            ->selectRaw('COALESCE(SUM(CASE WHEN out_dated_at > 0 AND (order_status IS NULL OR order_status NOT IN (?, ?)) THEN 1 ELSE 0 END), 0) as total_out_of_date', [\App\Validators\OrderValidator::ORDER_COMPLETED, \App\Validators\OrderValidator::ORDER_DRAFT])
             ->first();
 
         return [

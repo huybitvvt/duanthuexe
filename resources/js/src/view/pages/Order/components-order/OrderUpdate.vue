@@ -2,14 +2,38 @@
     <div v-loading="loadingComponent">
         <ValidationObserver v-slot="{ handleSubmit }" ref="form">
             <form class="form" @submit.prevent="handleSubmit(handleFormSubmit)">
+				<div v-if="!id && initialMode === 'draft'" class="alert alert-custom alert-light-success p-3 mb-4">
+					<div class="d-flex align-items-center justify-content-between flex-wrap">
+						<div>
+							<strong class="text-success font-size-h6">&lt;Hợp đồng Nháp&gt;</strong> - Khách ship xe, làm tạm
+							<div class="text-muted font-size-sm mt-1">
+								Không bắt buộc CCCD, SĐT... Có thể in thử mang cho khách. Sau đó bấm <em>"Phát hành hợp đồng chính thức"</em> để ghi nhận doanh thu vào bảng hợp đồng.
+							</div>
+						</div>
+						<div class="mt-2 mt-md-0">
+							<button type="button" class="btn btn-sm btn-success font-weight-bold" :loading="loading" @click="saveDraft">
+								Lưu bản nháp
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<div v-if="!id && initialMode === 'handover'" class="alert alert-custom alert-light-warning p-3 mb-4">
+					<div>
+						<strong class="text-warning font-size-h6">&lt;Biên bản bàn giao xe&gt;</strong> - Đối tượng là khách chưa có bằng lái, chưa đủ tuổi chỉ lái được xe 50 CC
+						<div class="text-muted font-size-sm mt-1">
+							Sử dụng kết hợp 2 liên Biên bản bàn giao xe để phòng trường hợp mất điện, ship xe khách xong...
+						</div>
+					</div>
+				</div>
 				
 				<div class="row mb-4 align-items-center">
 					<div class="col-md-6">
 						<div class="d-flex justify-content-start align-items-center flex-wrap">
 							<h6 v-if="id" class="mb-0 mr-3">ID hợp đồng: #{{ id }}</h6>
 							<div class="d-inline-flex align-items-center">
-								<span class="badge badge-primary px-3 py-2" style="font-size: 13px;">
-									Số HĐ: <strong>{{ order.contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
+						<span class="badge badge-primary px-3 py-2" style="font-size: 13px;">
+									Số HĐ: <strong>{{ order.contract_number || order.manual_contract_number || '(Hệ thống tự cấp khi lưu đơn)' }}</strong>
 								</span>
 								<span v-if="id && is_deposit_contract_mode" class="font-weight-bold badge badge-success ml-2">Cọc giữ xe</span>
 								<span v-if="id && order.order_status === 'draft'" class="font-weight-bold badge badge-info ml-2">Bản nháp giao xe</span>
@@ -32,6 +56,16 @@
 						</div>
 					</div>
 					<div class="col-md-6 text-right">
+						<div class="d-flex justify-content-end align-items-center flex-wrap mb-2">
+							<router-link
+								:to="order.store_id ? { name: 'warehouse', query: { store_id: order.store_id } } : { name: 'warehouse' }"
+								class="btn btn-sm btn-outline-warning font-weight-bold"
+								title="Mở kho xe thuê / điều chuyển"
+								target="_blank"
+							>
+								<i class="fas fa-warehouse mr-1"></i>Xem kho xe Thuê &rarr;
+							</router-link>
+						</div>
 						<div class="d-flex justify-content-end align-items-center" v-if="id && order && order.order_status == 'deposit_contract'">
 							<div class="checkbox-wrapper deposit-contract-checkbox">
 								<input type="checkbox" class="checkbox-input" v-model="start_this_contract" id="start-this-contract">
@@ -45,6 +79,9 @@
 						</div>
 					</div>
 				</div>
+
+				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4">
+					<el-tab-pane label="Thông tin hợp đồng" name="contract">
 
 				<div class="card card-custom gutter-b border p-4 bg-light-secondary mb-6">
 					<div class="d-flex justify-content-between align-items-center mb-3">
@@ -69,8 +106,8 @@
 							<el-date-picker class="w-100" v-model="order.contract_signed_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Chọn ngày ký"></el-date-picker>
 						</div>
 						<div class="col-md-4 form-group" v-if="id == 0 || id == null">
-							<label><strong>Ngày tạo hợp đồng<span class="text-danger">(*)</span></strong></label>
-							<ValidationProvider vid="completed_at" name="Ngày tạo hợp đồng" rules="required" v-slot="{ errors }">
+							<label><strong>Ngày tạo hợp đồng<span v-if="!isDraftMode" class="text-danger">(*)</span></strong></label>
+							<ValidationProvider vid="completed_at" name="Ngày tạo hợp đồng" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
 								<el-date-picker class="w-100" v-model="order.created_at" format="dd-MM-yyyy HH:mm:ss" type="datetime" placeholder="Ngày tạo hợp đồng"></el-date-picker>
 								<error-message :errors="errors" field="completed_at"></error-message>
 							</ValidationProvider>
@@ -80,14 +117,31 @@
 							<el-date-picker class="w-100" v-model="order.contract_authorization_date" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Ngày HĐ ủy quyền"></el-date-picker>
 						</div>
 						<div class="col-md-6 form-group">
-							<label><strong>Nhân viên đại diện Bên A tại ca</strong></label>
-							<el-select v-model="order.contract_responsible_user_id" filterable clearable class="w-100" placeholder="Chọn nhân viên" @change="onResponsibleStaffChange">
-								<el-option v-for="staff in staffByStore" :key="staff.id" :label="staff.name" :value="staff.id"></el-option>
+							<label><strong>Đại diện Ủy quyền Bên A (Himoto)</strong></label>
+							<el-select
+								v-model="order.contract_signer_a_name"
+								filterable
+								allow-create
+								default-first-option
+								clearable
+								class="w-100"
+								placeholder="Chọn nhân viên hoặc điền tên"
+								@change="onSignerASelectChange"
+							>
+								<el-option
+									v-for="staff in staffByStore"
+									:key="staff.id"
+									:label="staff.name"
+									:value="staff.name"
+								>
+									<span style="float: left">{{ staff.name }}</span>
+									<span style="float: right; color: #8492a6; font-size: 12px">{{ staff.phone || 'Nhân viên' }}</span>
+								</el-option>
 							</el-select>
 						</div>
 						<div class="col-md-6 form-group">
-							<label><strong>Tên người đại diện in trên hợp đồng</strong></label>
-							<el-input v-model="order.contract_signer_a_name" placeholder="Ông/Bà nhân viên đang trực ca"></el-input>
+							<label><strong>Chức vụ đại diện</strong></label>
+							<el-input value="Nhân viên quầy giao dịch" disabled placeholder="Nhân viên quầy giao dịch"></el-input>
 						</div>
 						<div class="col-md-6 form-group">
 							<label><strong>Nguồn khách</strong></label>
@@ -97,6 +151,17 @@
 							<label><strong>Liên kết nguồn khách</strong></label>
 							<el-input v-model="order.customer_source_url" placeholder="https://..."></el-input>
 						</div>
+						<div class="col-md-6 form-group">
+							<label>
+								<strong>Mã hợp đồng tự tạo / Số HĐ giấy</strong>
+								<small class="text-muted ml-1">(nhập nếu dùng HĐ giấy hoặc tạo mã riêng)</small>
+							</label>
+							<el-input
+								v-model="order.manual_contract_number"
+									placeholder="VD: 260924-0001 hoặc số trên hợp đồng giấy"
+								clearable
+							></el-input>
+						</div>
 						<div class="col-md-6 form-group" v-if="order.is_authorized_contract">
 							<label><strong>Bên được ủy quyền</strong></label>
 							<el-input placeholder="Tên đơn vị / cá nhân được ủy quyền" v-model="order.contract_authorization_party_name"></el-input>
@@ -104,14 +169,41 @@
 					</div>
 				</div>
 
-                <div class="d-flex justify-content-center mb-6">
-                    <h2 class="font-weight-bold">Thông tin khách hàng (Bên B)</h2>
+                <div v-if="isHandoverMode" class="card card-custom border p-4 mb-6 bg-light-warning">
+                    <h5 class="font-weight-bold mb-3">Người giám hộ / đại diện hợp pháp</h5>
+                    <p class="text-muted mb-3">Có thể bổ sung sau khi lưu nháp. Cần tên người giám hộ khi hoàn thành biên bản.</p>
+                    <div class="row">
+                        <div class="col-md-4 form-group">
+                            <label><strong>Họ tên người giám hộ</strong><span v-if="!isDraftMode" class="text-danger"> (*)</span></label>
+                            <ValidationProvider vid="guardian_name" name="Người giám hộ" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
+                                <el-input v-model="order.guardian_name" placeholder="Họ tên người giám hộ"></el-input>
+                                <error-message :errors="errors" field="guardian_name"></error-message>
+                            </ValidationProvider>
+                        </div>
+                        <div class="col-md-4 form-group"><label><strong>SĐT người giám hộ</strong></label><el-input v-model="order.guardian_phone" placeholder="Số điện thoại"></el-input></div>
+                        <div class="col-md-4 form-group"><label><strong>CCCD người giám hộ</strong></label><el-input v-model="order.guardian_id_card" placeholder="Số CCCD"></el-input></div>
+                    </div>
                 </div>
+					</el-tab-pane>
+
+					<el-tab-pane label="Thông tin khách hàng (Bên B)" name="customer">
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Cửa hàng xe</strong> <span class="text-danger">(*)</span></label>
-                            <ValidationProvider vid="store_id" name="Cửa hàng xe" rules="required" v-slot="{ errors }">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="mb-0"><strong>Cửa hàng xe</strong> <span v-if="!isDraftMode" class="text-danger">(*)</span></label>
+                                <router-link
+                                    v-if="order.store_id"
+                                    :to="{ name: 'warehouse', query: { store_id: order.store_id } }"
+                                    target="_blank"
+                                    class="text-primary font-weight-bold"
+                                    style="font-size: 12px;"
+                                    title="Mở xem tồn kho xe của cơ sở này"
+                                >
+                                    <i class="fas fa-warehouse mr-1"></i>Xem kho PGD này &rarr;
+                                </router-link>
+                            </div>
+                            <ValidationProvider vid="store_id" name="Cửa hàng xe" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
                                 <el-select name="store_id" v-model="order.store_id" clearable filterable class="w-100"
                                     placeholder="Chọn cửa hàng" @change="onStoreChange($event)">
                                     <el-option v-for="item in stores" :key="item.name" :label="item.store_name"
@@ -124,8 +216,8 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Tên khách hàng</strong> <span class="text-danger">(*)</span></label>
-                            <ValidationProvider vid="name" name="Tên khách hàng" rules="required" v-slot="{ errors }">
+                            <label><strong>Tên khách hàng</strong> <span v-if="!isDraftMode" class="text-danger">(*)</span></label>
+                            <ValidationProvider vid="name" name="Tên khách hàng" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
                                 <el-input placeholder="Tên khách hàng" v-model="order.customer_name"></el-input>
                                 <error-message :errors="errors" field="name"></error-message>
                             </ValidationProvider>
@@ -133,8 +225,8 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>SĐT</strong> <span class="text-danger">(*)</span></label>
-                            <ValidationProvider vid="phone" name="Số điện thoại khách hàng" rules="required|numeric"
+                            <label><strong>SĐT</strong> <span class="text-danger" v-if="!isDraftMode">(*)</span></label>
+                            <ValidationProvider vid="phone" name="Số điện thoại khách hàng" :rules="isDraftMode ? 'phone_format' : 'required|phone_format'"
                                 v-slot="{ errors }">
                                 <el-input clearable placeholder="SĐT khách hàng" v-model="order.customer_phone"
                                     @blur="onBlurCardId($event, errors)" @change="onChangeCardId($event)"
@@ -146,8 +238,8 @@
 
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Số CMTND/CCCD</strong> <span class="text-danger">(*)</span></label>
-                            <ValidationProvider vid="cccd" name="Số CMTND/CCCD" rules="required|numeric"
+                            <label><strong>Số CMTND/CCCD</strong> <span class="text-danger" v-if="!isDraftMode">(*)</span></label>
+                            <ValidationProvider vid="cccd" name="Số CMTND/CCCD" :rules="isDraftMode ? 'cccd_format' : 'required|cccd_format'"
                                 v-slot="{ errors }">
                                 <el-input clearable placeholder="Số CMTND/CCCD" v-model="order.customer_id_card"
                                     @blur="onBlurCardId($event, errors)" @change="onChangeCardId($event)"
@@ -198,7 +290,10 @@
                                     <el-input size="small" placeholder="Mối quan hệ (bố, mẹ, vợ, chồng...)" v-model="order.relatives[0].relationship"></el-input>
                                 </div>
                                 <div class="col-md-4">
-                                    <el-input size="small" placeholder="SĐT người thân 1" v-model="order.relatives[0].phone"></el-input>
+                                    <ValidationProvider vid="relative_phone_0" name="SĐT người thân 1" rules="phone_format" v-slot="{ errors }">
+                                        <el-input size="small" placeholder="SĐT người thân 1" v-model="order.relatives[0].phone"></el-input>
+                                        <error-message :errors="errors" field="relative_phone_0"></error-message>
+                                    </ValidationProvider>
                                 </div>
                             </div>
                             <div class="d-flex align-items-center my-2 text-muted font-weight-bold" style="font-size: 12px;" v-if="order.relatives.length > 1">
@@ -212,7 +307,10 @@
                                     <el-input size="small" placeholder="Mối quan hệ" v-model="order.relatives[1].relationship"></el-input>
                                 </div>
                                 <div class="col-md-4">
-                                    <el-input size="small" placeholder="SĐT người thân 2" v-model="order.relatives[1].phone"></el-input>
+                                    <ValidationProvider vid="relative_phone_1" name="SĐT người thân 2" rules="phone_format" v-slot="{ errors }">
+                                        <el-input size="small" placeholder="SĐT người thân 2" v-model="order.relatives[1].phone"></el-input>
+                                        <error-message :errors="errors" field="relative_phone_1"></error-message>
+                                    </ValidationProvider>
                                 </div>
                             </div>
                         </div>
@@ -234,13 +332,9 @@
                     :closable="false">
                 </el-alert>
 
-                <div v-show="!warningTemp">
-                    <el-divider></el-divider>
+					</el-tab-pane>
 
-                    <div class="d-flex justify-content-center mb-6">
-                        <h2 class="font-weight-bold">Thông tin phương tiện</h2>
-                    </div>
-
+					<el-tab-pane label="Thông tin phương tiện" name="vehicle" :disabled="!!warningTemp">
                     <div class="mb-3 d-flex flex-grow-1 align-items-center p-2 rounded">
                         <div class="mr-4 flex-shrink-0">
                             <button :style="{
@@ -253,6 +347,7 @@
                     <div v-if="order.order_items" v-for="(item, key) in order.order_items" :key="key">
                         <items-order :priceVehicles="priceVehicles" :order_item="item" :banks="banks"
 							:is_deposit_contract_mode="is_deposit_contract_mode"
+							:is_draft_mode="isDraftMode"
                             :ref="'itemOrder-' + key" :vehicles="vehicles" :index="key" :order_id="id"
                             :customer_name="order.customer_name"
                             @deleteFee="deleteFee" @deleteVehicle="deleteVehicle" @changeRentAt="changeRentAt" @addFee="addFee" @feeChanged="feeChanged"
@@ -271,10 +366,9 @@
 							@item_hiring_fee_changed="item_hiring_fee_changed">
                         </items-order>
                     </div>
-                    <div class="d-flex justify-content-center mb-6 mt-6 mb-10">
-                        <h2 class="font-weight-bold">Chi phí</h2>
-                    </div>
+					</el-tab-pane>
 
+					<el-tab-pane label="Chi phí" name="payment" :disabled="!!warningTemp">
 					<div class="row">
 						<div class="col-md-9 left-column">
 
@@ -344,7 +438,7 @@
 											<div class="form-group col-md-3">
 									<label for="paid"><strong>Tổng phí thuê xe</strong></label>
 									<ValidationProvider name="Tổng phí thuê xe" rules="min_value:0" mode="lazy" v-slot="{ errors }" vid="amount">
-										<money id="paid" :value="totalFeeAllOrderItems" v-bind="money" class="form-control" disabled></money>
+										<money id="paid" v-model="totalFeeAllOrderItems" @input="onManualRentalFeeInput" v-bind="money" class="form-control"></money>
 										<error-message :errors="errors" field="amount"></error-message>
 									</ValidationProvider>
 								</div>
@@ -409,14 +503,33 @@
 							</div>
 						</div>
 					</div>
-					
+					</el-tab-pane>
+
+					<el-tab-pane label="Ký kết & Ghi chú" name="signing" :disabled="!!warningTemp">
                     <!-- Thông tin ký kết & Tài sản thế chấp theo hợp đồng Himoto -->
                     <div class="row">
                         <div class="col-md-12 form-group">
                             <label for="contract_collateral"><strong>Tài sản thế chấp / Đặt cọc tài sản</strong></label>
+                            <div class="mb-2">
+                                <el-select
+                                    v-model="selectedCollateralTypes"
+                                    multiple
+                                    filterable
+                                    class="w-100"
+                                    placeholder="Chọn tài sản đặt cọc: CCCD, BLX, Hộ Chiếu, Xe máy, Laptop, Khác..."
+                                    @change="onCollateralTypeSelectChange"
+                                >
+                                    <el-option label="CCCD (Căn cước công dân gốc)" value="CCCD"></el-option>
+                                    <el-option label="BLX (Bằng lái xe)" value="BLX"></el-option>
+                                    <el-option label="Hộ Chiếu (Hộ chiếu gốc)" value="Hộ Chiếu"></el-option>
+                                    <el-option label="Xe máy (Xe máy & Đăng ký xe)" value="Xe máy"></el-option>
+                                    <el-option label="Laptop (Laptop)" value="Laptop"></el-option>
+                                    <el-option label="Khác (tự điền chi tiết)" value="Khác"></el-option>
+                                </el-select>
+                            </div>
                             <el-input
                                 class="w-100"
-                                placeholder="VD: 01 Đăng ký xe mô tô BKS 29X1-..., 01 CCCD gốc, v.v."
+                                placeholder="Chi tiết tài sản cọc (VD: 01 Đăng ký xe BKS 29X1-..., CCCD gốc, Laptop Dell...)"
                                 id="contract_collateral"
                                 type="textarea"
                                 :rows="2"
@@ -425,14 +538,7 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-6 form-group">
-                            <label><strong>Người đại diện ký Bên A (Himoto)</strong></label>
-                            <el-input
-                                placeholder="Tên nhân viên đại diện Bên A"
-                                v-model="order.contract_signer_a_name">
-                            </el-input>
-                        </div>
-                        <div class="col-md-6 form-group">
+                        <div class="col-md-12 form-group">
                             <label><strong>Người ký Bên B (Khách thuê)</strong></label>
                             <el-input
                                 placeholder="Họ tên người thuê ký hợp đồng"
@@ -491,24 +597,29 @@
 						<label for="bad-debt">Nợ xấu</label>
 					</div>
 
+					</el-tab-pane>
+				</el-tabs>
+
 					<div class="update-order-buttons card-toolbar mt-3 d-flex justify-content-center"
 						v-if="parent !== 'vehicle-revenue'">
 						<ModalComplete v-if="id && order.order_status == 'renting' && !editing_item_fee" :order="order" :banks="banks" :bank_outs="bank_outs" :debt="debt"
 							@addOnSuccess="addOnSuccess" @calc_before_order_complete="calc_before_order_complete">
 						</ModalComplete>
 
-						<button type="button" class="btn btn-sm btn-outline-primary mr-2 font-weight-bold" :disabled="previewLoading" @click="onPreviewContract">
+						<button v-if="initialMode !== 'handover'" type="button" class="btn btn-sm btn-outline-primary mr-2 font-weight-bold" :disabled="previewLoading" @click="onPreviewContract">
 							<span v-if="previewLoading">Đang chuẩn bị...</span>
 							<span v-else>In bản nháp / Xem trước</span>
 						</button>
-						<el-button v-if="!id || order.order_status === 'draft'" type="button" class="btn btn-sm btn-outline-success mr-2"
+						<el-button v-if="initialMode !== 'handover' && (!id || order.order_status === 'draft')" type="button" class="btn btn-sm btn-outline-success mr-2"
 							:loading="loading" @click="saveDraft">
 							Lưu bản nháp giao xe
 						</el-button>
 
 						<el-button v-if="!id" native-type="submit" class="btn btn-sm btn-success mr-2"
 							style="color: #fff" :loading="loading">
-							Lưu hợp đồng
+							<span v-if="initialMode === 'handover'">Lưu & In biên bản bàn giao</span>
+							<span v-else-if="initialMode === 'draft'">Lưu bản nháp giao xe</span>
+							<span v-else>Lưu hợp đồng</span>
 						</el-button>
 						<el-button v-if="
 							id &&
@@ -530,7 +641,6 @@
 						<ModalCloseDeposit v-if="id && order && order.order_status == 'deposit_contract'" :order_id="id" @onSuccess="onCloseDepositOrderSuccess"></ModalCloseDeposit>
 
 					</div>
-                </div>
             </form>
         </ValidationObserver>
 
@@ -552,6 +662,7 @@ import {
 } from "@/core/services/store/vehicle.module";
 import moment from "moment";
 import { mapGetters } from "vuex";
+import ApiService from "@/core/services/api.service";
 import {
     SHOW_ORDER_CAR_RENTAL,
     UPDATE_ORDER_CAR_RENTAL,
@@ -601,12 +712,19 @@ export default {
                 return 0;
             },
         },
+        initialMode: {
+            type: String,
+            default: () => {
+                return "standard";
+            },
+        },
     },
 
     data() {
         return {
             HOAN_THANH: HOAN_THANH,
-            loadingLock: false,
+			loadingLock: false,
+            activeContractTab: "contract",
             showPreviewModal: false,
             previewDocumentDto: null,
             previewLoading: false,
@@ -618,10 +736,17 @@ export default {
             otherFeeAllOrderItems: 0,
             totalFeeAllOrderItems: 0,
             customerSearchSeq: 0,
+            selectedCollateralTypes: [],
 
             order: {
 				created_at: new Date(),
                 contract_number: "",
+                order_mode: this.initialMode,
+                guardian_name: "",
+                guardian_phone: "",
+                guardian_id_card: "",
+                manual_contract_number: "",
+                draft_reference: "",
                 contract_signed_on: new Date(),
                 is_authorized_contract: false,
                 contract_authorization_date: null,
@@ -725,6 +850,12 @@ export default {
     },
     computed: {
         ...mapGetters(["currentUser"]),
+        isDraftMode() {
+            return ['draft', 'handover'].includes(this.initialMode) || (this.order && this.order.order_status === 'draft');
+        },
+        isHandoverMode() {
+            return this.initialMode === 'handover' || (this.order && this.order.order_mode === 'handover');
+        },
 		is_deposit_contract_mode() {
 			if (this.start_this_contract) {
 				return false; // Nếu người dùng chọn start_this_contract=true thì sẽ cần show các normal fields.
@@ -947,6 +1078,9 @@ export default {
 
     },
     watch: {
+        initialMode(mode) {
+            if (!this.id) this.order.order_mode = mode;
+        },
         "order.order_items": {
             handler: "watchOrderItems",
             deep: true,
@@ -990,7 +1124,8 @@ export default {
     },
     methods: {
 		async onPreviewContract() {
-			if (!this.order.customer_name || !this.order.customer_id_card) {
+			const paperDraft = this.isDraftMode || this.order.order_status === 'draft';
+			if (!paperDraft && (!this.order.customer_name || !this.order.customer_id_card)) {
 				Swal.fire({
 					title: "Thiếu thông tin khách hàng",
 					text: "Vui lòng nhập họ tên và số CCCD của khách thuê trước khi xem trước hợp đồng.",
@@ -1001,7 +1136,7 @@ export default {
 				if (customerEl) customerEl.focus();
 				return;
 			}
-			if (!this.order.order_items || this.order.order_items.length === 0 || !this.order.order_items[0].vehicle_id) {
+			if (!paperDraft && (!this.order.order_items || this.order.order_items.length === 0 || !this.order.order_items[0].vehicle_id)) {
 				Swal.fire({
 					title: "Chưa chọn xe thuê",
 					text: "Vui lòng chọn ít nhất 1 xe thuê để xem trước hợp đồng.",
@@ -1015,6 +1150,9 @@ export default {
 			try {
 				const payload = {
 					...this.order,
+					contract_number: this.order.contract_number || this.order.manual_contract_number || "",
+					manual_contract_number: (this.order.manual_contract_number || "").trim(),
+					draft_reference: this.order.draft_reference || this.order.manual_contract_number || "",
 					customer_name: this.order.customer_name,
 					customer_phone: this.order.customer_phone,
 					customer_id_card: this.order.customer_id_card,
@@ -1221,6 +1359,8 @@ export default {
 			let totalFees = parseInt(this.hiringFeeAllItems) + parseInt(this.otherFeeAllOrderItems);
 			if (this.order.custom_refund_amount != null) { // Case contract custom_refund_amount is set.
 				totalFees = parseInt(this.order.total);
+			} else if (this.order.custom_total_rental_fees != null && this.order.custom_total_rental_fees > 0) {
+				totalFees = parseInt(this.order.custom_total_rental_fees);
 			}
 
             this.totalFeeAllOrderItems = totalFees;
@@ -1233,6 +1373,40 @@ export default {
                     (accu, fee) => accu + fee.value,
                     0,
                 );
+            }
+        },
+        onManualRentalFeeInput(val) {
+            const numericVal = parseInt(val) || 0;
+            this.totalFeeAllOrderItems = numericVal;
+            this.order.custom_total_rental_fees = numericVal;
+            if (this.order.order_items && this.order.order_items.length === 1) {
+                this.order.order_items[0].custom_hiring_fee = numericVal;
+                this.order.order_items[0].hiringFee = numericVal;
+            }
+            this.$set(this.order, "total", numericVal);
+            this.$set(this.order, "total_rental_fees", numericVal);
+        },
+        onCollateralTypeSelectChange(types) {
+            const labelsMap = {
+                'CCCD': '01 CCCD gốc',
+                'BLX': '01 Bằng lái xe',
+                'Hộ Chiếu': '01 Hộ chiếu',
+                'Xe máy': '01 Xe máy kèm ĐK',
+                'Laptop': '01 Laptop',
+            };
+            const standardItems = (types || []).filter(t => t !== 'Khác').map(t => labelsMap[t] || t);
+            let current = (this.order.contract_collateral_description || '').trim();
+            if (standardItems.length > 0) {
+                if (!current || Object.values(labelsMap).some(l => current.includes(l))) {
+                    this.order.contract_collateral_description = standardItems.join(', ');
+                } else {
+                    standardItems.forEach(item => {
+                        if (!current.includes(item)) {
+                            current += (current ? ', ' : '') + item;
+                        }
+                    });
+                    this.order.contract_collateral_description = current;
+                }
             }
         },
         addOnSuccess() {
@@ -1296,17 +1470,39 @@ export default {
 			try {
 				const res = await this.$store.dispatch(USER_GET_STAFF_BY_STORE, { store_id: storeId });
 				this.staffByStore = res?.data || [];
-				if (!this.order.contract_responsible_user_id && this.currentUser?.id) {
-					this.order.contract_responsible_user_id = this.currentUser.id;
-					this.order.contract_signer_a_name = this.order.contract_signer_a_name || this.currentUser.name;
+				if (!this.order.contract_signer_a_name) {
+					if (this.order.contract_responsible_user_id) {
+						const staff = this.staffByStore.find(item => Number(item.id) === Number(this.order.contract_responsible_user_id));
+						if (staff) this.order.contract_signer_a_name = staff.name;
+					} else if (this.currentUser?.id) {
+						this.order.contract_responsible_user_id = this.currentUser.id;
+						this.order.contract_signer_a_name = this.currentUser.name;
+					}
 				}
 			} catch (_) {
 				this.staffByStore = [];
 			}
 		},
+		onSignerASelectChange(val) {
+			if (!val) {
+				this.order.contract_signer_a_name = "";
+				this.order.contract_responsible_user_id = null;
+				return;
+			}
+			const staff = this.staffByStore.find(item => item.name === val || String(item.id) === String(val));
+			if (staff) {
+				this.order.contract_signer_a_name = staff.name;
+				this.order.contract_responsible_user_id = staff.id;
+			} else {
+				this.order.contract_signer_a_name = val;
+			}
+		},
 		onResponsibleStaffChange(userId) {
 			const staff = this.staffByStore.find(item => Number(item.id) === Number(userId));
-			if (staff) this.order.contract_signer_a_name = staff.name;
+			if (staff) {
+				this.order.contract_signer_a_name = staff.name;
+				this.order.contract_responsible_user_id = staff.id;
+			}
 		},
 
         deleteFee(id) {
@@ -1340,6 +1536,12 @@ export default {
                         ...this.order,
                         ...res.data,
                         contract_number: res.data.contract_number || "",
+                        manual_contract_number: res.data.contract_number || res.data.draft_reference || "",
+                        draft_reference: res.data.draft_reference || "",
+                        order_mode: res.data.order_mode || (res.data.order_status === 'draft' ? 'draft' : 'standard'),
+                        guardian_name: res.data.guardian_name || "",
+                        guardian_phone: res.data.guardian_phone || "",
+                        guardian_id_card: res.data.guardian_id_card || "",
                         contract_is_locked: !!(res.data.contract_is_locked || (res.data.contract_snapshot && res.data.contract_snapshot.is_locked)),
                         contract_snapshot: res.data.contract_snapshot || null,
                         contract_signed_on: res.data.contract_signed_on || res.data.created_at || new Date(),
@@ -1359,7 +1561,8 @@ export default {
                         customer_id_card_issued_by: res.data.customer?.id_card_issued_by || "",
                         customer_address: res.data.customer?.address || "",
                         relatives: relatives,
-                        order_items: res.data.order_items.map((item) => ({
+                        order_items: (res.data.order_status === 'draft' && res.data.draft_payload?.order_items?.length
+                            ? res.data.draft_payload.order_items : res.data.order_items).map((item) => ({
                             ...item,
                             driver_name: item.driver_name || "",
                             driver_license_number: item.driver_license_number || "",
@@ -1383,6 +1586,15 @@ export default {
                     this.getBankByStoreId(this.order.store_id);
                     this.getBankOutByStoreId(this.order.store_id);
 					this.getStaffByStore(this.order.store_id);
+
+                    const desc = res.data.contract_collateral_description || "";
+                    const detectedTypes = [];
+                    if (desc.includes("CCCD")) detectedTypes.push("CCCD");
+                    if (desc.includes("BLX") || desc.includes("Bằng lái")) detectedTypes.push("BLX");
+                    if (desc.includes("Hộ chiếu") || desc.includes("Hộ Chiếu")) detectedTypes.push("Hộ Chiếu");
+                    if (desc.includes("Xe máy")) detectedTypes.push("Xe máy");
+                    if (desc.includes("Laptop")) detectedTypes.push("Laptop");
+                    this.selectedCollateralTypes = detectedTypes;
                 })
                 .finally(() => (this.loadingComponent = false));
         },
@@ -1566,6 +1778,10 @@ export default {
 
             this.order = {
                 store_id: "",
+                order_mode: this.initialMode,
+                guardian_name: "",
+                guardian_phone: "",
+                guardian_id_card: "",
                 customer_name: "",
                 customer_phone: "",
                 customer_id_card: "",
@@ -1577,6 +1793,8 @@ export default {
                     { name: "", relationship: "", phone: "" },
                 ],
                 contract_number: "",
+                manual_contract_number: "",
+                draft_reference: "",
                 contract_signed_on: new Date(),
                 is_authorized_contract: false,
                 contract_authorization_date: null,
@@ -1613,8 +1831,8 @@ export default {
 
                 type: item.is_all_in_one ? 'total' : 'day',
                 total_money: item.hiringFee,
-                rent_at: moment(item.rent_at).format('DD-MM-YYYY HH:mm:ss'),
-                return_at: moment(item.return_at).format('DD-MM-YYYY HH:mm:ss'),
+				rent_at: item.rent_at ? moment(item.rent_at).format('DD-MM-YYYY HH:mm:ss') : null,
+				return_at: item.return_at ? moment(item.return_at).format('DD-MM-YYYY HH:mm:ss') : null,
 				custom_total_money: item.custom_hiring_fee,
                 driver_name: item.driver_name || "",
                 driver_license_number: item.driver_license_number || "",
@@ -1636,6 +1854,8 @@ export default {
 
             return {
                 ...this.order,
+                order_mode: this.id ? (this.order.order_mode || this.initialMode) : this.initialMode,
+                manual_contract_number: (this.order.manual_contract_number || "").trim(),
                 contract_signed_on: this.order.contract_signed_on ? moment(this.order.contract_signed_on).format('YYYY-MM-DD') : null,
                 contract_authorization_date: (this.order.is_authorized_contract && this.order.contract_authorization_date) ? moment(this.order.contract_authorization_date).format('YYYY-MM-DD') : null,
                 contract_authorization_party_name: this.order.is_authorized_contract ? (this.order.contract_authorization_party_name || "") : "",
@@ -1650,10 +1870,11 @@ export default {
             };
         },
         handleFormSubmit() {
+            const saveAsDraft = !this.id && ['draft', 'handover'].includes(this.initialMode);
             if (this.id) {
                 this.onSubmit();
             } else {
-                this.onSubmitCreate();
+                this.onSubmitCreate(saveAsDraft);
             }
         },
 
@@ -1698,24 +1919,42 @@ export default {
 
         onSubmitCreate(saveAsDraft = false) {
             this.loading = true;
+            const effectiveSaveAsDraft = saveAsDraft || ['draft', 'handover'].includes(this.initialMode);
+            const handoverTab = this.initialMode === 'handover' ? window.open('', '_blank') : null;
+            let handoverOpened = false;
             let params = this.prepareRequestParams();
-			params.save_as_draft = saveAsDraft;
+			params.save_as_draft = effectiveSaveAsDraft;
 			if (params.created_at) {
 				params.created_at = moment(this.order.created_at).format('DD-MM-YYYY HH:mm:ss');
 			}
 
             this.$store
                 .dispatch(CREATE_ORDER_CAR_RENTAL, params)
-                .then((res) => {
+				.then(async (res) => {
+					const createdId = Number(res?.data?.id || res?.id || 0);
+					if (this.initialMode === 'handover' && createdId) {
+						try {
+							await this.openHandoverDocument(createdId, handoverTab);
+							handoverOpened = true;
+						} catch (error) {
+							if (handoverTab) handoverTab.close();
+							this.noticeMessage("error", "Đã lưu bản nháp nhưng không mở được biên bản bàn giao", error?.data?.message || error?.message);
+						}
+					} else if (this.initialMode === 'handover' && handoverTab) {
+						handoverTab.close();
+					}
                     this.$emit("createSuccess");
                     this.resetForm();
                     this.noticeMessage(
                         "success",
-						saveAsDraft ? "Đã lưu bản nháp giao xe" : "Tạo hợp đồng thành công",
+						this.initialMode === 'handover'
+							? (handoverOpened ? "Đã lưu và mở biên bản bàn giao" : "Đã lưu bản nháp bàn giao")
+							: (effectiveSaveAsDraft ? "Đã lưu bản nháp giao xe" : "Tạo hợp đồng thành công"),
                         res.data?.message,
                     );
                 })
-                .catch((err) => {
+				.catch((err) => {
+					if (handoverTab) handoverTab.close();
                     this.noticeMessage("error", "Không tạo được hợp đồng", err.data?.message);
                 })
                 .finally(() => (this.loading = false));
@@ -1723,6 +1962,13 @@ export default {
 		saveDraft() {
 			if (this.id) this.onSubmit(true);
 			else this.onSubmitCreate(true);
+		},
+		async openHandoverDocument(orderId, targetTab = null) {
+			const response = await ApiService.download(`/api/auth/order/car-rental/${orderId}/handover`);
+			const url = window.URL.createObjectURL(new Blob([response.data], { type: "text/html;charset=utf-8" }));
+			if (targetTab) targetTab.location.href = url;
+			else window.open(url, "_blank");
+			setTimeout(() => window.URL.revokeObjectURL(url), 60000);
 		},
 
         onBlurCardId(event, errors) {
@@ -1960,5 +2206,32 @@ export default {
 .bad-debt-checkbox input[type="checkbox"]:disabled {
     color: #aaa;
     cursor: not-allowed;
+}
+
+.contract-form-tabs.el-tabs--border-card {
+    box-shadow: none;
+    border: 1px solid #e4e6ef;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.contract-form-tabs .el-tabs__header {
+    background: #f5f8fa;
+    margin: 0;
+}
+
+.contract-form-tabs .el-tabs__item {
+    height: 44px;
+    line-height: 44px;
+    font-weight: 600;
+    color: #5e6278;
+}
+
+.contract-form-tabs .el-tabs__item.is-active {
+    color: #009ef7;
+}
+
+.contract-form-tabs .el-tabs__content {
+    padding: 16px 16px 8px;
 }
 </style>

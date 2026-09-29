@@ -16,6 +16,8 @@ class OrderListResource extends JsonResource
         return [
             'id' => $this->id,
             'contract_number' => $this->contract_number ?: data_get($this->contract_snapshot, 'contract_number'),
+            'draft_reference' => $this->draft_reference,
+            'order_mode' => $this->order_mode,
             'created_at' => $this->created_at ? $this->created_at->format('d-m-Y H:i:s') : '',
             'customer_name' => $this->customer ? $this->customer->name : '',
             'customer_phone' => $this->customer ? $this->customer->phone : '',

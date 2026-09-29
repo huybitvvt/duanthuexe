@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Transaction;
+use App\Models\SepayWebhookEvent;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use App\Http\Services\TransactionService;
 use Illuminate\Support\Facades\DB;
 use App\Helpers\DateTimeHelper;
@@ -65,6 +68,7 @@ class ReceiptController extends Controller
 
             $tran = Transaction::find($id);  
             if ($tran !== null) {
+                $this->ensureNotSepay($tran);
                 $tran->update($data);
             } else {
                 $data['name'] = 'receipt';
@@ -131,6 +135,7 @@ class ReceiptController extends Controller
     public function destroy(Transaction $transaction): JsonResponse
     {
       
+        $this->ensureNotSepay($transaction);
         try {
             DB::beginTransaction();
             $transaction->delete();
@@ -139,6 +144,15 @@ class ReceiptController extends Controller
         } catch (\Exception $exception) {
             DB::rollBack();
             return $this->errorResponse($exception->getMessage(), 422);
+        }
+    }
+
+    private function ensureNotSepay(Transaction $transaction): void
+    {
+        if (Schema::hasTable('sepay_webhook_events')
+            && SepayWebhookEvent::where('transaction_id', $transaction->id)
+                ->orWhere('excess_transaction_id', $transaction->id)->exists()) {
+            throw ValidationException::withMessages(['transaction' => 'Phiếu thu SePay không thể sửa hoặc xóa thủ công.']);
         }
     }
 }

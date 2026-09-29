@@ -9,16 +9,97 @@
   >
     <div v-loading="loading">
       <!-- Thông tin hợp đồng & khách hàng -->
-      <div v-if="contract" class="alert alert-custom alert-light-danger p-3 mb-3">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-          <span class="font-weight-bold font-size-h6 text-danger">HĐ: {{ contract.contract_code }}</span>
-          <span class="badge badge-danger">Quá hạn: {{ contract.overdue_days || 0 }} ngày</span>
-        </div>
-        <div class="text-dark font-size-sm">
-          <div><strong>Khách hàng:</strong> {{ contract.customer?.name }} | <strong>SĐT:</strong> <a :href="'tel:' + contract.customer?.phone" class="text-primary font-weight-bold">{{ contract.customer?.phone }}</a></div>
-          <div><strong>Xe bàn giao:</strong> {{ contract.vehicle?.license }} - {{ contract.vehicle?.name }}</div>
-          <div><strong>Tổng dư nợ còn lại:</strong> <span class="text-danger font-weight-bold">{{ contract.remaining_debt | formatPrice }}</span></div>
-        </div>
+      <div v-if="contract" class="debt-summary-card mb-3">
+        <table class="debt-summary-table">
+          <tbody>
+            <tr>
+              <th scope="row">HĐ</th>
+              <td>
+                <div class="summary-contract">
+                  <strong>{{ contract.contract_code }}</strong>
+                  <span class="badge badge-danger">Quá hạn: {{ contract.overdue_days || 0 }} ngày</span>
+                </div>
+              </td>
+              <th scope="row">Khách hàng</th>
+              <td>
+                <strong class="d-block">{{ (contract.customer && contract.customer.name) || contract.customer_name || 'Khách hàng' }}</strong>
+                <div class="summary-phone">
+                  <a :href="'tel:' + ((contract.customer && contract.customer.phone) || contract.customer_phone)" class="text-primary font-weight-bold">
+                    {{ (contract.customer && contract.customer.phone) || contract.customer_phone || 'Chưa có SĐT' }}
+                  </a>
+                  <button
+                    v-if="(contract.customer && contract.customer.phone) || contract.customer_phone"
+                    type="button"
+                    class="btn btn-xs btn-icon btn-light-primary"
+                    title="Copy SĐT khách"
+                    @click="copyText((contract.customer && contract.customer.phone) || contract.customer_phone)"
+                  >
+                    <i class="flaticon2-copy font-size-xs"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Xe</th>
+              <td>
+                <span class="badge badge-light-dark font-weight-bolder">{{ (contract.vehicle && contract.vehicle.license) || contract.plate_number || 'Chưa gán' }}</span>
+                <span class="ml-1">{{ (contract.vehicle && contract.vehicle.name) || contract.vehicle_type || 'Xe máy' }}</span>
+              </td>
+              <th scope="row">Tổng dư nợ</th>
+              <td class="summary-outstanding">{{ currentOutstanding | formatPrice }}</td>
+            </tr>
+            <tr>
+              <th scope="row">Người thân</th>
+              <td colspan="3" class="relative-cell">
+                <div class="relative-heading" @click="showRelatives = !showRelatives">
+                  <div>
+                    <strong>Thông tin người thân</strong>
+                    <span class="badge badge-primary ml-1">{{ relativesList.length }} người thân</span>
+                    <span class="relative-helper">Tên, quan hệ và SĐT để nhắc nợ hoặc gọi khi xe gặp sự cố</span>
+                  </div>
+                  <button type="button" class="btn btn-xs btn-outline-primary font-weight-bold">
+                    {{ showRelatives ? 'Thu gọn' : 'Xem chi tiết' }}
+                  </button>
+                </div>
+
+                <div v-if="showRelatives" class="relative-list">
+                  <div v-if="relativesList.length === 0" class="empty-relative">
+                    Chưa lưu thông tin người thân trong hồ sơ khách hàng này.
+                  </div>
+                  <table v-else class="relatives-table">
+                    <thead>
+                      <tr>
+                        <th>Họ tên</th>
+                        <th>Quan hệ</th>
+                        <th>Số điện thoại</th>
+                        <th class="text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(rel, idx) in relativesList" :key="idx">
+                        <td><span class="badge badge-light-primary mr-1">#{{ idx + 1 }}</span>{{ rel.name || '(Chưa nhập tên)' }}</td>
+                        <td>{{ rel.relationship || '—' }}</td>
+                        <td class="font-weight-bold text-primary">{{ rel.phone || 'N/A' }}</td>
+                        <td class="text-right">
+                          <button
+                            v-if="rel.phone"
+                            type="button"
+                            class="btn btn-xs btn-icon btn-light-primary mr-1"
+                            title="Copy SĐT"
+                            @click="copyText(rel.phone)"
+                          >
+                            <i class="flaticon2-copy font-size-xs"></i>
+                          </button>
+                          <a v-if="rel.phone" :href="'tel:' + rel.phone" class="btn btn-xs btn-outline-success font-weight-bold">Gọi</a>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Form thêm ghi chú mới -->
@@ -33,15 +114,70 @@
         <div class="card-body p-3">
           <div class="row">
             <div class="col-md-6 form-group">
-              <label class="font-weight-bold">Kết quả liên hệ <span class="text-danger">*</span></label>
-              <el-select v-model="form.call_status" class="w-100" placeholder="Chọn trạng thái">
-                <el-option label="Đã nghe máy - Đồng ý thanh toán" value="connected" />
-                <el-option label="Khách hẹn ngày thanh toán" value="promise" />
-                <el-option label="Không nghe máy / Thuê bao" value="no_answer" />
-                <el-option label="Máy bận / Gọi lại sau" value="busy" />
-                <el-option label="Khiếu nại / Khó đòi" value="dispute" />
-                <el-option label="Khác" value="other" />
+              <label class="font-weight-bold">Hành động đôn đốc <span class="text-danger">*</span></label>
+              <el-select v-model="form.call_status" class="w-100" placeholder="Chọn hành động" @change="handleActionChange">
+                <el-option label="Đã liên hệ" value="contacted" />
+                <el-option label="Hứa thanh toán" value="promise" />
+                <el-option label="Ko nghe máy" value="no_answer" />
+                <el-option label="Mất liên lạc" value="lost_contact" />
+                <el-option label="Không hợp tác" value="uncooperative" />
+                <el-option label="Đã thanh toán" value="paid" />
+                <el-option label="Cần thu hồi xe" value="recall_vehicle" />
+                <el-option label="Cần check xe" value="check_vehicle" />
+                <el-option label="Đi thu tiền" value="collect_money" />
               </el-select>
+            </div>
+            <div class="col-md-6 form-group">
+              <label class="font-weight-bold">
+                Số tiền đã thanh toán hôm nay (VNĐ)
+                <span class="text-muted font-weight-normal font-size-xs">(nếu khách trả tiền)</span>
+              </label>
+              <el-input-number
+                v-model="form.paid_today"
+                :min="0"
+                :step="100000"
+                class="w-100"
+                placeholder="Nhập số tiền đã thanh toán..."
+                controls-position="right"
+                @change="handlePaidAmountChange"
+              />
+              <div class="d-flex flex-wrap mt-1" style="gap: 4px;">
+                <button
+                  v-if="currentOutstanding > 0"
+                  type="button"
+                  class="btn btn-xs btn-light-success py-0 px-2 font-weight-bold"
+                  @click="setQuickAmount(currentOutstanding)"
+                >
+                  Trả hết ({{ currentOutstanding | formatPrice }})
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-light py-0 px-2"
+                  @click="setQuickAmount(500000)"
+                >
+                  500k
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-light py-0 px-2"
+                  @click="setQuickAmount(1000000)"
+                >
+                  1 triệu
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-xs btn-light py-0 px-2"
+                  @click="setQuickAmount(2000000)"
+                >
+                  2 triệu
+                </button>
+              </div>
+              <div v-if="form.paid_today > 0" class="mt-1 font-size-xs">
+                <span class="text-success font-weight-bold">✓ Đã nhận: {{ form.paid_today | formatPrice }}</span>
+                <span v-if="remainingAfterPay >= 0" class="text-muted ml-2">
+                  (Dư nợ còn lại: <strong class="text-danger">{{ remainingAfterPay | formatPrice }}</strong>)
+                </span>
+              </div>
             </div>
             <div class="col-md-6 form-group">
               <label class="font-weight-bold">Ngày hẹn thanh toán (nếu có)</label>
@@ -54,7 +190,7 @@
                 class="w-100"
               />
             </div>
-            <div class="col-12 form-group">
+            <div class="col-md-6 form-group">
               <label class="font-weight-bold">Phân loại công nợ</label>
               <el-select v-model="form.debt_classification" class="w-100">
                 <el-option label="Bình thường" value="normal" />
@@ -69,11 +205,20 @@
                 type="textarea"
                 :rows="2"
                 v-model="form.notes"
-                placeholder="Khách hứa chuyển khoản trước 17h, lý do chậm trễ, yêu cầu hỗ trợ..."
+                placeholder="Khách hẹn mấy giờ, lý do chậm trễ, yêu cầu hỗ trợ, thỏa thuận thanh toán..."
               />
             </div>
           </div>
-          <div class="text-right mt-3">
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <button
+              v-if="form.paid_today > 0 || form.call_status === 'paid'"
+              type="button"
+              class="btn btn-sm btn-outline-success font-weight-bold"
+              @click="forwardToPayment"
+            >
+              Chuyển sang lập phiếu thu tiền
+            </button>
+            <span v-else></span>
             <button
               type="button"
               class="btn btn-sm btn-primary font-weight-bold"
@@ -96,33 +241,33 @@
           </div>
         </div>
         <div class="card-body p-3" style="max-height: 250px; overflow-y: auto;">
-          <div v-if="!contract || !contract.debt_notes || contract.debt_notes.length === 0" class="text-center text-muted py-3">
+          <div v-if="!contract || (!contract.debt_notes || !contract.debt_notes.length) && (!contract.contact_logs || !contract.contact_logs.length)" class="text-center text-muted py-3">
             Chưa có ghi chú đôn đốc nào cho hợp đồng này.
           </div>
           <div v-else class="timeline timeline-3">
             <div
-              v-for="item in contract.debt_notes"
+              v-for="item in ((contract.debt_notes && contract.debt_notes.length) ? contract.debt_notes : (contract.contact_logs || []))"
               :key="item.id"
               class="timeline-item d-flex align-items-start mb-3 pb-2 border-bottom"
             >
               <div class="timeline-badge mr-3">
-                <span :class="getStatusBadgeClass(item.call_status)" class="badge px-2 py-1 font-weight-bold">
-                  {{ item.call_status }}
+                <span class="badge badge-light-primary px-2 py-1 font-weight-bold">
+                  {{ item.action ? getStatusLabel(item.action) : 'Nhắc nợ' }}
                 </span>
               </div>
               <div class="timeline-content flex-grow-1">
                 <div class="d-flex justify-content-between align-items-center">
-                  <span class="font-weight-bold text-dark">{{ item.debt_classification }}</span>
-                  <span class="text-muted font-size-xs">{{ item.created_at | formatDateTime }}</span>
+                  <span class="font-weight-bold text-dark">{{ getClassificationLabel(item.debt_classification) }}</span>
+                  <span class="text-muted font-size-xs">{{ (item.created_at || item.contact_date) | formatDateTime }}</span>
                 </div>
-                <div v-if="item.promised_date" class="text-primary font-size-xs my-1 font-weight-bold">
-                  Hẹn thanh toán: {{ item.promised_date | formatDate }}
+                <div v-if="item.appointment_date" class="text-primary font-size-xs my-1 font-weight-bold">
+                  Hẹn thanh toán: {{ item.appointment_date | formatDate }}
                 </div>
                 <div class="text-dark-75 font-size-sm mt-1 bg-light rounded p-2">
-                  {{ item.notes }}
+                  {{ item.note_content || item.note }}
                 </div>
-                <div v-if="item.user" class="text-muted font-size-xs text-right mt-1">
-                  Nhân viên: {{ item.user.name }}
+                <div v-if="item.created_by_user || item.user" class="text-muted font-size-xs text-right mt-1">
+                  Nhân viên: {{ (item.created_by_user ? item.created_by_user.name : (item.user ? item.user.name : '')) }}
                 </div>
               </div>
             </div>
@@ -138,6 +283,7 @@
 </template>
 
 <script>
+import ApiService from "@/core/services/api.service";
 import { LEASE_ADD_NOTE, LEASE_GET_SHOW } from "@/core/services/store/lease.module";
 import Swal from "sweetalert2";
 
@@ -148,26 +294,113 @@ export default {
       visible: false,
       loading: false,
       contract: null,
+      showRelatives: true,
       form: {
-        call_status: "connected",
+        call_status: "contacted",
         debt_classification: "normal",
         promised_date: null,
+        paid_today: 0,
         notes: "",
       },
     };
   },
+  computed: {
+    currentOutstanding() {
+      if (!this.contract) return 0;
+      if (this.contract.outstanding_balance !== undefined && this.contract.outstanding_balance !== null) {
+        return Number(this.contract.outstanding_balance) || 0;
+      }
+      if (this.contract.debt_amount !== undefined && this.contract.debt_amount !== null) {
+        return Number(this.contract.debt_amount) || 0;
+      }
+      return 0;
+    },
+    remainingAfterPay() {
+      const cur = this.currentOutstanding;
+      const paid = Number(this.form.paid_today || 0);
+      return Math.max(0, cur - paid);
+    },
+    relativesList() {
+      if (!this.contract) return [];
+      let rels = this.contract.customer_relatives;
+      if (!rels && this.contract.customer) {
+        rels = this.contract.customer.relatives;
+      }
+      if (!rels && this.contract.relatives) {
+        rels = this.contract.relatives;
+      }
+      if (typeof rels === "string") {
+        try {
+          rels = JSON.parse(rels);
+        } catch (e) {
+          rels = [];
+        }
+      }
+      if (!Array.isArray(rels)) return [];
+      return rels.filter((r) => r && (r.name || r.phone || r.relationship));
+    },
+  },
   methods: {
-    open(contract) {
+    copyText(text) {
+      if (!text) return;
+      if (navigator && navigator.clipboard) {
+        navigator.clipboard.writeText(String(text));
+        this.$message.success(`Đã copy: ${text}`);
+      } else {
+        const input = document.createElement("input");
+        input.value = String(text);
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+        this.$message.success(`Đã copy: ${text}`);
+      }
+    },
+    setQuickAmount(amount) {
+      this.form.paid_today = Number(amount);
+      if (this.form.call_status === "contacted") {
+        this.form.call_status = "paid";
+        this.handleActionChange("paid");
+      }
+    },
+    handlePaidAmountChange(val) {
+      if (Number(val) > 0 && this.form.call_status === "contacted") {
+        this.form.call_status = "paid";
+        this.handleActionChange("paid");
+      }
+    },
+    open(contract, defaultAction = null) {
       this.contract = contract;
       this.visible = true;
+      this.showRelatives = true;
+      if (defaultAction) {
+        this.form.call_status = defaultAction;
+        this.handleActionChange(defaultAction);
+      }
       this.refreshContract();
     },
+    handleActionChange(action) {
+      const mapClass = {
+        contacted: "normal",
+        promise: "reminder",
+        no_answer: "reminder",
+        lost_contact: "warning",
+        uncooperative: "warning",
+        paid: "normal",
+        recall_vehicle: "bad_debt",
+        check_vehicle: "warning",
+        collect_money: "bad_debt",
+      };
+      if (mapClass[action]) {
+        this.form.debt_classification = mapClass[action];
+      }
+    },
     refreshContract() {
-      if (!this.contract?.id) return;
+      if (!this.contract?.id || this.contract.reminder_id) return;
       this.$store
         .dispatch(LEASE_GET_SHOW, this.contract.id)
         .then((res) => {
-          this.contract = res?.data || this.contract;
+          this.contract = Object.assign({}, this.contract, res?.data || {});
         })
         .catch(() => {});
     },
@@ -178,63 +411,302 @@ export default {
       }
 
       this.loading = true;
-      this.$store
-        .dispatch(LEASE_ADD_NOTE, {
-          contractId: this.contract.id,
-          payload: {
-            call_status: this.form.call_status,
+      let noteText = "[" + this.getStatusLabel(this.form.call_status) + "] ";
+      if (this.form.paid_today && Number(this.form.paid_today) > 0) {
+        const formatted = Number(this.form.paid_today).toLocaleString("vi-VN");
+        noteText += "[Đã thanh toán hôm nay: " + formatted + "đ] ";
+      }
+      noteText += this.form.notes.trim();
+
+      const savePromise = this.contract.reminder_id
+        ? ApiService.post(`/api/auth/customer-reminders/${this.contract.reminder_id}/contact`, {
+            action: this.form.call_status,
+            paid_amount: this.form.paid_today || 0,
             appointment_date: this.form.promised_date,
-            debt_classification: this.form.debt_classification,
-            note_content: '[' + this.getStatusLabel(this.form.call_status) + '] ' + this.form.notes,
-          },
-        })
+            note: this.form.notes.trim(),
+          })
+        : this.$store.dispatch(LEASE_ADD_NOTE, {
+            contractId: this.contract.id,
+            payload: {
+              call_status: this.form.call_status,
+              appointment_date: this.form.promised_date,
+              debt_classification: this.form.debt_classification,
+              note_content: noteText,
+            },
+          });
+
+      savePromise
         .then((res) => {
-          Swal.fire("Thành công", res?.message || "Đã lưu ghi chú đôn đốc.", "success");
+          Swal.fire("Thành công", res?.data?.message || res?.message || "Đã lưu ghi chú đôn đốc.", "success");
           this.form.notes = "";
           this.form.promised_date = null;
+          this.form.paid_today = 0;
           this.refreshContract();
           this.$emit("success");
+          this.visible = false;
         })
         .catch((err) => {
-          const msg = err?.data?.message || err?.message || "Lỗi khi lưu ghi chú.";
+          const msg = err?.response?.data?.message || err?.data?.message || err?.message || "Lỗi khi lưu ghi chú.";
           Swal.fire("Lỗi", msg, "error");
         })
         .finally(() => {
           this.loading = false;
         });
     },
+    forwardToPayment() {
+      const amount = this.form.paid_today || null;
+      this.visible = false;
+      this.$emit("open-payment", { contract: this.contract, amount });
+    },
     getStatusLabel(status) {
       const map = {
-        connected: "Đã nghe máy - Đồng ý thanh toán",
-        promise: "Khách hẹn ngày thanh toán",
-        no_answer: "Không nghe máy / Thuê bao",
-        busy: "Máy bận / Gọi lại sau",
-        dispute: "Khiếu nại / Khó đòi",
-        other: "Khác",
+        contacted: "Đã liên hệ",
+        promise: "Hứa thanh toán",
+        no_answer: "Ko nghe máy",
+        lost_contact: "Mất liên lạc",
+        uncooperative: "Không hợp tác",
+        paid: "Đã thanh toán",
+        recall_vehicle: "Cần thu hồi xe",
+        check_vehicle: "Cần check xe",
+        collect_money: "Đi thu tiền",
       };
       return map[status] || status;
     },
-    getStatusBadgeClass(status) {
+    getClassificationLabel(classification) {
       const map = {
-        connected: "badge badge-success",
-        promise: "badge badge-primary",
-        no_answer: "badge badge-warning",
-        busy: "badge badge-secondary",
-        dispute: "badge badge-danger",
-        other: "badge badge-info",
+        normal: "Bình thường",
+        reminder: "Cần nhắc",
+        warning: "Cảnh báo",
+        bad_debt: "Nợ xấu",
       };
-      return map[status] || "badge badge-light";
+      return map[classification] || classification || "Đôn đốc";
     },
-
     resetForm() {
       this.contract = null;
+      this.showRelatives = true;
       this.form = {
-        call_status: "connected",
+        call_status: "contacted",
         debt_classification: "normal",
         promised_date: null,
+        paid_today: 0,
         notes: "",
       };
     },
   },
 };
 </script>
+
+<style scoped>
+.debt-summary-card {
+  overflow: hidden;
+  border: 1px solid #ffd7dc;
+  border-radius: 10px;
+  background: #fff6f7;
+  box-shadow: 0 3px 12px rgba(180, 30, 50, 0.06);
+}
+
+.debt-summary-table,
+.relatives-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.debt-summary-table {
+  table-layout: fixed;
+  color: #263238;
+  font-size: 13px;
+}
+
+.debt-summary-table th,
+.debt-summary-table td {
+  padding: 9px 11px;
+  border-bottom: 1px solid #f5dfe2;
+  vertical-align: middle;
+}
+
+.debt-summary-table tr:last-child th,
+.debt-summary-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.debt-summary-table th {
+  width: 13%;
+  color: #8d5660;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.debt-summary-table td {
+  width: 37%;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.summary-contract,
+.summary-phone,
+.relative-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.summary-contract {
+  flex-wrap: wrap;
+}
+
+.summary-contract strong {
+  color: #e3342f;
+  font-size: 15px;
+}
+
+.summary-phone {
+  margin-top: 2px;
+}
+
+.summary-outstanding {
+  color: #e3342f;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.relative-cell {
+  padding: 0 !important;
+}
+
+.relative-heading {
+  justify-content: space-between;
+  padding: 8px 11px;
+  cursor: pointer;
+}
+
+.relative-heading > div {
+  min-width: 0;
+}
+
+.relative-helper {
+  display: block;
+  margin-top: 2px;
+  color: #8b8f98;
+  font-size: 11px;
+}
+
+.relative-list {
+  padding: 0 11px 10px;
+}
+
+.empty-relative {
+  padding: 8px 10px;
+  border: 1px solid #e7eaee;
+  border-radius: 5px;
+  background: #fff;
+  color: #9299a3;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.relatives-table {
+  overflow: hidden;
+  border: 1px solid #e5e9ef;
+  border-radius: 5px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.relatives-table th,
+.relatives-table td {
+  width: auto;
+  padding: 6px 8px;
+  border-bottom: 1px solid #edf0f3;
+  color: #3e4752;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+}
+
+.relatives-table th {
+  background: #f7f8fa;
+  color: #687386;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.relatives-table tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 575px) {
+  .debt-summary-table {
+    table-layout: auto;
+  }
+
+  .debt-summary-table th,
+  .debt-summary-table td {
+    width: auto;
+  }
+
+  .debt-summary-table th {
+    padding-bottom: 2px;
+    border-bottom: 0;
+  }
+
+  .debt-summary-table td {
+    padding-top: 2px;
+  }
+
+  .debt-summary-table tr {
+    display: grid;
+    grid-template-columns: 28% 72%;
+    padding: 7px 0;
+  }
+
+  .debt-summary-table tr > th,
+  .debt-summary-table tr > td {
+    display: block;
+    grid-column: 1;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .debt-summary-table tr > td {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .debt-summary-table tr > th:nth-of-type(2) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .debt-summary-table tr > td:nth-of-type(2) {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .debt-summary-table tr:last-child {
+    display: block;
+  }
+
+  .debt-summary-table tr:last-child > th,
+  .debt-summary-table tr:last-child > td {
+    display: block;
+  }
+
+  .debt-summary-table tr:last-child > td {
+    padding-top: 0;
+  }
+
+  .relative-heading {
+    align-items: flex-start;
+  }
+
+  .relatives-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+</style>

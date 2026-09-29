@@ -117,14 +117,14 @@ class DashboardService
 
         $orderMetrics = DB::table('orders')
             ->selectRaw(
-                'COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) as total_order_in_day,
-                 COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END), 0) as total_order_in_month,
+                'COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? AND (order_status IS NULL OR order_status != ?) THEN 1 ELSE 0 END), 0) as total_order_in_day,
+                 COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? AND (order_status IS NULL OR order_status != ?) THEN 1 ELSE 0 END), 0) as total_order_in_month,
                  COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? AND out_dated_at > 0 AND order_status = ? THEN 1 ELSE 0 END), 0) as total_order_out_date_in_month,
                  COALESCE(SUM(CASE WHEN completed_at BETWEEN ? AND ? AND order_status = ? THEN COALESCE(first_deposit_amount, 0) + COALESCE(additional_deposit_amount, 0) ELSE 0 END), 0) as total_origin_refund_in_day_new,
                  COALESCE(SUM(CASE WHEN completed_at BETWEEN ? AND ? AND order_status = ? THEN COALESCE(first_deposit_amount, 0) + COALESCE(additional_deposit_amount, 0) ELSE 0 END), 0) as total_origin_refund_in_month_new',
                 [
-                    $startOfDay, $endOfDay,
-                    $startOfMonth, $endOfMonth,
+                    $startOfDay, $endOfDay, OrderValidator::ORDER_DRAFT,
+                    $startOfMonth, $endOfMonth, OrderValidator::ORDER_DRAFT,
                     $startOfMonth, $endOfMonth, OrderValidator::ORDER_RENTING,
                     $startOfDay, $endOfDay, OrderValidator::ORDER_COMPLETED,
                     $startOfMonth, $endOfMonth, OrderValidator::ORDER_COMPLETED,

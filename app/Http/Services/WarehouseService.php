@@ -12,6 +12,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Auth\Access\AuthorizationException;
+use App\Support\HimotoStores;
 
 class WarehouseService
 {
@@ -20,8 +21,10 @@ class WarehouseService
      */
     public function getSummary(?User $user = null): array
     {
-        $stores = Store::where('status', '!=', 'inactive')
-            ->orWhereNull('status')
+        $stores = HimotoStores::query()
+            ->where(function ($query) {
+                $query->where('status', '!=', 'inactive')->orWhereNull('status');
+            })
             ->orderBy('id', 'asc')
             ->get(['id', 'store_name', 'store_address', 'store_phone', 'kind', 'code']);
 
@@ -121,6 +124,9 @@ class WarehouseService
         }
 
         $store = Store::findOrFail($storeId);
+        if (!HimotoStores::isCanonical($store)) {
+            throw new AuthorizationException('Kho không còn nằm trong danh mục 6 kho HIMOTO.');
+        }
 
         // Query vehicles belonging to or present at this store
         $with = [
@@ -261,6 +267,10 @@ class WarehouseService
                 throw new AuthorizationException('Bạn chỉ được xem biến động kho của cơ sở được phân công.');
             }
             $storeId = (int)$user->store_id;
+        }
+
+        if ($storeId && !HimotoStores::query()->whereKey((int) $storeId)->exists()) {
+            throw new AuthorizationException('Kho không còn nằm trong danh mục 6 kho HIMOTO.');
         }
 
         $query = VehicleTransfer::with([

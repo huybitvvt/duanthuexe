@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderListResource;
 use App\Http\Resources\OrderResource;
 use App\Http\Services\OrderService;
+use App\Http\Services\HimotoLegalDocumentService;
 use App\Http\Services\VehicleTransferService;
 use App\Models\Order;
+use App\Models\Bank;
 use App\Models\Vehicle;
 use App\Models\OrderVehicleDetail;
 use App\Validators\OrderValidator;
@@ -17,7 +19,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Helpers\CarRentalHelper;
 use App\Helpers\DateTimeHelper;
+use App\Support\HimotoStores;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
@@ -107,6 +111,15 @@ class OrderController extends Controller
         return $this->successResponse($order_detail);
     }
 
+    public function handover(Order $order, HimotoLegalDocumentService $documents)
+    {
+        \App\Support\PilotAccess::store(auth()->user(), $order->store_id);
+        return response($documents->rentalHandover($order), 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
+        ]);
+    }
+
     /**
      * @param Request $request
      * @return JsonResponse
@@ -120,22 +133,27 @@ class OrderController extends Controller
     public function store(Request $request): JsonResponse
     {
 		// return $this->successResponse('', 'Fake data');
+		if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
+			&& !$request->filled('store_id') && auth()->user() && auth()->user()->store_id) {
+			$request->merge(['store_id' => auth()->user()->store_id]);
+		}
 		$this->normalizeOrderPaymentMethods($request);
+		$isDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
 
-        $request->validate(OrderValidator::store());
+		$request->validate(OrderValidator::store($request));
 
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền đặt cọc không khớp', $request->get('first_deposit_payment_method'), $request->get('first_deposit_amount') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền đặt cọc không khớp', $request->get('first_deposit_payment_method'), $request->get('first_deposit_amount'), $request->get('store_id') )) ) {
 			return $error;
 		}
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền phí thuê xe không khớp', $request->get('total_rental_payment_method'), $request->get('total_rental_fees') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền phí thuê xe không khớp', $request->get('total_rental_payment_method'), $request->get('total_rental_fees'), $request->get('store_id') )) ) {
 			return $error;
 		}
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền cọc thu thêm không khớp', $request->get('additional_deposit_payment_method'), $request->get('additional_deposit_amount') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền cọc thu thêm không khớp', $request->get('additional_deposit_payment_method'), $request->get('additional_deposit_amount'), $request->get('store_id') )) ) {
 			return $error;
 		}
 
 		$payment_method = $request->get('payment_method');
-		if ( $payment_method ) {
+		if ( $payment_method && !$isDraft ) {
 			$bank_id = $request->get('bank_id');
 			if ( in_array( intval( $payment_method ), array( 2, 3 ) ) ) {
 				if ( ! $bank_id ) {
@@ -147,13 +165,23 @@ class OrderController extends Controller
 		$order_items = $request->get('order_items');
 		if( is_array( $order_items ) && ! empty( $order_items ) ) {
 			foreach ( $order_items as $order_item ) {
+				if ($isDraft && (empty($order_item['rent_at']) || empty($order_item['return_at']))) {
+					continue;
+				}
 				$rent_at = DateTimeHelper::parse( $order_item['rent_at'] );
 				$return_at = DateTimeHelper::parse( $order_item['return_at'] );
 
-				if ( $rent_at->gt( $return_at ) ) {
+				if (!$rent_at || !$return_at || $rent_at->gt($return_at)) {
 					return $this->errorResponse('Thời gian trả xe phải muộn hơn thời gian thuê xe', 422);
 				}
 			}
+		}
+		if ((!filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) || $request->filled('store_id'))
+			&& !HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {
+			return $this->errorResponse('Kho/cơ sở không thuộc danh mục 6 kho HIMOTO.', 422);
+		}
+		if (!$isDraft && ($error = $this->validateOrderVehicleLocations($request))) {
+			return $error;
 		}
 
         try {
@@ -174,15 +202,19 @@ class OrderController extends Controller
      */
     public function update(Request $request, Order $order): JsonResponse
     {
+		if (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) && $order->order_status !== OrderValidator::ORDER_DRAFT) {
+			return $this->errorResponse('Không thể chuyển hợp đồng đã phát hành về bản nháp.', 422);
+		}
 		$this->normalizeOrderPaymentMethods($request);
 
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền đặt cọc không khớp', $request->get('first_deposit_payment_method'), $request->get('first_deposit_amount') ) ) {
+		$isDraft = filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN);
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền đặt cọc không khớp', $request->get('first_deposit_payment_method'), $request->get('first_deposit_amount'), $request->get('store_id') )) ) {
 			return $error;
 		}
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền phí thuê xe không khớp', $request->get('total_rental_payment_method'), $request->get('total_rental_fees') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền phí thuê xe không khớp', $request->get('total_rental_payment_method'), $request->get('total_rental_fees'), $request->get('store_id') )) ) {
 			return $error;
 		}
-		if ( $error = $this->validate_input_payment( 'Tổng số tiền cọc thu thêm không khớp', $request->get('additional_deposit_payment_method'), $request->get('additional_deposit_amount') ) ) {
+		if ( !$isDraft && ($error = $this->validate_input_payment( 'Tổng số tiền cọc thu thêm không khớp', $request->get('additional_deposit_payment_method'), $request->get('additional_deposit_amount'), $request->get('store_id') )) ) {
 			return $error;
 		}
 
@@ -190,7 +222,14 @@ class OrderController extends Controller
 			return $this->errorResponse('Không thể cập nhật trên hợp đồng đã thanh lý', 422);
 		}
 
-        $request->validate(OrderValidator::update($request, $order));
+		$request->validate(OrderValidator::update($request, $order));
+		if ((!filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN) || $request->filled('store_id'))
+			&& !HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {
+			return $this->errorResponse('Kho/cơ sở không thuộc danh mục 6 kho HIMOTO.', 422);
+		}
+		if (!$isDraft && ($error = $this->validateOrderVehicleLocations($request, $order))) {
+			return $error;
+		}
         try {
             DB::beginTransaction();
             $this->orderService->update($request, $order);
@@ -200,7 +239,26 @@ class OrderController extends Controller
             DB::rollBack();
             return $this->errorResponse($exception->getMessage(), 422);
         }
-    }
+	}
+
+	private function validateOrderVehicleLocations(Request $request, ?Order $order = null): ?JsonResponse
+	{
+		$storeId = (int) $request->get('store_id');
+		foreach ((array) $request->get('order_items', []) as $item) {
+			$vehicleId = (int) ($item['vehicle_id'] ?? 0);
+			$vehicle = $vehicleId ? Vehicle::find($vehicleId) : null;
+			if (!$vehicle) {
+				return $this->errorResponse('Vui lòng chọn xe hợp lệ cho hợp đồng.', 422);
+			}
+			$alreadyAssigned = $order && (int) $order->store_id === $storeId
+				&& $order->orderItems()->where('vehicle_id', $vehicleId)->exists();
+			if (!$alreadyAssigned && ((int) ($vehicle->current_store_id ?: $vehicle->store_id) !== $storeId
+				|| $vehicle->status !== Vehicle::STATUS_READY)) {
+				return $this->errorResponse('Xe phải ở trạng thái sẵn sàng tại cơ sở đã chọn.', 422);
+			}
+		}
+		return null;
+	}
 
 	protected function normalizeOrderPaymentMethods( Request $request ) {
 		$payment_fields = [
@@ -222,6 +280,7 @@ class OrderController extends Controller
 			$cash_amount = isset($payment_method['cash_amount']) && is_numeric($payment_method['cash_amount'])
 				? max(0, intval($payment_method['cash_amount']))
 				: 0;
+			$is_other_bank = isset($payment_method['bank_id']) && $payment_method['bank_id'] === 'other';
 
 			// Keep old clients compatible: a single selected method did not send its amount.
 			if ( $total_amount > 0 && 0 === $bank_transfer_amount && 0 === $cash_amount ) {
@@ -242,7 +301,8 @@ class OrderController extends Controller
 
 			$payment_method['bank_transfer_amount'] = $bank_transfer_amount;
 			$payment_method['cash_amount'] = $cash_amount;
-			$payment_method['bank_id'] = $bank_transfer_amount > 0
+			$payment_method['unregistered_bank'] = $bank_transfer_amount > 0 && $is_other_bank;
+			$payment_method['bank_id'] = $bank_transfer_amount > 0 && !$is_other_bank
 				? (isset($payment_method['bank_id']) ? $payment_method['bank_id'] : null)
 				: null;
 
@@ -250,7 +310,7 @@ class OrderController extends Controller
 		}
 	}
 
-	public function validate_input_payment( $label, $payment_method, $total_amount = 0 ) {
+	public function validate_input_payment( $label, $payment_method, $total_amount = 0, $storeId = null ) {
 		if ( ! is_array($payment_method) || ! is_numeric($total_amount) || intval($total_amount) <= 0 ) {
 			return null;
 		}
@@ -266,8 +326,17 @@ class OrderController extends Controller
 			return $this->errorResponse($label, 422);
 		}
 
-		if ( $bank_transfer_amount > 0 && empty($payment_method['bank_id']) ) {
+		$isOtherBank = !empty($payment_method['unregistered_bank']);
+		$otherBankNote = trim((string)($payment_method['other_method_note'] ?? ''));
+		if ( $bank_transfer_amount > 0 && $isOtherBank && $otherBankNote === '' ) {
+			return $this->errorResponse('Vui lòng nhập tên ngân hàng hoặc hình thức chuyển khoản khác.', 422);
+		}
+		if ( $bank_transfer_amount > 0 && empty($payment_method['bank_id']) && !$isOtherBank ) {
 			return $this->errorResponse('Vui lòng chọn tài khoản ngân hàng', 422);
+		}
+		if ($bank_transfer_amount > 0 && !$isOtherBank && $storeId !== null
+			&& !Bank::whereKey($payment_method['bank_id'])->where('store_id', (int) $storeId)->exists()) {
+			return $this->errorResponse('Tài khoản ngân hàng không thuộc cơ sở của hợp đồng.', 422);
 		}
 
 		return null;
@@ -364,6 +433,10 @@ class OrderController extends Controller
     }
 
     public function deleteOrderAndItsRelation($order){
+            if (\Illuminate\Support\Facades\Schema::hasTable('sepay_payment_requests')
+                && \App\Models\SepayPaymentRequest::query()->where('order_id', $order->id)->where('received_amount', '>', 0)->exists()) {
+                throw ValidationException::withMessages(['order' => 'Hợp đồng đã có tiền SePay; không thể xóa.']);
+            }
             $order->addOnOrders()->delete();
             
             $orderItems = $order->orderItems();
@@ -485,8 +558,14 @@ class OrderController extends Controller
 	}
 
 	public function preview(Request $request) {
-		\App\Support\PilotAccess::store(auth()->user(), $request->get('store_id'));
+        if (!$request->filled('store_id') && auth()->user() && auth()->user()->store_id) {
+            $request->merge(['store_id' => auth()->user()->store_id]);
+        }
+        \App\Support\PilotAccess::store(auth()->user(), $request->get('store_id'));
 		try {
+			if ($request->filled('store_id') && !HimotoStores::query()->whereKey((int) $request->get('store_id'))->exists()) {
+				return $this->errorResponse('Kho/cơ sở không thuộc danh mục 6 kho HIMOTO.', 422);
+			}
 			$data = $request->all();
 			$store = null;
 			if ($request->has('store_id')) {

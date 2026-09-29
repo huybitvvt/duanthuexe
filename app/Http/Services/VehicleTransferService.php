@@ -6,6 +6,7 @@ use App\Models\ContractAmendment;
 use App\Models\Bank;
 use App\Models\Cash;
 use App\Support\PilotAccess;
+use App\Support\HimotoStores;
 use App\Models\Order;
 use App\Models\OrderVehicleDetail;
 use App\Models\Store;
@@ -34,8 +35,13 @@ class VehicleTransferService
         $notes = (string)data_get($data, 'notes', '');
         $idempotencyKey = data_get($data, 'idempotency_key');
 
-        Store::findOrFail($fromStoreId);
-        Store::findOrFail($toStoreId);
+        $fromStore = Store::findOrFail($fromStoreId);
+        $toStore = Store::findOrFail($toStoreId);
+        if (!HimotoStores::isCanonical($fromStore) || !HimotoStores::isCanonical($toStore)) {
+            throw ValidationException::withMessages([
+                'store_id' => ['Chỉ được điều chuyển giữa 6 kho HIMOTO đã cấu hình.'],
+            ]);
+        }
         if ($fromStoreId === $toStoreId) {
             throw ValidationException::withMessages([
                 'to_store_id' => ['Kho nhận không được trùng với kho xuất phát.']
@@ -283,6 +289,9 @@ class VehicleTransferService
         return DB::transaction(function () use ($orderId, $returnStoreId, $details, $user) {
             $order = Order::where('id', $orderId)->lockForUpdate()->firstOrFail();
             $returnStore = Store::findOrFail($returnStoreId);
+            if (!HimotoStores::isCanonical($returnStore)) {
+                throw ValidationException::withMessages(['return_store_id' => 'Kho nhận không thuộc danh mục 6 kho HIMOTO.']);
+            }
             PilotAccess::store($user, $returnStoreId);
             if (!in_array($order->order_status, ['completed', 'wait_payment'])) {
                 throw ValidationException::withMessages(['order_id' => 'Hoàn tất trả xe qua luồng trả xe trước khi xác nhận nhập kho khác cơ sở.']);
@@ -461,6 +470,9 @@ class VehicleTransferService
             $exchangeStore = Store::find($exchangeStoreId);
             if (!$exchangeStore || in_array(strtolower((string)$exchangeStore->status), ['closing', 'closed', 'inactive'], true)) {
                 throw ValidationException::withMessages(['exchange_store_id' => 'Cơ sở bàn giao không tồn tại hoặc đã ngừng hoạt động.']);
+            }
+            if (!HimotoStores::isCanonical($exchangeStore)) {
+                throw ValidationException::withMessages(['exchange_store_id' => 'Cơ sở bàn giao không thuộc danh mục 6 kho HIMOTO.']);
             }
             if (!in_array($exchangeStoreId, $allowedStores, true)) {
                 throw ValidationException::withMessages(['exchange_store_id' => 'Cơ sở bàn giao không thuộc hợp đồng hoặc vị trí hiện tại của hai xe.']);

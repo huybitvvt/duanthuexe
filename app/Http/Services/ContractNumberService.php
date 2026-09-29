@@ -28,7 +28,7 @@ class ContractNumberService
     }
 
     /**
-     * Sinh số hợp đồng an toàn đa luồng theo định dạng YYYYMMDD-0001 (chuẩn Excel).
+     * Sinh số hợp đồng an toàn đa luồng theo định dạng YYMMDD-0001.
      * Múi giờ sử dụng: Asia/Ho_Chi_Minh.
      *
      * @param Carbon|string|null $date
@@ -42,7 +42,7 @@ class ContractNumberService
             : ($date ? Carbon::parse($date)->setTimezone('Asia/Ho_Chi_Minh') : Carbon::now('Asia/Ho_Chi_Minh'));
 
         $dateSql = $carbonDate->format('Y-m-d');
-        $datePrefix = $carbonDate->format('Ymd');
+        $datePrefix = $carbonDate->format('ymd');
 
         $driver = DB::connection()->getDriverName();
         $seq = 1;
@@ -94,7 +94,7 @@ class ContractNumberService
     }
 
     /**
-     * Kiểm tra tính hợp lệ của chuỗi số hợp đồng (Hỗ trợ chuẩn mới YYYYMMDD-0001 và chuẩn cũ YYYY/MM/DD-0001).
+     * Kiểm tra số hợp đồng mới YYMMDD-0001 và các định dạng cũ.
      *
      * @param string|null $contractNumber
      * @return bool
@@ -103,6 +103,11 @@ class ContractNumberService
     {
         if (empty($contractNumber)) {
             return false;
+        }
+
+        if (preg_match('/^(\d{2})(\d{2})(\d{2})-(\d{4})$/', $contractNumber, $matches)) {
+            return (int) $matches[4] >= 1 && (int) $matches[4] <= 9999
+                && checkdate((int) $matches[2], (int) $matches[3], 2000 + (int) $matches[1]);
         }
 
         if (preg_match('/^(\d{4})(\d{2})(\d{2})-(\d{4})$/', $contractNumber, $matches)) {

@@ -82,10 +82,15 @@ class ReportController extends Controller
  
             return $order;
         });
-        $total_order = $orders->count();
+        $total_order = $orders->filter(function ($order) {
+            return $order->order_status === null || $order->order_status !== OrderValidator::ORDER_DRAFT;
+        })->count();
         $total_contracts_completed = $orders->where('order_status', OrderValidator::ORDER_COMPLETED)->count();
         $total_contracts_renting = $orders->where('order_status', OrderValidator::ORDER_RENTING)->count();
-        $total_out_of_date = $orders->where('out_dated_at', '>', 0)->where('order_status', '!=', OrderValidator::ORDER_COMPLETED)->count();
+        $total_out_of_date = $orders->filter(function ($order) {
+            return (int) $order->out_dated_at > 0
+                && !in_array($order->order_status, [OrderValidator::ORDER_COMPLETED, OrderValidator::ORDER_DRAFT], true);
+        })->count();
 
         return [
             'total_order' => $total_order,

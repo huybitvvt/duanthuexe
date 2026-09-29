@@ -331,7 +331,7 @@ class ReviewDefectFixesTest extends HimotoCashRegisterAndHrTest
     public function testN05ExchangeVehiclePreservesOriginStoreAndUsesValidCashId()
     {
         $storeA = $this->store;
-        $storeB = Store::create(['store_name' => 'Cơ sở B', 'kind' => 'physical']);
+        $storeB = Store::create(['code' => 'CS2', 'store_name' => 'CS 2', 'kind' => 'physical']);
         // Keep the fixture aligned with the minimal cash table used by this
         // test base; the transfer service only needs the real cash account id.
         $cashB = Cash::create(['store_id' => $storeB->id, 'status' => 'Active']);

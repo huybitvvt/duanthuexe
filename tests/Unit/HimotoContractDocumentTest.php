@@ -13,6 +13,9 @@ use App\Models\ContractNumberCounter;
 use App\Http\Services\ContractNumberService;
 use App\Http\Services\ContractDocumentBuilder;
 use App\Http\Services\OrderService;
+use App\Support\RentalPricing;
+use App\Models\OrderVehicleDetail;
+use Illuminate\Http\Request;
 use App\Repositories\OrderRepositoryEloquent;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
@@ -125,10 +128,15 @@ class HimotoContractDocumentTest extends TestCase
             $table->timestamp('completed_at')->nullable();
             $table->decimal('total_money', 15, 2)->default(0);
             $table->decimal('hiring_fee', 15, 2)->default(0);
+            $table->string('type')->default('day');
+            $table->string('pricing_scheme')->nullable();
+            $table->integer('price_id')->nullable();
+            $table->integer('borrow_hats')->default(0);
+            $table->integer('substitute_unit_price')->default(0);
+            $table->integer('handler_price')->default(0);
             $table->string('driver_name')->nullable();
             $table->string('driver_license_number')->nullable();
             $table->date('driver_license_issued_on')->nullable();
-            $table->integer('borrow_hats')->default(0);
             $table->integer('borrow_raincoats')->default(0);
             $table->softDeletes();
             $table->timestamps();
@@ -211,6 +219,30 @@ class HimotoContractDocumentTest extends TestCase
 
         $this->assertEquals($counterCountBefore, ContractNumberCounter::count(), 'Counter count must not change on preview');
         $this->assertEquals($orderCountBefore, Order::count(), 'Orders count must not change on preview');
+    }
+
+    public function testSavedDraftPrintsTraceableNumberWithoutIssuingOfficialContract()
+    {
+        $order = Order::create(['order_status' => 'draft', 'contract_number' => null]);
+        $dto = ContractDocumentBuilder::buildFromOrder($order);
+
+        $this->assertSame('NHÁP-' . $order->id, $dto['contract_number']);
+        $this->assertSame('BẢN NHÁP - CHƯA PHÁT HÀNH', $dto['contract_number_label']);
+        $this->assertTrue($dto['is_preview']);
+        $this->assertNull($order->fresh()->contract_number);
+        $this->assertSame(0, ContractNumberCounter::count());
+    }
+
+    public function testPaperReferenceAppearsOnPreviewWithoutIssuingOfficialNumber()
+    {
+        $dto = ContractDocumentBuilder::buildFromFormData([
+            'customer_name' => 'Khách giấy',
+            'draft_reference' => 'GIAY-50CC-01',
+        ]);
+
+        $this->assertSame('GIAY-50CC-01', $dto['contract_number']);
+        $this->assertSame('BẢN XEM TRƯỚC - CHƯA PHÁT HÀNH', $dto['contract_number_label']);
+        $this->assertSame(0, ContractNumberCounter::count());
     }
 
     /**
@@ -324,11 +356,65 @@ class HimotoContractDocumentTest extends TestCase
         ]);
 
         $this->assertEquals('Sale Đức Anh', $dto['customer_source']['name']);
-        $this->assertEquals('Nguyễn Văn Ca Trực', $dto['lessor']['representative_name']);
-        $this->assertEquals('Nhân viên hợp đồng tại ca', $dto['lessor']['representative_title']);
+        $this->assertEquals('NGUYỄN VĂN CA TRỰC', $dto['lessor']['representative_name']);
+        $this->assertEquals('Nhân viên quầy giao dịch', $dto['lessor']['representative_title']);
         $this->assertEquals('CK tài khoản Công ty', $dto['pricing']['payment_method_text']);
         $this->assertEquals('Khác: Ví điện tử cửa hàng', $dto['deposit']['payment_method_text']);
         $this->assertEquals('Số ngày thuê tạm tính: 2 ngày x Đơn giá: 200.000 = 400.000 đ', $dto['pricing']['calculation_text']);
+    }
+
+    public function testFlatDailyRateIsTheSameForEveryVehicleAndPreservesLegacyPrice()
+    {
+        $this->assertSame(200000, RentalPricing::flatDailyAmount('2026-09-22 08:00:00', '2026-09-22 09:00:00'));
+        $this->assertSame(400000, RentalPricing::flatDailyAmount('2026-09-22 08:00:00', '2026-09-24 08:00:00'));
+        $this->assertSame(400000, RentalPricing::flatDailyAmount('2026-09-22 08:00:00', '2026-09-23 08:00:01'));
+        $this->assertSame(0, RentalPricing::flatDailyAmount('2026-09-22 08:00:00', '2026-09-22 08:00:00'));
+
+        $order = Order::create(['order_status' => 'renting', 'total' => 400000, 'total_rental_fees' => 400000]);
+        $vehicle = Vehicle::create(['name' => 'Xe bất kỳ', 'type' => 'xega', 'status' => Vehicle::STATUS_READY]);
+        $item = [
+            'vehicle_id' => $vehicle->id,
+            'rent_at' => '2026-09-22 08:00:00',
+            'return_at' => '2026-09-24 08:00:00',
+            'total_money' => 1,
+            'substitute_unit_price' => 0,
+            'type' => 'day',
+            'pricing_scheme' => RentalPricing::FLAT_DAILY_SCHEME,
+        ];
+        $updateVehicles = new \ReflectionMethod(OrderService::class, 'updateVehicles');
+        $updateVehicles->setAccessible(true);
+        $updateVehicles->invoke($this->orderService, new Request(['order_items' => [$item]]), $order);
+        $stored = OrderVehicleDetail::where('order_id', $order->id)->firstOrFail();
+        $this->assertSame(400000.0, (float) $stored->total_money);
+        $this->assertSame(RentalPricing::FLAT_DAILY_SCHEME, $stored->pricing_scheme);
+        $snapshot = $this->orderService->maybeGenerateContractSnapshot($order);
+        $this->assertSame(200000, $snapshot['vehicles'][0]['unit_price']);
+        $this->assertSame('Số ngày thuê tạm tính: 2 ngày x Đơn giá: 200.000 = 400.000 đ',
+            ContractDocumentBuilder::buildFromOrder($order->fresh())['pricing']['calculation_text']);
+
+        $oldClientItem = $item;
+        unset($oldClientItem['pricing_scheme']);
+        $oldClientItem['total_money'] = 1;
+        $updateVehicles->invoke($this->orderService, new Request(['order_items' => [$oldClientItem]]), $order);
+        $this->assertSame(400000.0, (float) $stored->fresh()->total_money);
+
+        $item['pricing_scheme'] = null;
+        $item['total_money'] = 123000;
+        $updateVehicles->invoke($this->orderService, new Request(['order_items' => [$item]]), $order);
+        $this->assertSame(123000.0, (float) $stored->fresh()->total_money);
+    }
+
+    public function testManualTotalNeverPrintsIncorrectMultiplication()
+    {
+        $dto = ContractDocumentBuilder::buildFromFormData([
+            'total_rental_fees' => 350000,
+            'unit_price' => 200000,
+            'order_items' => [[
+                'rent_at' => '17/09/2026 09:00',
+                'return_at' => '19/09/2026 09:00',
+            ]],
+        ]);
+        $this->assertSame('Tiền thuê tạm tính: 350.000 đ', $dto['pricing']['calculation_text']);
     }
 
     public function testLockPreservesLegacyNumberWithoutConsumingCounter()
