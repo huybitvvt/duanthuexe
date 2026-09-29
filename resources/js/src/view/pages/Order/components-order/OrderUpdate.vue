@@ -629,6 +629,7 @@
 						</el-button>
 						<el-button v-if="
 							id &&
+							!['cancel_pending_settlement', 'cancelled'].includes(order.order_status) &&
 							(order.order_status !== HOAN_THANH ||
 								currentUser.role_id === 1)
 						" native-type="submit" class="btn btn-sm btn-success mr-2" style="color: #fff"
