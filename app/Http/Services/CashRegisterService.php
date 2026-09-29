@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class CashRegisterService
 {
-    public function getPaymentSources(int $storeId): array
+    public function getPaymentSources(int $storeId, bool $includeCompanyBanks = false): array
     {
         $cashColumns = ['id', 'store_id'];
         if (\Illuminate\Support\Facades\Schema::hasColumn('cash', 'name')) {
@@ -26,8 +26,11 @@ class CashRegisterService
                 $bankColumns[] = $column;
             }
         }
-        $bankQuery = Bank::where(function ($q) use ($storeId) {
-            $q->where('store_id', $storeId)->orWhere('store_id', 0);
+        $bankQuery = Bank::where(function ($q) use ($storeId, $includeCompanyBanks) {
+            $q->where('store_id', $storeId);
+            if ($includeCompanyBanks) {
+                $q->orWhere('store_id', 0);
+            }
         });
         if (\Illuminate\Support\Facades\Schema::hasColumn('banks', 'status')) {
             $bankQuery->where(function ($q) {
@@ -155,10 +158,10 @@ class CashRegisterService
     {
         $closed = DailyCashRegister::where('store_id', $storeId)
             ->where('register_date', $date->format('Y-m-d'))
-            ->where('status', 'closed')
+            ->whereIn('status', ['submitted', 'closed'])
             ->exists();
         if ($closed) {
-            throw new \RuntimeException('Sổ két ngày đã chốt. Hãy mở lại trước khi ghi thêm giao dịch.');
+            throw new \RuntimeException('Sổ két đã gửi duyệt hoặc đã chốt. Không thể ghi thêm giao dịch.');
         }
     }
 
@@ -411,7 +414,7 @@ class CashRegisterService
             'store_id' => $storeId,
             'store_name' => $store ? $store->store_name : 'Toàn hệ thống (Tất cả cơ sở)',
             'register_date' => $dateStr,
-            'status' => 'open',
+            'status' => $register ? $register->status : 'open',
             'opening_balance' => $openingBalance,
             'total_orders_count' => $totalOrdersCount,
             // Cash breakdown
@@ -446,13 +449,16 @@ class CashRegisterService
             'total_bank_personal' => $totalBankPersonal,
             'total_bank_company' => $totalBankCompany,
             'system_cash_balance' => $systemCashBalance,
-            'actual_cash_counted' => null,
-            'cash_difference' => 0,
-            'difference_reason' => null,
+            'actual_cash_counted' => $register ? $register->actual_cash_counted : null,
+            'cash_difference' => $register ? (float) $register->cash_difference : 0,
+            'difference_reason' => $register ? $register->difference_reason : null,
+            'submitted_by' => $register ? $register->submitted_by : null,
+            'submitted_by_name' => $register && $register->submittedByUser ? $register->submittedByUser->name : null,
+            'submitted_at' => $register && $register->submitted_at ? $register->submitted_at->toDateTimeString() : null,
             'closed_by' => null,
             'closed_by_name' => null,
             'closed_at' => null,
-            'notes' => null,
+            'notes' => $register ? $register->notes : null,
         ];
     }
 
@@ -474,7 +480,8 @@ class CashRegisterService
         float $actualCashCounted,
         ?string $differenceReason,
         int $userId,
-        ?string $notes = null
+        ?string $notes = null,
+        bool $submitOnly = false
     ): DailyCashRegister {
         $parsedDate = $date instanceof Carbon ? $date->copy() : Carbon::parse($date);
         $dateStr = $parsedDate->format('Y-m-d');
@@ -485,7 +492,8 @@ class CashRegisterService
             $actualCashCounted,
             $differenceReason,
             $userId,
-            $notes
+            $notes,
+            $submitOnly
         ) {
             $existing = DailyCashRegister::where('store_id', $storeId)
                 ->where('register_date', $dateStr)
@@ -494,7 +502,10 @@ class CashRegisterService
 
             // Chặn ghi đè sổ két đã đóng
             if ($existing && $existing->status === 'closed') {
-                throw new \Exception("Sổ két ngày {$dateStr} của cơ sở này đã được chốt trước đó. Không thể ghi đè. Vui lòng liên hệ Quản trị viên mở lại két trước khi chốt lại.");
+                throw new \Exception("Sổ két ngày {$dateStr} đã được chốt. Không thể ghi đè.");
+            }
+            if ($existing && $existing->status === 'submitted') {
+                throw new \Exception("Sổ két ngày {$dateStr} đã gửi duyệt. Không thể ghi đè.");
             }
 
             // Tính toán snapshot số liệu thực tế tại thời điểm chốt
@@ -539,9 +550,11 @@ class CashRegisterService
                 'actual_cash_counted' => $actualCashCounted,
                 'cash_difference' => $cashDifference,
                 'difference_reason' => $differenceReason,
-                'status' => 'closed',
-                'closed_by' => $userId,
-                'closed_at' => Carbon::now(),
+                'status' => $submitOnly ? 'submitted' : 'closed',
+                'submitted_by' => $submitOnly ? $userId : null,
+                'submitted_at' => $submitOnly ? Carbon::now() : null,
+                'closed_by' => $submitOnly ? null : $userId,
+                'closed_at' => $submitOnly ? null : Carbon::now(),
                 'notes' => $notes,
             ];
 
@@ -555,9 +568,43 @@ class CashRegisterService
                 ], $payload));
             }
 
-            Log::info("Daily cash register closed for store #{$storeId} on {$dateStr} by user #{$userId}. System: {$systemCashBalance}, Counted: {$actualCashCounted}, Diff: {$cashDifference}");
+            Log::info($submitOnly ? 'Daily cash register submitted.' : 'Daily cash register closed.', [
+                'store_id' => $storeId, 'date' => $dateStr, 'actor_id' => $userId,
+            ]);
 
             return $register;
+        });
+    }
+
+    public function approveDailyRegister(int $storeId, string $date, int $approverId): DailyCashRegister
+    {
+        return DB::transaction(function () use ($storeId, $date, $approverId) {
+            $register = DailyCashRegister::where('store_id', $storeId)
+                ->where('register_date', $date)->lockForUpdate()->firstOrFail();
+            if ($register->status !== 'submitted' || !$register->submitted_by) {
+                throw new \RuntimeException('Sổ két chưa được nhân viên gửi duyệt.');
+            }
+            if ((int) $register->submitted_by === $approverId) {
+                throw new \RuntimeException('Người gửi không được tự duyệt sổ két.');
+            }
+            $live = $this->getDailySummary($storeId, $date, $approverId);
+            foreach (['opening_balance', 'total_orders_count', 'deposit_cash', 'rental_cash',
+                'renewal_cash', 'refund_deposit_cash', 'penalty_cash', 'other_income_cash',
+                'other_expense_cash', 'deposit_bank_personal', 'rental_bank_personal',
+                'renewal_bank_personal', 'refund_deposit_bank_personal', 'penalty_bank_personal',
+                'other_income_bank_personal', 'other_expense_bank_personal',
+                'deposit_bank_company', 'rental_bank_company', 'renewal_bank_company',
+                'refund_deposit_bank_company', 'penalty_bank_company',
+                'other_income_bank_company', 'other_expense_bank_company', 'system_cash_balance'] as $key) {
+                if (abs((float) $register->{$key} - (float) $live[$key]) > 0.01) {
+                    throw new \RuntimeException('Dữ liệu giao dịch đã thay đổi sau khi gửi; cần mở lại và kiểm đếm lại.');
+                }
+            }
+            if (($live['unclassified_bank_income'] ?? 0) > 0 || ($live['unclassified_bank_expense'] ?? 0) > 0) {
+                throw new \RuntimeException('Còn giao dịch ngân hàng chưa phân loại.');
+            }
+            $register->update(['status' => 'closed', 'closed_by' => $approverId, 'closed_at' => Carbon::now()]);
+            return $register->fresh();
         });
     }
 

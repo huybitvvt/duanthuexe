@@ -21,12 +21,75 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use App\Helpers\CarRentalHelper;
 use App\Models\PriceVehicle;
+use App\Support\CounterOrderPricing;
+use App\Http\Controllers\Order\OrderController;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class HimotoContractTest extends TestCase
 {
     protected $contractNumberService;
     protected $orderService;
     protected $orderRepository;
+
+    public function testManagerCannotLowerOrderTotalDirectlyWithoutApproval(): void
+    {
+        $manager = new User(['role_id' => 1, 'store_id' => 1]);
+        Auth::setUser($manager);
+        $order = Order::create(['store_id' => 1, 'order_status' => OrderValidator::ORDER_RENTING,
+            'total' => 450000]);
+        $this->expectException(ValidationException::class);
+        app(OrderController::class)->update(new Request([
+            'store_id' => 1, 'total' => 400000, 'total_rental_fees' => 450000,
+        ]), $order);
+    }
+
+    public function testCounterOrderUsesCurrentPricingTableAndRejectsAlteredFee(): void
+    {
+        $vehicle = Vehicle::create(['name' => 'Xe quầy', 'type' => 'xega', 'year' => 2023]);
+        PriceVehicle::create([
+            'type' => 'xega', 'price_type' => 'day', 'from_year' => 2020,
+            'to_year' => 2026, 'from_date' => 2, 'to_date' => 5, 'price' => 150000,
+        ]);
+        $payload = [
+            'order_items' => [[
+                'vehicle_id' => $vehicle->id, 'type' => 'day',
+                'rent_at' => '2026-09-29 09:00:00', 'return_at' => '2026-10-02 09:00:00',
+                'total_money' => 450000,
+            ]],
+            'total' => 450000, 'total_rental_fees' => 450000, 'pid' => 450000,
+        ];
+        CounterOrderPricing::validate(new Request($payload));
+        $payload['total_rental_fees'] = 400000;
+        $this->expectException(ValidationException::class);
+        CounterOrderPricing::validate(new Request($payload));
+    }
+
+    public function testCounterCheckInRecordsVehicleWithoutSettlingMoney(): void
+    {
+        Schema::table('users', function ($table) { $table->integer('store_id')->nullable(); });
+        Schema::table('order_vehicle_details', function ($table) { $table->integer('odometer_after')->nullable(); });
+        $user = User::create(['name' => 'Nhân viên quầy', 'email' => 'counter@example.test', 'store_id' => 1]);
+        Auth::setUser($user);
+        $order = Order::create(['store_id' => 1, 'order_status' => OrderValidator::ORDER_RENTING,
+            'total' => 450000, 'pid' => 450000]);
+        $vehicle = Vehicle::create(['name' => 'Xe trả', 'type' => 'xega', 'status' => Vehicle::STATUS_USING]);
+        $item = OrderVehicleDetail::create(['order_id' => $order->id, 'vehicle_id' => $vehicle->id,
+            'rent_at' => '2026-09-28 09:00:00', 'return_at' => '2026-09-30 09:00:00',
+            'total_money' => 450000]);
+
+        app(OrderController::class)->checkIn(new Request([
+            'order_items' => [['id' => $item->id, 'odometer_after' => 1234]],
+        ]), $order);
+
+        $this->assertNotNull($item->fresh()->completed_at);
+        $this->assertSame(1234, (int) $item->fresh()->odometer_after);
+        $this->assertSame(OrderValidator::ORDER_RENTING, $order->fresh()->order_status);
+        $this->assertEquals(450000, (float) $order->fresh()->total);
+        $this->assertSame(Vehicle::STATUS_USING, $vehicle->fresh()->status);
+        $this->assertDatabaseHas('activity_logs', ['order_id' => $order->id, 'name' => 'order:check-in']);
+    }
 
     protected function setUp(): void
     {

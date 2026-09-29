@@ -11,6 +11,7 @@ use Prettus\Repository\Criteria\RequestCriteria;
 use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\PermissionAccess;
 
 /**
  * Class CustomerRepositoryEloquent.
@@ -93,7 +94,7 @@ class BankRepositoryEloquent extends BaseRepository implements BankRepository
 		$banks->where("banks.status", "Active");
 
         $user = auth()->user();
-        if ($user->role_rel->slug !== 'quan-tri-vien') {
+        if (!PermissionAccess::allows($user, 'finance.bank.view_all')) {
             $banks->where('banks.store_id', $user->store_id);
         }
 
@@ -132,7 +133,7 @@ class BankRepositoryEloquent extends BaseRepository implements BankRepository
         $banks->join('stores', 'banks.store_id', '=', 'stores.id')->select('banks.*', 'stores.store_name');
 		$banks->where("banks.status", "Active");
         $user = auth()->user();
-        if ($user->role_rel->slug !== 'quan-tri-vien') {
+        if (!PermissionAccess::allows($user, 'finance.bank.view_all')) {
             $banks->where('banks.store_id', $user->store_id);
         }
         // return $banks;

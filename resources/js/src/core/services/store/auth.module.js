@@ -30,6 +30,7 @@ const state = {
     user: {
         tree: null
     },
+    capabilities: [],
     isAuthenticated: !!JwtService.getToken(),
     authSessionId: generateSessionId()
 };
@@ -37,6 +38,9 @@ const state = {
 const getters = {
     currentUser(state) {
         return state.user;
+    },
+    capabilities(state) {
+        return state.capabilities;
     },
     isAuthenticated(state) {
         return state.isAuthenticated;
@@ -199,6 +203,7 @@ const mutations = {
     },
     [SET_AUTH](state, user) {
         state.user = user ? (user.user || user.data || user) : {};
+        state.capabilities = user && Array.isArray(user.capabilities) ? user.capabilities : [];
         state.errors = {};
         state.isAuthenticated = true;
         state.authSessionId = generateSessionId();
@@ -213,6 +218,7 @@ const mutations = {
     [PURGE_AUTH](state) {
         state.isAuthenticated = false;
         state.user = {};
+        state.capabilities = [];
         state.errors = {};
         state.authSessionId = generateSessionId();
         JwtService.destroyToken();

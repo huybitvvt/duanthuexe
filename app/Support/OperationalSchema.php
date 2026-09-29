@@ -41,6 +41,11 @@ class OperationalSchema
         'gps' => [
             '2026_09_17_000005_create_gps_tracking_tables',
         ],
+        'business_approvals' => [
+            '2026_09_29_000003_expand_uat_approval_permissions',
+            '2026_09_30_000001_create_business_approval_requests',
+            '2026_09_30_000002_add_order_approved_discount',
+        ],
     ];
 
     /**
@@ -171,6 +176,13 @@ class OperationalSchema
             'gps_recovery_actions' => [
                 'vehicle_id', 'status', 'recovery_plan', 'created_by',
             ],
+        ],
+        'business_approvals' => [
+            'business_approval_requests' => [
+                'subject_type', 'subject_id', 'store_id', 'action', 'status',
+                'reason', 'payload', 'requested_by', 'decided_by', 'decided_at',
+            ],
+            'orders' => ['approved_discount_amount'],
         ],
     ];
 

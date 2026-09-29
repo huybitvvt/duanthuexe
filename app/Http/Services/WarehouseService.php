@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Auth\Access\AuthorizationException;
 use App\Support\HimotoStores;
+use App\Support\PermissionAccess;
 
 class WarehouseService
 {
@@ -28,7 +29,8 @@ class WarehouseService
             ->orderBy('id', 'asc')
             ->get(['id', 'store_name', 'store_address', 'store_phone', 'kind', 'code']);
 
-        $isAdmin = $user && ($user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien'));
+        $canViewAll = PermissionAccess::allows($user, 'vehicle.view_all');
+        $canViewLease = PermissionAccess::allows($user, 'vehicle.view_lease');
 
         // Aggregate once for every store. The previous implementation ran 11
         // count queries per store, making the summary progressively slower as
@@ -80,7 +82,13 @@ class WarehouseService
             $transitByStore[$storeId] = ($transitByStore[$storeId] ?? 0) + (int) $row->total;
         }
 
-        return $stores->map(function (Store $store) use ($isAdmin, $user, $managedByStore, $presentByStore, $transitByStore) {
+        if (!$canViewAll && $canViewLease) {
+            $stores = $stores->filter(function (Store $store) {
+                return $store->kind === Store::KIND_LEASE_TO_OWN;
+            });
+        }
+
+        return $stores->map(function (Store $store) use ($canViewAll, $canViewLease, $user, $managedByStore, $presentByStore, $transitByStore) {
             $managed = $managedByStore->get($store->id);
             $present = $presentByStore->get($store->id);
 
@@ -104,7 +112,7 @@ class WarehouseService
                     'xesh' => (int) ($present->type_xesh ?? 0),
                     'xe_dien' => (int) ($present->type_xedien ?? 0),
                 ],
-                'can_view_details' => $isAdmin || ($user && (int) $user->store_id === (int) $store->id),
+                'can_view_details' => $canViewAll || ($canViewLease && $store->kind === Store::KIND_LEASE_TO_OWN),
             ];
         })->values()->all();
     }
@@ -114,16 +122,15 @@ class WarehouseService
      */
     public function getStoreVehicles(int $storeId, array $params, User $user)
     {
-        $isAdmin = $user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien');
-        
-        // Strict role permission check
-        if (!$isAdmin && (int)$user->store_id !== $storeId) {
+        $store = Store::findOrFail($storeId);
+        $canViewLease = $store->kind === Store::KIND_LEASE_TO_OWN
+            && PermissionAccess::allows($user, 'vehicle.view_lease');
+        if (!PermissionAccess::allows($user, 'vehicle.view_all') && !$canViewLease) {
             throw new AuthorizationException(
-                'Bạn chỉ được xem chi tiết xe của cơ sở được phân công.'
+                'Bạn không có quyền xem chi tiết xe của kho này.'
             );
         }
 
-        $store = Store::findOrFail($storeId);
         if (!HimotoStores::isCanonical($store)) {
             throw new AuthorizationException('Kho không còn nằm trong danh mục 6 kho HIMOTO.');
         }
@@ -257,7 +264,7 @@ class WarehouseService
 
     public function getTransfers(array $params, User $user)
     {
-        $isAdmin = $user->role_id === 1 || ($user->role_rel && $user->role_rel->slug === 'quan-tri-vien');
+        $isAdmin = \App\Support\PilotAccess::isAdmin($user);
         $storeId = data_get($params, 'store_id');
         if (!$isAdmin) {
             if (!$user->store_id) {

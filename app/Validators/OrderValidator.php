@@ -18,6 +18,8 @@ class OrderValidator extends LaravelValidator
     const ORDER_BAD_DEBT = 'bad_debt';
     const ORDER_DEPOSIT_CONTRACT = 'deposit_contract'; // Loại hợp đồng khách đặt cọc để giữ xe.
     const ORDER_DRAFT = 'draft';
+    const ORDER_CANCEL_PENDING_SETTLEMENT = 'cancel_pending_settlement';
+    const ORDER_CANCELLED = 'cancelled';
 
     public static function contractRules(): array
     {

@@ -88,7 +88,7 @@ class OrderRepositoryEloquent extends BaseRepository implements OrderRepository
         $orders=$this->getOrderByParams($query,$params);
     
         $user = auth()->user();
-        if ((int) $user->role_id !== 1) {
+        if (!\App\Support\PermissionAccess::allows($user, 'order.view_all')) {
             $orders->where('orders.store_id', $user->store_id);
         }
 

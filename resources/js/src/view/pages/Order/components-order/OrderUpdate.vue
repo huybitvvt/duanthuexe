@@ -471,6 +471,10 @@
 								<label for="totalFeeAllOrderItems"><strong>Tổng phí (Phí thuê xe + Phí khác)</strong></label>
 								<money id="totalFeeAllOrderItems" :value="totalFeeAllOrderItems" v-bind="money" class="form-control" :disabled="true"></money>
 							</div>
+							<div class="alert alert-info" v-if="Number(order.approved_discount_amount) > 0">
+								Giảm giá đã duyệt: {{ Number(order.approved_discount_amount).toLocaleString('vi-VN') }} đ.
+								Phí sau giảm: {{ Number(order.total).toLocaleString('vi-VN') }} đ.
+							</div>
 
 							<div class="form-group" v-if="order && totalRaiseAndAddonVal > 0">
 								<label for="totalRaiseAndAddonVal"><strong>Tổng gia hạn</strong></label>
@@ -593,7 +597,7 @@
 
 					<div class="my-2 bad-debt-checkbox checkbox-wrapper">
 						<input type="checkbox" class="checkbox-input" v-model="badDebt"
-							:disabled="order.order_status === 'completed'" id="bad-debt">
+										:disabled="order.order_status === 'completed' || !canSettleReturn" id="bad-debt">
 						<label for="bad-debt">Nợ xấu</label>
 					</div>
 
@@ -602,7 +606,9 @@
 
 					<div class="update-order-buttons card-toolbar mt-3 d-flex justify-content-center"
 						v-if="parent !== 'vehicle-revenue'">
-						<ModalComplete v-if="id && order.order_status == 'renting' && !editing_item_fee" :order="order" :banks="banks" :bank_outs="bank_outs" :debt="debt"
+						<button v-if="id && order.order_status === 'renting' && canCheckIn && !hasCheckedIn" type="button" class="btn btn-sm btn-outline-primary mr-2 font-weight-bold" @click="checkInVehicle">Ghi nhận nhận xe</button>
+						<span v-if="id && order.order_status === 'renting' && hasCheckedIn" class="badge badge-warning mr-2">Đã nhận xe, chờ quyết toán</span>
+						<ModalComplete v-if="id && order.order_status == 'renting' && !editing_item_fee && canSettleReturn" :order="order" :banks="banks" :bank_outs="bank_outs" :debt="debt"
 							@addOnSuccess="addOnSuccess" @calc_before_order_complete="calc_before_order_complete">
 						</ModalComplete>
 
@@ -636,13 +642,15 @@
 						<button v-if="id" type="button" class="btn btn-sm btn-info mr-2 font-weight-bold" @click="onPrintOfficialContract">
 							In hợp đồng
 						</button>
-						<ModalAddOnPrice v-if="id && order.order_status == 'renting'" :order="order" :banks="banks" @addOnSuccess="addOnSuccess"></ModalAddOnPrice>
+						<ModalAddOnPrice v-if="id && order.order_status == 'renting' && canRenew" :order="order" :banks="banks" @addOnSuccess="addOnSuccess"></ModalAddOnPrice>
 
-						<ModalCloseDeposit v-if="id && order && order.order_status == 'deposit_contract'" :order_id="id" @onSuccess="onCloseDepositOrderSuccess"></ModalCloseDeposit>
+						<ModalCloseDeposit v-if="id && order && order.order_status == 'deposit_contract' && canCloseDeposit" :order_id="id" @onSuccess="onCloseDepositOrderSuccess"></ModalCloseDeposit>
 
 					</div>
             </form>
         </ValidationObserver>
+		<BusinessApprovalPanel v-if="id && order && order.store_id"
+			:subject-id="Number(id)" :store-id="Number(order.store_id)" subject-type="order" @changed="getOrder" />
 
 		<ModalContractPreview v-model="showPreviewModal" :doc="previewDocumentDto" />
     </div>
@@ -678,6 +686,7 @@ import ModalCloseDeposit from "./ModalCloseDeposit";
 import ModalStart from "./ModalStart";
 import TransactionHistory from "./TransactionHistory";
 import ModalContractPreview from "./ModalContractPreview";
+import BusinessApprovalPanel from "../../approvals/BusinessApprovalPanel.vue";
 import { CUSTOMER_INDEX } from "@/core/services/store/customers.module";
 import { LEAD_INDEX } from "@/core/services/store/lead.module";
 import Swal from "sweetalert2";
@@ -696,6 +705,7 @@ export default {
         TransactionHistory,
         PaymentMethod,
         ModalContractPreview,
+        BusinessApprovalPanel,
         ErrorMessage,
         Money,
     },
@@ -849,7 +859,23 @@ export default {
         };
     },
     computed: {
-        ...mapGetters(["currentUser"]),
+        ...mapGetters(["currentUser", "capabilities"]),
+        canCheckIn() {
+            return this.capabilities.includes('*') || this.capabilities.includes('order.return');
+        },
+        canSettleReturn() {
+            return this.capabilities.includes('*') || this.capabilities.includes('order.settle_return');
+        },
+        canRenew() {
+            return this.capabilities.includes('*') || this.capabilities.includes('order.renewal_fee');
+        },
+        canCloseDeposit() {
+            return this.capabilities.includes('*') || this.capabilities.includes('order.close_deposit');
+        },
+        hasCheckedIn() {
+            return Boolean(this.order && this.order.order_items && this.order.order_items.length
+                && this.order.order_items.every(item => Boolean(item.completed_at)));
+        },
         isDraftMode() {
             return ['draft', 'handover'].includes(this.initialMode) || (this.order && this.order.order_status === 'draft');
         },
@@ -878,9 +904,10 @@ export default {
                 }, 0 
 			);
 
-            let debt = this.totalFeeAllOrderItems + this.total_outdate_early_amount - this.total_in;
+			const approvedDiscount = Number(this.order.approved_discount_amount || 0);
+            let debt = this.totalFeeAllOrderItems - approvedDiscount + this.total_outdate_early_amount - this.total_in;
 			if ( this.order && this.order.data_version == null ) {
-				debt = this.total_outdate_early_amount - (this.total_in - this.totalFeeAllOrderItems);
+				debt = this.total_outdate_early_amount - (this.total_in - this.totalFeeAllOrderItems + approvedDiscount);
 			}
 
 			return debt;
@@ -1411,6 +1438,27 @@ export default {
         },
         addOnSuccess() {
             this.$emit("updateSuccess");
+        },
+
+        async checkInVehicle() {
+            const confirmation = await Swal.fire({
+                title: 'Xác nhận đã nhận đủ xe?',
+                text: 'Thời điểm nhận xe được ghi theo giờ hệ thống. Trưởng phòng sẽ quyết toán khoản thu hoặc hoàn.',
+                showCancelButton: true,
+                confirmButtonText: 'Ghi nhận',
+                cancelButtonText: 'Quay lại',
+            });
+            if (!confirmation.isConfirmed) return;
+            try {
+                await ApiService.post(`/api/auth/order/car-rental/check-in/${this.id}`, {
+                    order_items: this.order.order_items.map(item => ({ id: item.id, odometer_after: item.odometer_after })),
+                });
+                await this.getOrder();
+                this.$emit('updateSuccess');
+                Swal.fire('Đã nhận xe', 'Đơn đang chờ trưởng phòng quyết toán.', 'success');
+            } catch (error) {
+                Swal.fire('Không thể nhận xe', error.data?.message || 'Vui lòng kiểm tra lại dữ liệu.', 'error');
+            }
         },
 
 		async transactionHistoryChanged() {

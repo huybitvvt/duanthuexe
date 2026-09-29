@@ -361,7 +361,9 @@ class ContractDocumentBuilder
         }
 
         $depositAmount = (float) ($snapshot['payment']['deposit_amount'] ?? ($order->first_deposit_amount ?? 0));
-        $rentalFee = (float) ($snapshot['payment']['rental_fees'] ?? ($order->total ?? 0));
+        $approvedDiscount = (float) ($order->approved_discount_amount ?? 0);
+        $grossRentalFee = (float) ($snapshot['payment']['rental_fees'] ?? (($order->total ?? 0) + $approvedDiscount));
+        $rentalFee = max(0, $grossRentalFee - $approvedDiscount);
         $receipts = collect($snapshot['payment']['transactions_summary'] ?? []);
         $paidAmount = (float) ($snapshot['payment']['paid_amount'] ?? $receipts->where('type', 'in')->where('name', 'order:rental_fees')->sum('value'));
         $rentalReceipts = $receipts->where('type', 'in')->where('name', 'order:rental_fees');

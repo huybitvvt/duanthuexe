@@ -10,7 +10,7 @@
             ĐÃ CHỐT KÉT ({{ summary.closed_by_name || 'Admin' }} - {{ formatDate(summary.closed_at) }})
           </span>
           <span v-else class="badge badge-warning px-3 py-2 font-weight-bold mr-3">
-            ĐANG MỞ - CHƯA CHỐT
+            {{ summary.status === 'submitted' ? 'CHỜ TRƯỞNG PHÒNG DUYỆT' : 'ĐANG MỞ - CHƯA CHỐT' }}
           </span>
           <button v-if="summary.status === 'closed' && isAdmin" class="btn btn-sm btn-outline-danger font-weight-bold" @click="handleReopen">
             Mở lại két
@@ -261,7 +261,15 @@
             </div>
           </div>
 
-          <div v-else>
+          <div v-else-if="summary.status === 'submitted'" class="alert alert-info">
+            Đã gửi kiểm đếm bởi {{ summary.submitted_by_name || 'nhân viên' }} lúc {{ formatDate(summary.submitted_at) }}.
+            Tiền thực đếm: <strong>{{ formatCurrency(summary.actual_cash_counted) }}</strong>.
+            <button v-if="canApproveCash && Number(summary.submitted_by) !== Number(currentUser.id)"
+              class="btn btn-primary ml-3" :disabled="loadingClose || hasUnclassifiedBank" @click="handleApproveRegister">
+              Duyệt chốt két
+            </button>
+          </div>
+          <div v-else-if="canSubmitCash">
             <div class="row">
               <div class="col-md-4 form-group">
                 <label class="font-weight-bold">Tiền mặt thực đếm tại két <span class="text-danger">(*)</span></label>
@@ -307,7 +315,7 @@
                   @click="handleCloseRegister"
                   :disabled="loadingClose || !selectedStoreId || hasUnclassifiedBank"
                 >
-                  {{ loadingClose ? 'Đang chốt...' : 'Xác nhận Chốt két ngày' }}
+                  {{ loadingClose ? 'Đang gửi...' : 'Gửi chốt két để duyệt' }}
                 </button>
               </div>
             </div>
@@ -326,6 +334,7 @@
                 <tr>
                   <th>Ngày</th>
                   <th>Cơ sở</th>
+                  <th>Trạng thái</th>
                   <th>Số đơn</th>
                   <th>Tiền hệ thống</th>
                   <th>Tiền thực đếm</th>
@@ -339,6 +348,7 @@
                 <tr v-for="item in historyList" :key="item.id">
                   <td class="font-weight-bold">{{ item.register_date }}</td>
                   <td>{{ item.store ? item.store.store_name : 'Toàn hệ thống' }}</td>
+                  <td><span class="badge" :class="item.status === 'closed' ? 'badge-success' : 'badge-warning'">{{ item.status === 'closed' ? 'Đã duyệt' : item.status === 'submitted' ? 'Chờ duyệt' : 'Đang mở' }}</span></td>
                   <td>{{ item.total_orders_count }}</td>
                   <td class="font-weight-bold text-primary">{{ formatCurrency(item.system_cash_balance) }}</td>
                   <td class="font-weight-bold text-success">{{ formatCurrency(item.actual_cash_counted) }}</td>
@@ -348,11 +358,11 @@
                     <span v-else class="badge badge-light-warning text-warning font-weight-bold">Thừa {{ formatCurrency(item.cash_difference) }}</span>
                   </td>
                   <td>{{ item.difference_reason || '-' }}</td>
-                  <td>{{ item.closed_by_user ? item.closed_by_user.name : 'N/A' }}</td>
-                  <td>{{ formatDate(item.closed_at) }}</td>
+                  <td>{{ item.closed_by_user ? item.closed_by_user.name : item.submitted_by_user ? item.submitted_by_user.name + ' (đã gửi)' : 'N/A' }}</td>
+                  <td>{{ formatDate(item.closed_at || item.submitted_at) }}</td>
                 </tr>
                 <tr v-if="!historyList.length">
-                  <td colspan="9" class="text-center text-muted py-4">Chưa có lịch sử chốt két nào được ghi nhận.</td>
+                  <td colspan="10" class="text-center text-muted py-4">Chưa có lịch sử chốt két nào được ghi nhận.</td>
                 </tr>
               </tbody>
             </table>
@@ -427,7 +437,13 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(["currentUser"]),
+    ...mapGetters(["currentUser", "capabilities"]),
+    canSubmitCash() {
+      return this.capabilities.includes('*') || this.capabilities.includes('cash_register.submit');
+    },
+    canApproveCash() {
+      return this.capabilities.includes('*') || this.capabilities.includes('cash_register.approve');
+    },
     isAdmin() {
       return this.currentUser && (this.currentUser.role_id === 1 || this.currentUser.is_admin);
     },
@@ -447,10 +463,10 @@ export default {
     },
     canSaveEntry() {
       const sourceReady = this.entryForm.channel === 'cash' ? this.entryForm.cash_id : this.entryForm.bank_id;
-      return this.selectedStoreId && this.summary.status !== 'closed' && Number(this.entryForm.amount) > 0 && sourceReady && this.entryForm.description.trim();
+      return this.selectedStoreId && this.summary.status === 'open' && Number(this.entryForm.amount) > 0 && sourceReady && this.entryForm.description.trim();
     },
     canSaveExchange() {
-      return this.selectedStoreId && this.summary.status !== 'closed' && Number(this.exchangeForm.amount) > 0 && this.exchangeForm.cash_id && this.exchangeForm.bank_id;
+      return this.selectedStoreId && this.summary.status === 'open' && Number(this.exchangeForm.amount) > 0 && this.exchangeForm.cash_id && this.exchangeForm.bank_id;
     },
   },
   created() {
@@ -488,7 +504,7 @@ export default {
         };
         const res = await ApiService.query("/api/auth/daily-cash-registers/summary", params);
         this.summary = res.data.data || res.data || {};
-        if (this.summary.status === 'closed') {
+        if (this.summary.status === 'closed' || this.summary.status === 'submitted') {
           this.closeForm.actual_cash_counted = this.summary.actual_cash_counted;
           this.closeForm.difference_reason = this.summary.difference_reason || '';
           this.closeForm.notes = this.summary.notes || '';
@@ -568,14 +584,14 @@ export default {
 
       this.loadingClose = true;
       try {
-        await ApiService.post("/api/auth/daily-cash-registers/close", {
+        await ApiService.post("/api/auth/daily-cash-registers/submit", {
           store_id: this.selectedStoreId,
           date: this.selectedDate,
           actual_cash_counted: this.closeForm.actual_cash_counted,
           difference_reason: this.closeForm.difference_reason,
           notes: this.closeForm.notes,
         });
-        this.$message.success("Chốt két ngày thành công!");
+        this.$message.success("Đã gửi chốt két chờ duyệt.");
         this.fetchSummary();
         this.fetchHistory();
       } catch (err) {
@@ -583,6 +599,20 @@ export default {
       } finally {
         this.loadingClose = false;
       }
+    },
+    async handleApproveRegister() {
+      if (!this.selectedStoreId || !this.canApproveCash) return;
+      this.loadingClose = true;
+      try {
+        await ApiService.post('/api/auth/daily-cash-registers/close', {
+          store_id: this.selectedStoreId, date: this.selectedDate,
+        });
+        this.$message.success('Đã duyệt chốt két.');
+        await this.fetchSummary();
+        await this.fetchHistory();
+      } catch (err) {
+        this.$message.error(err.response?.data?.message || 'Không thể duyệt chốt két.');
+      } finally { this.loadingClose = false; }
     },
     async handleReopen() {
       if (!confirm("Bạn có chắc chắn muốn mở lại sổ két ngày này không?")) return;
