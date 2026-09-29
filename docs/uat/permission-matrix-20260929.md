@@ -17,7 +17,7 @@ Ma trận thực thi nằm trong `app/Support/UatPermissionMatrix.php`; migratio
 
 ## Đề xuất kiểm soát chéo bổ sung ngày 29/09/2026
 
-Mã ở checkout đã bổ sung migration `000002` (người gửi/người duyệt), `000003` (quyền thao tác), `2026_09_30_000001` (đề nghị phê duyệt) và `2026_09_30_000002` (số tiền giảm đã duyệt). **Các migration này chưa chạy trên Supabase UAT và mã chưa triển khai lên Render.** Quyền UAT đang chạy vẫn là ma trận chỉ xem ở phần trên. Không áp dụng `000003` đơn lẻ trước khi API mới được triển khai: bản API cũ còn gom nhiều thao tác dưới một quyền rộng.
+Các migration `000002` (người gửi/người duyệt), `000003` (quyền thao tác), `2026_09_30_000001` (đề nghị phê duyệt) và `2026_09_30_000002` (số tiền giảm đã duyệt) đã chạy trên Supabase UAT cùng bản API/giao diện từ [PR #7](https://github.com/huybitvvt/duanthuexe/pull/7). Kiểm tra sau triển khai xác nhận đủ 5 migration UAT, 11 vai trò và 14 tài khoản hoạt động. Các quyền thao tác bên dưới đang được cấp trên UAT; vẫn cần người dùng nghiệm thu luồng nghiệp vụ.
 
 | Vị trí | Đã lập trình trong checkout | Giới hạn còn lại |
 | --- | --- | --- |
