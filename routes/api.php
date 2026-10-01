@@ -183,10 +183,10 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::delete('/{transaction}', [TransactionController::class, 'destroy'])->middleware('permission:finance.transaction.manage');
                 Route::match(['put', 'post'],'/{transaction?}', [TransactionController::class, 'putOrPost'])->middleware('permission:finance.transaction.manage');
             });
-            Route::group(['prefix' => 'priceVehicles', 'middleware' => 'permission:vehicle.manage'], function () {
-                Route::get('/', [PriceVehicleController::class, 'index']);
-                Route::post('/', [PriceVehicleController::class, 'storeOrUpdate']);
-                Route::delete('/{priceVehicle}', [PriceVehicleController::class, 'destroy']);
+            Route::group(['prefix' => 'priceVehicles'], function () {
+                Route::get('/', [PriceVehicleController::class, 'index'])->middleware('permission:order.create');
+                Route::post('/', [PriceVehicleController::class, 'storeOrUpdate'])->middleware('permission:vehicle.manage');
+                Route::delete('/{priceVehicle}', [PriceVehicleController::class, 'destroy'])->middleware('permission:vehicle.manage');
             });
             Route::group(['prefix' => 'role', 'middleware' => 'admin'], function () {
                 Route::get('/all', [RoleController::class, 'all']);
