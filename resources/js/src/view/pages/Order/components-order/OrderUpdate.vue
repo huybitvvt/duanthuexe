@@ -958,7 +958,9 @@ export default {
 				return sum = sum + amount;
 			}, 0);
 
-            let total = this.order.first_deposit_amount + this.totalRaiseAndAddonVal + this.order.additional_deposit_amount + otherDebt;
+            const collectingDeposit = this.id || !this.order.create_order_without_input_deposit;
+            let total = (collectingDeposit ? Number(this.order.first_deposit_amount || 0) : 0)
+                + this.totalRaiseAndAddonVal + Number(this.order.additional_deposit_amount || 0) + otherDebt;
 			/*
 			if ( this.order.total_rental_fees ) {
 				console.log('Total in - this.order.total_rental_fees: ', this.order.total_rental_fees);
@@ -972,7 +974,7 @@ export default {
 			*/
 
 			if (this.totalFeeAllOrderItems > 0) {
-				if (this.order.created_without_collect_rental_fees) {
+				if (this.order.created_without_collect_rental_fees || (!this.id && this.order.create_order_without_input_rental_fee)) {
 					// This order didn't collect the rental fees.
 				} else if (this.order && this.order.data_version == null) {
 
@@ -1971,6 +1973,7 @@ export default {
                     customer_source_url: 'Liên kết nguồn khách', total: 'Tổng phí',
                     contract_signed_on: 'Ngày ký hợp đồng', manual_contract_number: 'Số hợp đồng',
                     draft_reference: 'Mã bản nháp', order: 'Hợp đồng',
+                    order_items: 'Xe và giá thuê', total_rental_fees: 'Tổng phí thuê', pid: 'Số đã thu',
                 };
                 const entries = Object.entries(errors);
                 this.serverValidationErrors = entries.map(([field, messages]) => {
