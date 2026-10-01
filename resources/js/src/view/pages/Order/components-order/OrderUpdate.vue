@@ -80,6 +80,12 @@
 					</div>
 				</div>
 
+				<div v-if="serverValidationErrors.length" class="alert alert-danger mb-4" role="alert">
+					<strong>Vui lòng kiểm tra thông tin hợp đồng:</strong>
+					<ul class="mb-0 mt-2 pl-4">
+						<li v-for="(error, index) in serverValidationErrors" :key="index">{{ error }}</li>
+					</ul>
+				</div>
 				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4">
 					<el-tab-pane label="Thông tin hợp đồng" name="contract">
 
@@ -748,6 +754,7 @@ export default {
             totalFeeAllOrderItems: 0,
             customerSearchSeq: 0,
             selectedCollateralTypes: [],
+            serverValidationErrors: [],
 
             order: {
 				created_at: new Date(),
@@ -1850,7 +1857,7 @@ export default {
             this.calOrderFee();
         },
         resetForm() {
-
+            this.serverValidationErrors = [];
             this.order = {
                 store_id: this.canChooseContractStore ? "" : (this.contractStores[0]?.id || ""),
                 order_mode: this.initialMode,
@@ -1953,6 +1960,42 @@ export default {
             }
         },
 
+        showOrderSaveError(error, title) {
+            const payload = error?.data || error?.response?.data || {};
+            const errors = payload.errors || payload.message_validate_form || payload.data?.message_validate_form;
+            if (errors && typeof errors === 'object' && Object.keys(errors).length) {
+                const labels = {
+                    store_id: 'Cơ sở', customer_name: 'Tên khách hàng',
+                    customer_phone: 'Số điện thoại khách hàng', customer_id_card: 'Số CMTND/CCCD',
+                    customer_source_url: 'Liên kết nguồn khách', total: 'Tổng phí',
+                    contract_signed_on: 'Ngày ký hợp đồng', manual_contract_number: 'Số hợp đồng',
+                    draft_reference: 'Mã bản nháp', order: 'Hợp đồng',
+                };
+                const entries = Object.entries(errors);
+                this.serverValidationErrors = entries.map(([field, messages]) => {
+                    const vehicleMatch = field.match(/^order_items\.(\d+)\.(vehicle_id|rent_at|return_at)$/);
+                    const vehicleLabels = { vehicle_id: 'Xe thuê', rent_at: 'Thời gian thuê', return_at: 'Thời gian trả' };
+                    const label = vehicleMatch
+                        ? `${vehicleLabels[vehicleMatch[2]]} số ${Number(vehicleMatch[1]) + 1}`
+                        : (labels[field] || field.replace(/_/g, ' '));
+                    const detail = Array.isArray(messages) ? messages[0] : String(messages);
+                    if (/field is required\.?$/i.test(detail)) return `${label} là bắt buộc.`;
+                    if (/has already been taken\.?$/i.test(detail)) return `${label} đã tồn tại.`;
+                    if (/format is invalid\.?$/i.test(detail)) return `${label} không đúng định dạng.`;
+                    if (/must be (?:a number|numeric)\.?$/i.test(detail)) return `${label} phải là số.`;
+                    return `${label}: ${detail}`;
+                });
+                const firstField = entries[0]?.[0] || '';
+                if (firstField.startsWith('order_items.')) this.activeContractTab = 'vehicle';
+                else if (/^(customer_|store_id|relatives)/.test(firstField)) this.activeContractTab = 'customer';
+                else if (/payment|deposit|rental_fee|^total$/.test(firstField)) this.activeContractTab = 'payment';
+                this.noticeMessage('error', title, this.serverValidationErrors[0]);
+                return;
+            }
+            this.serverValidationErrors = [];
+            this.noticeMessage('error', title, payload.message || 'Vui lòng kiểm tra lại dữ liệu hợp đồng.');
+        },
+
         onSubmit(saveAsDraft = false) {
 			Swal.fire({
                 title: this.start_this_contract ? "Bạn chắc chắn muốn kích hoạt hợp đồng này?" : "Bạn chắc chắn muốn sửa lại hợp đồng này?",
@@ -1963,6 +2006,7 @@ export default {
             }).then((result) => {
                 if (result.isConfirmed) {
                     this.loading = true;
+                    this.serverValidationErrors = [];
 					let params = this.prepareRequestParams();
 					params.save_as_draft = saveAsDraft;
 					if ( this.editing_order_created_at ) {
@@ -1985,7 +2029,7 @@ export default {
 							);
 						})
 						.catch((err) => {
-							this.noticeMessage("error", this.start_this_contract ? "Không kích hoạt được hợp đồng" : "Không cập nhật được hợp đồng", err.data?.message);
+							this.showOrderSaveError(err, this.start_this_contract ? "Không kích hoạt được hợp đồng" : "Không cập nhật được hợp đồng");
 						})
 						.finally(() => (this.loading = false));
                 }
@@ -1994,6 +2038,7 @@ export default {
 
         onSubmitCreate(saveAsDraft = false) {
             this.loading = true;
+            this.serverValidationErrors = [];
             const effectiveSaveAsDraft = saveAsDraft || ['draft', 'handover'].includes(this.initialMode);
             const handoverTab = this.initialMode === 'handover' ? window.open('', '_blank') : null;
             let handoverOpened = false;
@@ -2030,7 +2075,7 @@ export default {
                 })
 				.catch((err) => {
 					if (handoverTab) handoverTab.close();
-                    this.noticeMessage("error", "Không tạo được hợp đồng", err.data?.message);
+                    this.showOrderSaveError(err, "Không tạo được hợp đồng");
                 })
                 .finally(() => (this.loading = false));
         },
