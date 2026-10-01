@@ -204,9 +204,10 @@
                                 </router-link>
                             </div>
                             <ValidationProvider vid="store_id" name="Cửa hàng xe" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
-                                <el-select name="store_id" v-model="order.store_id" clearable filterable class="w-100"
+                                <el-select name="store_id" v-model="order.store_id" :clearable="canChooseContractStore"
+                                    :disabled="!canChooseContractStore" filterable class="w-100"
                                     placeholder="Chọn cửa hàng" @change="onStoreChange($event)">
-                                    <el-option v-for="item in stores" :key="item.name" :label="item.store_name"
+                                    <el-option v-for="item in contractStores" :key="item.id" :label="item.store_name"
                                         :value="item.id">
                                     </el-option>
                                 </el-select>
@@ -348,7 +349,7 @@
                         <items-order :priceVehicles="priceVehicles" :order_item="item" :banks="banks"
 							:is_deposit_contract_mode="is_deposit_contract_mode"
 							:is_draft_mode="isDraftMode"
-                            :ref="'itemOrder-' + key" :vehicles="vehicles" :index="key" :order_id="id"
+                            :ref="'itemOrder-' + key" :vehicles="contractVehicles" :index="key" :order_id="id"
                             :customer_name="order.customer_name"
                             @deleteFee="deleteFee" @deleteVehicle="deleteVehicle" @changeRentAt="changeRentAt" @addFee="addFee" @feeChanged="feeChanged"
                             @changeReturnAt="changeReturnAt" @changeIsAllInOne="changeIsAllInOne"
@@ -860,6 +861,22 @@ export default {
     },
     computed: {
         ...mapGetters(["currentUser", "capabilities"]),
+        canChooseContractStore() {
+            return (this.capabilities || []).includes('*') || Number(this.currentUser?.role_id) === 1;
+        },
+        contractStores() {
+            if (this.canChooseContractStore) return this.stores;
+            return this.stores.filter(store => Number(store.id) === Number(this.currentUser?.store_id));
+        },
+        contractVehicles() {
+            const storeId = Number(this.order.store_id);
+            const selectedIds = this.id
+                ? (this.order.order_items || []).map(item => Number(item.vehicle_id))
+                : [];
+            return this.vehicles.filter(vehicle =>
+                (storeId && Number(vehicle.current_store_id || vehicle.store_id) === storeId)
+                || selectedIds.includes(Number(vehicle.id)));
+        },
         canCheckIn() {
             return this.capabilities.includes('*') || this.capabilities.includes('order.return');
         },
@@ -1105,6 +1122,9 @@ export default {
 
     },
     watch: {
+        currentUser() {
+            this.selectAssignedContractStore();
+        },
         initialMode(mode) {
             if (!this.id) this.order.order_mode = mode;
         },
@@ -1674,10 +1694,17 @@ export default {
                 }
             });
         },
+        selectAssignedContractStore() {
+            if (this.id || this.canChooseContractStore || this.contractStores.length !== 1) return;
+            const assignedStoreId = this.contractStores[0].id;
+            if (Number(this.order.store_id) === Number(assignedStoreId)) return;
+            this.order.store_id = assignedStoreId;
+            this.onStoreChange(assignedStoreId);
+        },
         async getStore() {
-            await this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
-                this.stores = data.data;
-            });
+            const data = await this.$store.dispatch(STORE_GET_ALL, {});
+            this.stores = data.data;
+            this.selectAssignedContractStore();
         },
 
         async getListVehicles() {
@@ -1825,7 +1852,7 @@ export default {
         resetForm() {
 
             this.order = {
-                store_id: "",
+                store_id: this.canChooseContractStore ? "" : (this.contractStores[0]?.id || ""),
                 order_mode: this.initialMode,
                 guardian_name: "",
                 guardian_phone: "",
