@@ -86,7 +86,7 @@ final class CounterOrderPricing
         $paid = (filter_var($request->input('create_order_without_input_deposit', false), FILTER_VALIDATE_BOOLEAN) ? 0 : $deposit)
             + (filter_var($request->input('create_order_without_input_rental_fee', false), FILTER_VALIDATE_BOOLEAN) ? 0 : $total)
             + $additionalDeposit;
-        if ((float) $request->input('pid', -1) !== $paid) {
+        if ((float) $request->input('pid', -1) !== (float) $paid) {
             throw ValidationException::withMessages(['pid' => 'Số đã thu phải khớp các khoản thanh toán của đơn.']);
         }
     }
