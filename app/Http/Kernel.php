@@ -44,6 +44,7 @@ class Kernel extends HttpKernel
 
         'api' => [
             'throttle:600,1',
+            \App\Http\Middleware\ValidateApiQuery::class,
             'bindings',
         ],
     ];
@@ -85,6 +86,8 @@ class Kernel extends HttpKernel
         \Illuminate\Session\Middleware\StartSession::class,
         \Illuminate\View\Middleware\ShareErrorsFromSession::class,
         \App\Http\Middleware\Authenticate::class,
+        \Tymon\JWTAuth\Http\Middleware\Authenticate::class,
+        \App\Http\Middleware\ValidateApiQuery::class,
         \Illuminate\Session\Middleware\AuthenticateSession::class,
         \Illuminate\Routing\Middleware\SubstituteBindings::class,
         \Illuminate\Auth\Middleware\Authorize::class,

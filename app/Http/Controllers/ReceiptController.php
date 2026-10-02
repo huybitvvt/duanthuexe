@@ -28,74 +28,75 @@ class ReceiptController extends Controller
  
         return $this->successResponse( $transaction);
     }
-    public function putOrPost(Request $request,   $id = null): JsonResponse
+    public function putOrPost(Request $request, $id = null): JsonResponse
     {
-        try {
-            $data = $request->all();
-
-			$cash_amount = is_numeric( $data['cash_amount'] ) && $data['cash_amount'] > 0 ? $data['cash_amount'] : 0;
-			$bank_transfer_amount = is_numeric( $data['bank_transfer_amount'] ) && $data['bank_transfer_amount'] > 0 ? $data['bank_transfer_amount'] : 0;
-
-			if ( $cash_amount + $bank_transfer_amount == 0 ) {
-				return $this->errorResponse( 'Số tiền thanh toán phải lớn hơn 0', 422 );
-			}
-     
-            $user = Auth::user();
-            $role = $user->role_id;
-            if ($role !== 1){
-                $data['store_id']  =  $user->store_id;
-            }
-            $result = $this->transactionService->processPaymentMethod( $data['payment_method'], $data['bank_id'], $data['store_id'] );
-            $data['bank_id'] = $result['bank_id'];
-            $data['cash_id'] = $result['cash_id'];
-			$payment_method = $data['payment_method'];
-
-			if ( is_numeric( $data['payment_method'] ) ) {
-				$payment_method = intval( $data['payment_method'] );
-				if ( 1 == $payment_method && $cash_amount > 0 ) {
-					$data['value'] = $cash_amount;
-				}
-				if ( 2 == $payment_method && $bank_transfer_amount > 0 ) {
-					$data['value'] = $bank_transfer_amount;
-				}
-			}
-
-			if ( isset( $data['created_at'] ) && ! empty( $data['created_at'] ) ) {
-				$input_date = DateTimeHelper::parse( $data['created_at'] );
-				$data['created_at'] = $input_date;
-				$data['updated_at'] = $input_date;
-			}
-
-            $tran = Transaction::find($id);  
-            if ($tran !== null) {
-                $this->ensureNotSepay($tran);
-                $tran->update($data);
-            } else {
-                $data['name'] = 'receipt';
-                $data['user_id'] = Auth::id();
-
-				if ( 3 == $payment_method ) { // This option include 2 payment method then need to split to 2 transactions.
-					$data['payment_method'] = 3;
-					if ( $cash_amount > 0 ) {
-						$data['value'] = $cash_amount;
-						$data['bank_id'] = null;
-						$data['cash_id'] = $result['cash_id'];
-						$tran = Transaction::create($data);
-					}
-					if ( $bank_transfer_amount > 0 ) {
-						$data['value'] = $bank_transfer_amount;
-						$data['bank_id'] = $result['bank_id'];
-						$data['cash_id'] = null;
-						$tran = Transaction::create($data);
-					}
-				} else {
-					$tran = Transaction::create($data);
-				}
-            }
-            return $this->successResponse('', 'Thêm mới thành công');
-        } catch(\Exception $exception){
-            return $this->errorResponse($exception->getMessage(), 422);
+        $user = $request->user();
+        if (!$request->filled('store_id') && $user->store_id) {
+            $request->merge(['store_id' => $user->store_id]);
         }
+        $data = $request->validate([
+            'store_id' => 'required|integer|exists:stores,id',
+            'type' => 'required|in:in,out',
+            'payment_method' => 'required|integer|in:1,2,3',
+            'bank_id' => 'nullable|integer|exists:banks,id',
+            'cash_amount' => 'nullable|numeric|min:0|max:1000000000000',
+            'bank_transfer_amount' => 'nullable|numeric|min:0|max:1000000000000',
+            'created_at' => 'nullable|date',
+            'order_id' => 'nullable|integer|exists:orders,id',
+            'note' => 'nullable|string|max:5000',
+        ]);
+        \App\Support\PermissionAccess::can($user, 'finance.transaction.manage', (int) $data['store_id']);
+        $method = (int) $data['payment_method'];
+        $cash = in_array($method, [1, 3], true) ? (float) ($data['cash_amount'] ?? 0) : 0;
+        $transfer = in_array($method, [2, 3], true) ? (float) ($data['bank_transfer_amount'] ?? 0) : 0;
+        if ($cash + $transfer <= 0) {
+            throw ValidationException::withMessages(['cash_amount' => 'Số tiền thanh toán phải lớn hơn 0.']);
+        }
+        if ($transfer > 0 && empty($data['bank_id'])) {
+            throw ValidationException::withMessages(['bank_id' => 'Chọn tài khoản nhận chuyển khoản.']);
+        }
+        $accounts = $this->transactionService->processPaymentMethod($method, $data['bank_id'] ?? null, $data['store_id']);
+        if ($cash > 0 && empty($accounts['cash_id'])) {
+            throw ValidationException::withMessages(['store_id' => 'Cơ sở chưa có két hoạt động.']);
+        }
+        if (!empty($data['created_at'])) {
+            $data['created_at'] = DateTimeHelper::parse($data['created_at']);
+        }
+        unset($data['cash_amount'], $data['bank_transfer_amount']);
+        $data['name'] = 'receipt';
+        try {
+            DB::transaction(function () use ($data, $cash, $transfer, $accounts, $id, $user) {
+                $existing = $id ? Transaction::lockForUpdate()->findOrFail($id) : null;
+                if ($existing) {
+                    $this->ensureNotSepay($existing);
+                    \App\Support\PermissionAccess::can($user, 'finance.transaction.manage', (int) $existing->store_id);
+                    if ($existing->name !== 'receipt') {
+                        throw ValidationException::withMessages(['receipt' => 'Giao dịch hợp đồng không thể sửa bằng phiếu thu chi.']);
+                    }
+                }
+                $data['user_id'] = $existing ? $existing->user_id : $user->id;
+                $parts = [];
+                if ($cash > 0) {
+                    $parts[] = ['value' => $cash, 'payment_method' => 1, 'cash_id' => $accounts['cash_id'], 'bank_id' => null];
+                }
+                if ($transfer > 0) {
+                    $parts[] = ['value' => $transfer, 'payment_method' => 2, 'cash_id' => null, 'bank_id' => $accounts['bank_id']];
+                }
+                foreach ($parts as $part) {
+                    $row = array_merge($data, $part);
+                    if ($existing) {
+                        $existing->update($row);
+                        $existing = null;
+                    } else {
+                        Transaction::create($row);
+                    }
+                }
+            });
+        } catch (\Illuminate\Database\QueryException $exception) {
+            \Illuminate\Support\Facades\Log::error('Unable to save receipt.', ['exception' => get_class($exception)]);
+            return $this->errorResponse('Không thể lưu phiếu thu chi. Vui lòng thử lại.', 500);
+        }
+        return $this->successResponse('', 'Lưu phiếu thu chi thành công');
     }
     public function index(Request $request):  JsonResponse
     {
@@ -112,7 +113,7 @@ class ReceiptController extends Controller
         if ($store_id = $request->get('store_id')) {
             $receipts->where('store_id', $store_id);
         }
-        if ($user->role_rel->slug !== 'quan-tri-vien') {
+        if (!\App\Support\PermissionAccess::allows($user, 'accounting.view')) {
             $receipts->where('store_id', $user->store_id);
         }
         if ($request->filled('start_date')) {

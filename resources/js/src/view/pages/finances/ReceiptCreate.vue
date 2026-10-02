@@ -26,7 +26,7 @@
                             </div>
                         </div>
 
-                        <div class="col-md-4" v-if="currentUser.role_id === 1">
+                        <div class="col-md-4" v-if="canChooseStore">
                             <div class="form-group">
                                 <label>Cửa hàng<span class="text-danger">(*)</span></label>
                                 <ValidationProvider vid="store_id" name="Cửa hàng" rules="required" v-slot="{ errors }">
@@ -200,11 +200,14 @@ export default {
     async mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{ title: this.cardLabel }]);
         await this.getReceipt();
-		this.orders = await this.loadOrders();
+        if (!this.canChooseStore && !this.receipt.store_id) this.receipt.store_id = this.currentUser.store_id;
+        if (this.capabilities.includes('*') || this.capabilities.includes('order.view_store')) {
+            this.orders = await this.loadOrders();
+        }
     },
     async created() {
         await this.getStore();
-        if (this.currentUser.role_id !== 1) {
+        if (!this.canChooseStore) {
             await this.getBankByStoreId(this.currentUser.store_id)
         } else {
 			await this.getBankByStoreId(0)
@@ -221,7 +224,10 @@ export default {
         cardLabel() {
             return this.$route.name === 'receipt-create' ? 'Thêm phiếu thu chi' : 'Sửa phiếu thu chi';
         },
-        ...mapGetters(["currentUser"]),
+        ...mapGetters(["currentUser", "capabilities"]),
+        canChooseStore() {
+            return this.capabilities.includes('*') || this.capabilities.includes('accounting.view');
+        },
         isByCash: {
             get() {
                 return this.receipt.payment_method == 1;

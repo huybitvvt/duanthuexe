@@ -327,7 +327,7 @@
                   <td class="text-right">
                     <!-- Nút xem lịch sử di chuyển -->
                     <button
-                      v-if="canViewMovementHistory"
+                      v-if="canViewMovementHistory(vehicle)"
                       class="btn btn-sm btn-light-info font-weight-bold mr-1"
                       title="Xem sổ cái lịch sử di chuyển xe"
                       @click="viewMovementHistory(vehicle.id)"
@@ -455,9 +455,6 @@ export default {
     canManageTransfers() {
       return this.capabilities.includes('*') || this.capabilities.includes('vehicle.manage');
     },
-    canViewMovementHistory() {
-      return this.capabilities.includes('*') || this.capabilities.includes('vehicle.view_all');
-    },
     currentStoreName() {
       const found = this.summaryList.find((s) => s.id === this.selectedStoreId);
       return found ? found.store_name : "Kho xe";
@@ -467,6 +464,12 @@ export default {
     this.initData();
   },
   methods: {
+    canViewMovementHistory(vehicle) {
+      if (this.capabilities.includes('*')) return true;
+      if (!this.capabilities.includes('vehicle.view_all')) return false;
+      const storeId = Number(this.currentUser?.store_id);
+      return storeId > 0 && [Number(vehicle.store_id), Number(vehicle.current_store_id)].includes(storeId);
+    },
     initData() {
       const qStoreId = this.$route.query.store_id;
       if (this.$route.query.keyword) {

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
@@ -112,6 +113,10 @@ class AuthController extends Controller
             return response()->json($validator->errors()->toJson(), 400);
         }
         $userId = auth()->user()->id;
+
+        if (!Hash::check($request->old_password, auth()->user()->password)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['old_password' => 'Mật khẩu hiện tại không đúng.']);
+        }
 
         $user = User::where('id', $userId)->update(
             ['password' => bcrypt($request->new_password)]

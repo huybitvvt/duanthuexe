@@ -7,6 +7,7 @@ use App\Http\Services\TransactionService;
 use App\Models\Transaction;
 use App\Models\SepayWebhookEvent;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use App\Models\Order;
 use App\Http\Services\OrderService;
 use App\Helpers\DateTimeHelper;
@@ -42,12 +43,25 @@ class TransactionController extends Controller
 
     public function putOrPost(Request $request, $id = null): JsonResponse
     {
-        $tran = Transaction::find($id);        
+        $request->validate([
+            'store_id' => 'required|integer|exists:stores,id',
+            'name' => 'required|string|max:191',
+            'type' => 'required|in:in,out,addon',
+            'value' => 'required|numeric|min:0|max:1000000000000',
+            'payment_method' => 'required|integer|in:1,2,3',
+            'bank_id' => 'nullable|integer|exists:banks,id',
+            'cash_id' => 'nullable|integer|exists:cash,id',
+            'created_at' => 'nullable|date',
+        ]);
+        \App\Support\PermissionAccess::can($request->user(), 'finance.transaction.manage', (int) $request->store_id);
+        $tran = $id !== null ? Transaction::findOrFail($id) : null;
         if ($tran !== null) {
+            \App\Support\PermissionAccess::can($request->user(), 'finance.transaction.manage', (int) $tran->store_id);
             $this->ensureNotSepay($tran);
             $this->transactionService->update($request, $tran);
             return $this->successResponse();
         } else {
+            $request->merge(['user_id' => $request->user()->id]);
             $tran = $this->transactionService->store($request);
             return $this->successResponse($tran);
         }

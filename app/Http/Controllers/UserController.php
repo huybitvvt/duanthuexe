@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -52,12 +53,13 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
-//        $request->validate(OrderValidator::store());
+        $data = $request->validate($this->userRules());
         try {
             DB::beginTransaction();
-            $user = $this->userService->store($request->all());
+            $user = $this->userService->store($data);
 
             if (!$user) {
+                DB::rollBack();
                 return $this->errorResponse('User not found', Response::HTTP_BAD_REQUEST);
             }
 //            $user->roles()->sync([$request->role_id]);
@@ -71,10 +73,10 @@ class UserController extends Controller
 
     public function update(Request $request)
     {
-//        $request->validate(OrderValidator::store());
+        $request->validate(['id' => 'required|integer|exists:users,id,deleted_at,NULL']);
+        $data = $request->validate($this->userRules((int) $request->id));
         try {
             DB::beginTransaction();
-            $data = $request->only('name', 'phone', 'email', 'address', 'store_id', 'role_id', 'status');
             $user = $this->userService->update($request->id, $data);
             DB::commit();
             return $this->successResponse($user, 'Cập nhật thành công');
@@ -151,6 +153,7 @@ class UserController extends Controller
 
     public function changePassword(Request $request)
     {
+        $request->validate(['user_id' => 'required|integer|exists:users,id,deleted_at,NULL', 'password' => 'required|string|min:6|max:255']);
         $user = User::find($request->user_id);
         if (!$user) {
             return $this->errorResponse('User not found', 403);
@@ -165,6 +168,7 @@ class UserController extends Controller
 
 	public function changeMyPassword(Request $request)
     {
+        $request->validate(['user_id' => 'required|integer|exists:users,id,deleted_at,NULL', 'password' => 'required|string|min:6|max:255']);
 		$authUserId = auth()->user()->id;
 		$paramUserId = $request->user_id;
 
@@ -188,9 +192,9 @@ class UserController extends Controller
 
     public function destroy(User $user): JsonResponse
     {
-       
-
-            
+        if ((int) $user->id === (int) auth()->id()) {
+            return $this->errorResponse('Không thể xóa tài khoản đang đăng nhập.', 403);
+        }
         $user->update(['status' => 'deactive']);
 
         
@@ -202,5 +206,23 @@ class UserController extends Controller
         } else {
             return $this->errorResponse('Xảy ra lỗi khi xóa người dùng', 500);
         }
+    }
+
+    private function userRules(?int $id = null): array
+    {
+        $required = $id ? 'sometimes|required' : 'required';
+        $rules = [
+            'name' => $required.'|string|max:255',
+            'email' => [$id ? 'sometimes' : 'required', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($id)],
+            'role_id' => $required.'|integer|exists:roles,id',
+            'store_id' => 'nullable|integer|exists:stores,id',
+            'phone' => 'nullable|string|max:30',
+            'address' => 'nullable|string|max:500',
+            'status' => 'sometimes|required|in:active,deactive',
+        ];
+        if (!$id) {
+            $rules['password'] = 'required|string|min:6|max:255';
         }
+        return $rules;
+    }
 }

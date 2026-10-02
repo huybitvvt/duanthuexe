@@ -38,7 +38,7 @@ class ReportService
     {
         $query = $this->orderEloquent->getOrderByParams(Order::query(), $params);
         $user = Auth::user();
-        if ($user && (int) $user->role_id !== 1) {
+        if ($user && !PermissionAccess::allows($user, 'order.view_all')) {
             $query->where('orders.store_id', $user->store_id);
         }
 
@@ -57,14 +57,19 @@ class ReportService
         ];
     }
 
-    public function getOrderItems(array $params){
-        $user  = Auth::user();
-        if ($user->role_id === 1 ){
-            $store_id = data_get($params, 'store_id');
-            
-        } else {
-            $store_id =   $user->store->id;
+    private function reportStoreId(array $params): ?int
+    {
+        $user = Auth::user();
+        if (PermissionAccess::allows($user, 'accounting.view')) {
+            return !empty($params['store_id']) ? (int) $params['store_id'] : null;
         }
+        $storeId = (int) ($user->store_id ?? 0);
+        PermissionAccess::can($user, 'order.report_store', $storeId);
+        return $storeId;
+    }
+
+    public function getOrderItems(array $params){
+        $store_id = $this->reportStoreId($params);
     
         $dates = data_get($params, 'dates', []);
         $start_date = data_get($params,'start_date');
@@ -92,13 +97,7 @@ class ReportService
     }
 
 	public function getOrderItemsCompleted(array $params){
-        $user  = Auth::user();
-        if ($user->role_id === 1 ){
-            $store_id = data_get($params, 'store_id');
-            
-        }else{
-            $store_id =   $user->store->id;
-        }
+        $store_id = $this->reportStoreId($params);
     
         $dates = data_get($params, 'dates', []);
         $start_date = data_get($params,'start_date');
@@ -217,22 +216,13 @@ class ReportService
 
     public function getTransactions( $params)
     {    
-        $user  = Auth::user();
-        if ($user->role_id === 1 ){
-            $store_id = data_get($params, 'store_id');
-            
-        }else{
-            $store_id =   $user->store->id;
-        }
+        $store_id = $this->reportStoreId($params);
        
         $dates = data_get($params, 'dates', []);
         $start_date = data_get($params,'start_date');
         $end_date = data_get($params,'end_date');
 
         $transactions = $this->transactionRepository->select(
-            DB::raw('EXTRACT(DAY FROM created_at)::integer as day'),
-            DB::raw('EXTRACT(MONTH FROM created_at)::integer as month'),
-            DB::raw('EXTRACT(YEAR FROM created_at)::integer as year'),
             'order_id', 'created_at', 'type', 'value', 'user_id', 'store_id','name'
         );
     
@@ -255,7 +245,12 @@ class ReportService
             $transactions->where('store_id', $store_id);
         }
         
-        return $transactions->orderBy('id', 'DESC')->get();
+        return $transactions->orderBy('id', 'DESC')->get()->each(function ($transaction) {
+            $date = DateTimeHelper::parse($transaction->created_at);
+            $transaction->day = $date->day;
+            $transaction->month = $date->month;
+            $transaction->year = $date->year;
+        });
 
     }
     public function processTransactions($params){
@@ -386,21 +381,24 @@ class ReportService
 			$has_search_order_query = true;
 		}
 		/** ------ END JOIN TABLES ------ */
-		if ( ! empty( $keyword ) ) {
-			// $transaction_query->where(function ($q) use ($keyword) {
-			// 	$q->where('orders.id', is_numeric( $keyword ) ? intval( $keyword ) : substr($keyword, 1))->orWhere('vehicles.license', 'LIKE', "%$keyword%")->orWhere('customers.name', 'LIKE', "%$keyword%")->orWhere('customers.phone', 'LIKE', "%$keyword%");
-			// });
-			$search_order_query->where(function ($q) use ($keyword) {
-				$q->where('orders.id', is_numeric( $keyword ) ? intval( $keyword ) : substr($keyword, 1))->orWhere('vehicles.license', 'LIKE', "%$keyword%")->orWhere('customers.name', 'LIKE', "%$keyword%")->orWhere('customers.phone', 'LIKE', "%$keyword%");
-			});
-			$has_search_order_query = true;
-			$order_item_query->where(function ($q) use ($keyword) {
-				$q->where('orders.id', is_numeric( $keyword ) ? intval( $keyword ) : substr($keyword, 1))->orWhere('vehicles.license', 'LIKE', "%$keyword%")->orWhere('customers.name', 'LIKE', "%$keyword%")->orWhere('customers.phone', 'LIKE', "%$keyword%");
-			});
-			$order_query->where(function ($q) use ($keyword) {
-				$q->where('orders.id', is_numeric( $keyword ) ? intval( $keyword ) : substr($keyword, 1))->orWhere('vehicles.license', 'LIKE', "%$keyword%")->orWhere('customers.name', 'LIKE', "%$keyword%")->orWhere('customers.phone', 'LIKE', "%$keyword%");
-			});
-		}
+        if (!empty($keyword)) {
+            $orderId = preg_match('/^#?(\d+)$/', $keyword, $matches) ? (int) $matches[1] : null;
+            foreach ([$search_order_query, $order_item_query, $order_query] as $query) {
+                $query->where(function ($match) use ($keyword, $orderId) {
+                    if ($orderId !== null) {
+                        $match->where('orders.id', $orderId);
+                    } else {
+                        $match->whereRaw('1=0');
+                    }
+                    $match->orWhere('orders.contract_number', 'LIKE', "%$keyword%")
+                        ->orWhere('vehicles.license', 'LIKE', "%$keyword%")
+                        ->orWhere('vehicles.name', 'LIKE', "%$keyword%")
+                        ->orWhere('customers.name', 'LIKE', "%$keyword%")
+                        ->orWhere('customers.phone', 'LIKE', "%$keyword%");
+                });
+            }
+            $has_search_order_query = true;
+        }
 
 		if ( ! empty( $order_status ) ) {
 			$transaction_query->where('orders.order_status', $order_status );
