@@ -1,0 +1,62 @@
+{
+  "reviewed_commit": "7f01121",
+  "isolation": "Selected compiled controllers/services; in-memory DB double; no AppModule/env/cron/real DB",
+  "login_at_legacy_path": 404,
+  "login_at_doubled_prefix": {
+    "http": 200,
+    "body_status_code": 422
+  },
+  "legacy_verify_token_path": 404,
+  "non_admin_password_change_other_user": {
+    "http": 201,
+    "fake_db_write_reached": true
+  },
+  "store_1_user_requests_store_2": {
+    "http": 200,
+    "store_2_query_reached": true
+  },
+  "order_list_data_is_array_for_current_frontend": false,
+  "export_with_store_filter": {
+    "http": 200,
+    "sql_has_no_scope": true
+  },
+  "logout_revocation": {
+    "before": 200,
+    "logout": 200,
+    "same_token_after": 200
+  },
+  "accounting_write_on_database_error": {
+    "query_failed": true,
+    "service_still_returned_entry": true
+  },
+  "route_inventory": {
+    "legacy_contract_rows": 197,
+    "legacy_method_path_pairs_excluding_head": 201,
+    "node_declared_handlers": 86,
+    "legacy_pairs_missing_now": 200,
+    "legacy_pairs_missing_even_after_prefix_correction": 124,
+    "missing_examples_after_prefix_correction": [
+      "POST /api/auth/accounting/assets",
+      "DELETE /api/auth/accounting/assets/:param",
+      "GET /api/auth/accounting/general-ledger/:param",
+      "GET /api/auth/accounting/journal-entries/:param",
+      "POST /api/auth/accounting/journal-entries/:param/reverse",
+      "GET /api/auth/accounting/legacy-shadow-analysis",
+      "GET /api/auth/accounting/periods",
+      "POST /api/auth/accounting/periods/close",
+      "POST /api/auth/accounting/periods/reopen",
+      "GET /api/auth/accounting/reconciliations",
+      "POST /api/auth/accounting/reconciliations/bank",
+      "POST /api/auth/accounting/reconciliations/cash",
+      "POST /api/auth/accounting/reconciliations/:param/approve",
+      "GET /api/auth/accounting/trial-balance",
+      "POST /api/auth/accounting/vat-documents",
+      "DELETE /api/auth/accounting/vat-documents/:param",
+      "POST /api/auth/banks",
+      "PUT /api/auth/banks/update/:param",
+      "GET /api/auth/banks/:param",
+      "DELETE /api/auth/banks/:param"
+    ],
+    "note": "Parameter names normalized; handler counts and route matching do not prove behavioral parity."
+  }
+}

@@ -1,0 +1,268 @@
+{
+  "expected_commit": "4f6ee0a52a217aa2b3cb03ac34423ab61c5084eb",
+  "checks": 9,
+  "failures": 0,
+  "results": [
+    {
+      "case": "company-bank-query",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/banks",
+      "query": {
+        "store_id": 0
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 343,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 381,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 20,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "company-bank-query",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/banks",
+      "query": {
+        "store_id": 0,
+        "account_type": 20
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 157,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 381,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 20,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "company-bank-query",
+      "role": "ke-toan",
+      "method": "GET",
+      "path": "/api/auth/banks",
+      "query": {
+        "store_id": 0
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 359,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 381,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 20,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "company-bank-query",
+      "role": "ke-toan",
+      "method": "GET",
+      "path": "/api/auth/banks",
+      "query": {
+        "store_id": 0,
+        "account_type": 20
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 381,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 20,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "invalid-bank-store-scope",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/banks",
+      "query": {
+        "store_id": -1
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 157,
+      "content_type": "application/json",
+      "bytes": 100,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "store_id"
+      ]
+    },
+    {
+      "case": "invalid-bank-store-scope",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/banks",
+      "query": {
+        "store_id": "invalid"
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json",
+      "bytes": 100,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "store_id"
+      ]
+    },
+    {
+      "case": "branch-user-company-bank-denied",
+      "role": "nhan-vien",
+      "method": "GET",
+      "path": "/api/auth/banks",
+      "query": {
+        "store_id": 0
+      },
+      "status": 403,
+      "expected": [
+        403
+      ],
+      "pass": true,
+      "ms": 234,
+      "content_type": "application/json",
+      "bytes": 168,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "final-deployment-version",
+      "service": "api",
+      "method": "GET",
+      "url": "https://himoto-api.onrender.com/api/health",
+      "status": 200,
+      "expected_commit": "4f6ee0a52a217aa2b3cb03ac34423ab61c5084eb",
+      "deployed_commit": "4f6ee0a52a217aa2b3cb03ac34423ab61c5084eb",
+      "pass": true
+    },
+    {
+      "case": "final-deployment-version",
+      "service": "web",
+      "method": "GET",
+      "url": "https://himoto-web.onrender.com/version.json",
+      "status": 200,
+      "expected_commit": "4f6ee0a52a217aa2b3cb03ac34423ab61c5084eb",
+      "deployed_commit": "4f6ee0a52a217aa2b3cb03ac34423ab61c5084eb",
+      "pass": true
+    }
+  ]
+}

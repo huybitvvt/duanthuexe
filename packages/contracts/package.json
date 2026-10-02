@@ -1,0 +1,13 @@
+{
+  "name": "@himoto/contracts",
+  "version": "1.0.0",
+  "description": "Shared data transfer contracts and type definitions between web and api",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

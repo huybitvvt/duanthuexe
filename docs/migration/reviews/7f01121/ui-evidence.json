@@ -1,0 +1,37 @@
+{
+  "reviewed_commit": "7f01121",
+  "isolation": "Local production Next build, anonymous browser; all API requests receive synthetic 503; external requests blocked",
+  "font_note": "External fonts blocked; screenshots demonstrate behavior, not pixel parity against baseline",
+  "missing_routes_http": {
+    "/customers-create": 404,
+    "/customers-update/1": 404,
+    "/receipt/create": 404
+  },
+  "cash_register": {
+    "showed_closed": true,
+    "api_requests_for_close": 0,
+    "closed_state_lost_on_reload": true
+  },
+  "rental": {
+    "sample_data_visible_with_api_503": true,
+    "create_modal_closed_after_api_503": true
+  },
+  "dialogs": [
+    "Chốt két ngày thành công!"
+  ],
+  "api_requests": [
+    {
+      "method": "GET",
+      "path": "/api/auth/order/car-rental"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/order/car-rental"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/order/car-rental"
+    }
+  ],
+  "page_errors": []
+}

@@ -1,0 +1,3175 @@
+{
+  "api": "https://himoto-api.onrender.com",
+  "deployed_commit": "f90c2ddcf1e6bb19d90d5e49bb4e1a15544c1189",
+  "route_count": 213,
+  "get_routes": 100,
+  "static_get_routes": 77,
+  "checks": 119,
+  "failures": 0,
+  "static_get_routes_exercised": 22,
+  "results": [
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/accounting/journal-entries",
+      "query": {
+        "per_page": "nonsense",
+        "limit": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 297,
+      "content_type": "application/json",
+      "bytes": 100,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "per_page"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/daily-cash-registers/history",
+      "query": {
+        "per_page": "nonsense",
+        "limit": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 100,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "per_page"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/daily-cash-registers/history",
+      "query": {
+        "from_date": "not-a-date",
+        "store_id": 31,
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 156,
+      "content_type": "application/json",
+      "bytes": 115,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "from_date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/hr/duty-schedules",
+      "query": {
+        "date": "not-a-date",
+        "store_id": 31,
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 141,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "start_date": "not-a-date",
+        "store_id": 31,
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 265,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "start_date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-day-by-day",
+      "query": {
+        "start_date": "not-a-date",
+        "store_id": 31,
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 157,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "start_date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/transactions",
+      "query": {
+        "start_date": "not-a-date",
+        "store_id": 31,
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "start_date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/vehicle/vehicles_with_revenue",
+      "query": {
+        "start_date": "not-a-date",
+        "store_id": 31,
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "start_date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/accounting/general-ledger/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 93,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/accounting/journal-entries/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 110,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/banks/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/cash/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/customers/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/gps/devices/not-an-id/history",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 110,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/leads/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 93,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/not-an-id/annex",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 110,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/not-an-id/debt-statement.pdf",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 78,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/not-an-id/handover",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/not-an-id/pdf",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/lease-ownership-requests/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/maintenance-schedules/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 110,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 93,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental/not-an-id/document",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 110,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental/not-an-id/handover",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 156,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/receipt/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 344,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/sepay/orders/not-an-id/options",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 250,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/sepay/payment-requests/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 93,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/stores/not-an-id",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 110,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/vehicles/not-an-id/movement-history",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/warehouses/not-an-id/vehicles",
+      "query": {
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 404,
+      "expected": [
+        404
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 21,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/leads",
+      "query": {
+        "source": "123",
+        "limit": 3,
+        "per_page": 3,
+        "end_date": "2026-10-02"
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/leads",
+      "query": {
+        "start_date": "not-a-date",
+        "limit": 3,
+        "per_page": 3,
+        "end_date": "2026-10-02"
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "start_date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/quick-report",
+      "query": {
+        "start_date": "not-a-date",
+        "limit": 3,
+        "per_page": 3,
+        "end_date": "2026-10-02"
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "start_date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report",
+      "query": {
+        "start_date": "not-a-date",
+        "limit": 3,
+        "per_page": 3,
+        "end_date": "2026-10-02"
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "start_date"
+      ]
+    },
+    {
+      "case": "previous-server-error-fixed",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/export/general_reports",
+      "query": {
+        "start_date": "not-a-date",
+        "limit": 3,
+        "per_page": 3,
+        "end_date": "2026-10-02"
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 141,
+      "content_type": "application/json",
+      "bytes": 105,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "start_date"
+      ]
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/accounting/general-ledger/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 1015,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/accounting/journal-entries/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/banks/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/cash/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 78,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/customers/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 110,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/gps/devices/999999999/history",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/leads/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 172,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/999999999/annex",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/999999999/debt-statement.pdf",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/999999999/handover",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 172,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts/999999999/pdf",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 78,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/lease-ownership-requests/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 109,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/maintenance-schedules/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 110,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 171,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental/999999999/document",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental/999999999/handover",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/receipt/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/sepay/orders/999999999/options",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/sepay/payment-requests/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 93,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/stores/999999999",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/vehicles/999999999/movement-history",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-bound-resource",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/warehouses/999999999/vehicles",
+      "query": {},
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 125,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "auth-before-query-validation",
+      "role": "anonymous",
+      "method": "GET",
+      "path": "/api/auth/customers",
+      "query": {
+        "limit": "nonsense"
+      },
+      "status": 401,
+      "expected": [
+        401
+      ],
+      "pass": true,
+      "ms": 94,
+      "content_type": "application/json",
+      "bytes": 39,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "legacy-report-company-access",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report",
+      "query": {
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 234,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 337,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "CS 4",
+        "all_stores"
+      ]
+    },
+    {
+      "case": "legacy-report-company-access",
+      "role": "ke-toan",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report",
+      "query": {
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 235,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 337,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "CS 4",
+        "all_stores"
+      ]
+    },
+    {
+      "case": "legacy-report-company-access",
+      "role": "ban-giam-doc",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report",
+      "query": {
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 313,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 337,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "CS 4",
+        "all_stores"
+      ]
+    },
+    {
+      "case": "legacy-report-company-access",
+      "role": "van-hanh",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report",
+      "query": {
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 359,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 337,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "CS 4",
+        "all_stores"
+      ]
+    },
+    {
+      "case": "normal-text-report-search",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "keyword": "Honda",
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 1328,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 1291,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_deposit",
+        "total_renew",
+        "total_rental_fees",
+        "total_origin_refund",
+        "total_real_refund",
+        "total_money_early",
+        "total_money_out_date",
+        "by_store"
+      ]
+    },
+    {
+      "case": "normal-text-report-search",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-day-by-day",
+      "query": {
+        "keyword": "Honda",
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 266,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 195,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_deposit",
+        "total_renew",
+        "total_rental_fees",
+        "total_real_refund",
+        "total_origin_refund",
+        "total_money_early",
+        "total_money_out_date"
+      ]
+    },
+    {
+      "case": "normal-text-report-search",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/export/general_reports",
+      "query": {
+        "keyword": "Honda",
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 1250,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 7307,
+      "zip_signature": true,
+      "harness_correction": "binary_flag_missing_for_export_endpoint"
+    },
+    {
+      "case": "company-order-counter",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/quick-report",
+      "query": {},
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 156,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 142,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_order",
+        "total_contracts_completed",
+        "total_contracts_renting",
+        "total_out_of_date"
+      ],
+      "total_order": 2685
+    },
+    {
+      "case": "company-order-counter",
+      "role": "ban-giam-doc",
+      "method": "GET",
+      "path": "/api/auth/report/quick-report",
+      "query": {},
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 234,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 142,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_order",
+        "total_contracts_completed",
+        "total_contracts_renting",
+        "total_out_of_date"
+      ],
+      "total_order": 2685
+    },
+    {
+      "case": "company-order-counter",
+      "role": "van-hanh",
+      "method": "GET",
+      "path": "/api/auth/report/quick-report",
+      "query": {},
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 266,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 142,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_order",
+        "total_contracts_completed",
+        "total_contracts_renting",
+        "total_out_of_date"
+      ],
+      "total_order": 2685
+    },
+    {
+      "case": "reversed-date-range-rejected",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/accounting",
+      "query": {
+        "start_date": "2026-10-02",
+        "end_date": "2026-10-01",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 156,
+      "content_type": "application/json",
+      "bytes": 125,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "end_date"
+      ]
+    },
+    {
+      "case": "reversed-date-range-rejected",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/accounting/trial-balance",
+      "query": {
+        "start_date": "2026-10-02",
+        "end_date": "2026-10-01",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 141,
+      "content_type": "application/json",
+      "bytes": 125,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "end_date"
+      ]
+    },
+    {
+      "case": "reversed-date-range-rejected",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/accounting/journal-entries",
+      "query": {
+        "start_date": "2026-10-02",
+        "end_date": "2026-10-01",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json",
+      "bytes": 125,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "end_date"
+      ]
+    },
+    {
+      "case": "reversed-date-range-rejected",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "start_date": "2026-10-02",
+        "end_date": "2026-10-01",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json",
+      "bytes": 125,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "end_date"
+      ]
+    },
+    {
+      "case": "reversed-date-range-rejected",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-day-by-day",
+      "query": {
+        "start_date": "2026-10-02",
+        "end_date": "2026-10-01",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 188,
+      "content_type": "application/json",
+      "bytes": 125,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "end_date"
+      ]
+    },
+    {
+      "case": "reversed-date-range-rejected",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/transactions",
+      "query": {
+        "start_date": "2026-10-02",
+        "end_date": "2026-10-01",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 156,
+      "content_type": "application/json",
+      "bytes": 125,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "end_date"
+      ]
+    },
+    {
+      "case": "reversed-date-range-rejected",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/receipt",
+      "query": {
+        "start_date": "2026-10-02",
+        "end_date": "2026-10-01",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 140,
+      "content_type": "application/json",
+      "bytes": 125,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "end_date"
+      ]
+    },
+    {
+      "case": "reversed-date-range-rejected",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/vehicle/vehicles_with_revenue",
+      "query": {
+        "start_date": "2026-10-02",
+        "end_date": "2026-10-01",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 204,
+      "content_type": "application/json",
+      "bytes": 125,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "end_date"
+      ]
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/vehicle/vehicles",
+      "query": {
+        "compact": "1",
+        "limit": 15
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 296,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 7735,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 172,
+      "data_per_page": "15",
+      "data_current_page": 1,
+      "data_last_page": 12,
+      "data_rows": 15
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "nhan-su",
+      "method": "GET",
+      "path": "/api/auth/hr/staff",
+      "query": {
+        "per_page": 15
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 563,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 393,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 15,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "thue-so-huu-truong-phong",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts",
+      "query": {
+        "per_page": 15
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 532,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 411,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 15,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/vehicle/vehicles",
+      "query": {
+        "compact": "1",
+        "limit": 100
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 234,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 48776,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 172,
+      "data_per_page": "100",
+      "data_current_page": 1,
+      "data_last_page": 2,
+      "data_rows": 100
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "nhan-su",
+      "method": "GET",
+      "path": "/api/auth/hr/staff",
+      "query": {
+        "per_page": 100
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 547,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 394,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 100,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "thue-so-huu-truong-phong",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts",
+      "query": {
+        "per_page": 100
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 594,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 412,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 100,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/vehicle/vehicles",
+      "query": {
+        "compact": "1",
+        "limit": 1000
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 422,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 83580,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 172,
+      "data_per_page": "1000",
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 172
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "nhan-su",
+      "method": "GET",
+      "path": "/api/auth/hr/staff",
+      "query": {
+        "per_page": 1000
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 610,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 394,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 100,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "positive-ui-page-size",
+      "role": "thue-so-huu-truong-phong",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts",
+      "query": {
+        "per_page": 1000
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 500,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 413,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 1000,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "legacy-formatted-report-dates",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "start_date": "01-10-2026",
+        "end_date": "02-10-2026",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 281,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 1291,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_deposit",
+        "total_renew",
+        "total_rental_fees",
+        "total_origin_refund",
+        "total_real_refund",
+        "total_money_early",
+        "total_money_out_date",
+        "by_store"
+      ]
+    },
+    {
+      "case": "legacy-formatted-report-dates",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/quick-report",
+      "query": {
+        "start_date": "01-10-2026",
+        "end_date": "02-10-2026",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 156,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 135,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_order",
+        "total_contracts_completed",
+        "total_contracts_renting",
+        "total_out_of_date"
+      ]
+    },
+    {
+      "case": "legacy-formatted-report-dates",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/vehicle/vehicles_with_revenue",
+      "query": {
+        "start_date": "01-10-2026",
+        "end_date": "02-10-2026",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 188,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 2093,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 172,
+      "data_per_page": "3",
+      "data_current_page": 1,
+      "data_last_page": 58,
+      "data_rows": 3
+    },
+    {
+      "case": "legacy-formatted-report-dates",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/transactions",
+      "query": {
+        "start_date": "01-10-2026",
+        "end_date": "02-10-2026",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 402,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 20,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "positive-two-date-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "dates[]": [
+          "01-10-2026",
+          "02-10-2026"
+        ],
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 375,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 1291,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_deposit",
+        "total_renew",
+        "total_rental_fees",
+        "total_origin_refund",
+        "total_real_refund",
+        "total_money_early",
+        "total_money_out_date",
+        "by_store"
+      ]
+    },
+    {
+      "case": "negative-two-date-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "dates[]": [
+          "02-10-2026",
+          "01-10-2026"
+        ],
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 172,
+      "content_type": "application/json",
+      "bytes": 120,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "dates.1"
+      ]
+    },
+    {
+      "case": "invalid-source-scalar",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/leads",
+      "query": {
+        "source": "123",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 140,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "invalid-source-scalar",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/leads",
+      "query": {
+        "source": "not-an-id",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 188,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "invalid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/leads",
+      "query": {
+        "source[]": "not-an-id",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 172,
+      "content_type": "application/json",
+      "bytes": 151,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source.0"
+      ]
+    },
+    {
+      "case": "valid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/leads",
+      "query": {
+        "source[]": [
+          "123",
+          "NULL"
+        ],
+        "limit": 3,
+        "per_page": 3,
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02"
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 265,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 400,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "current_page",
+        "data",
+        "first_page_url",
+        "from",
+        "last_page",
+        "last_page_url",
+        "next_page_url",
+        "path",
+        "per_page",
+        "prev_page_url",
+        "to",
+        "total"
+      ],
+      "data_total": 0,
+      "data_per_page": 20,
+      "data_current_page": 1,
+      "data_last_page": 1,
+      "data_rows": 0
+    },
+    {
+      "case": "invalid-source-scalar",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "source": "123",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 172,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "invalid-source-scalar",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "source": "not-an-id",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "invalid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "source[]": "not-an-id",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json",
+      "bytes": 151,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source.0"
+      ]
+    },
+    {
+      "case": "valid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/report/detail-report-new",
+      "query": {
+        "source[]": [
+          "123",
+          "NULL"
+        ],
+        "limit": 3,
+        "per_page": 3,
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02"
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 407,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 1291,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": false,
+      "data_keys": [
+        "total_deposit",
+        "total_renew",
+        "total_rental_fees",
+        "total_origin_refund",
+        "total_real_refund",
+        "total_money_early",
+        "total_money_out_date",
+        "by_store"
+      ]
+    },
+    {
+      "case": "invalid-source-scalar",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental",
+      "query": {
+        "source": "123",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 187,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "invalid-source-scalar",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental",
+      "query": {
+        "source": "not-an-id",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 156,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "invalid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental",
+      "query": {
+        "source[]": "not-an-id",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 141,
+      "content_type": "application/json",
+      "bytes": 151,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source.0"
+      ]
+    },
+    {
+      "case": "valid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental",
+      "query": {
+        "source[]": [
+          "123",
+          "NULL"
+        ],
+        "limit": 3,
+        "per_page": 3,
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02"
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 297,
+      "content_type": "application/json;charset=UTF-8",
+      "bytes": 121,
+      "keys": [
+        "data",
+        "pagination",
+        "error",
+        "message"
+      ],
+      "error_flag": false,
+      "data_rows": 0
+    },
+    {
+      "case": "invalid-source-scalar",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/export/general_reports",
+      "query": {
+        "source": "123",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 140,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "invalid-source-scalar",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/export/general_reports",
+      "query": {
+        "source": "not-an-id",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 157,
+      "content_type": "application/json",
+      "bytes": 94,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source"
+      ]
+    },
+    {
+      "case": "invalid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/export/general_reports",
+      "query": {
+        "source[]": "not-an-id",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 156,
+      "content_type": "application/json",
+      "bytes": 151,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "source.0"
+      ]
+    },
+    {
+      "case": "valid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/export/general_reports",
+      "query": {
+        "source[]": [
+          "123",
+          "NULL"
+        ],
+        "limit": 3,
+        "per_page": 3,
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02"
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 969,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 7305,
+      "zip_signature": true,
+      "harness_correction": "binary_flag_missing_for_export_endpoint"
+    },
+    {
+      "case": "pagination-upper-bound",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/vehicle/vehicles",
+      "query": {
+        "limit": 1001
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 187,
+      "content_type": "application/json",
+      "bytes": 104,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "limit"
+      ]
+    },
+    {
+      "case": "pagination-upper-bound",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/hr/staff",
+      "query": {
+        "per_page": 1001
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 188,
+      "content_type": "application/json",
+      "bytes": 110,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "per_page"
+      ]
+    },
+    {
+      "case": "pagination-upper-bound",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/lease-contracts",
+      "query": {
+        "per_page": 1001
+      },
+      "status": 422,
+      "expected": [
+        422
+      ],
+      "pass": true,
+      "ms": 250,
+      "content_type": "application/json",
+      "bytes": 110,
+      "keys": [
+        "message",
+        "errors"
+      ],
+      "error_flag": false,
+      "validation_fields": [
+        "per_page"
+      ]
+    },
+    {
+      "case": "accountant-pilot-sepay-denied",
+      "role": "ke-toan",
+      "method": "GET",
+      "path": "/api/auth/sepay/payment-requests",
+      "query": {},
+      "status": 403,
+      "expected": [
+        403
+      ],
+      "pass": true,
+      "ms": 265,
+      "content_type": "application/json",
+      "bytes": 156,
+      "keys": [
+        "status",
+        "error",
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "accountant-pilot-sepay-denied",
+      "role": "ke-toan",
+      "method": "GET",
+      "path": "/api/auth/sepay/payment-requests/unmatched",
+      "query": {},
+      "status": 403,
+      "expected": [
+        403
+      ],
+      "pass": true,
+      "ms": 235,
+      "content_type": "application/json",
+      "bytes": 132,
+      "keys": [
+        "status",
+        "error",
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "rental-cross-store-denied",
+      "role": "nhan-vien",
+      "method": "GET",
+      "path": "/api/auth/order/car-rental",
+      "query": {
+        "store_id": 32
+      },
+      "status": 403,
+      "expected": [
+        403
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json",
+      "bytes": 251,
+      "keys": [
+        "message",
+        "error",
+        "required_permission"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "bank-cross-store-denied",
+      "role": "nhan-vien",
+      "method": "GET",
+      "path": "/api/auth/banks",
+      "query": {
+        "store_id": 32
+      },
+      "status": 403,
+      "expected": [
+        403
+      ],
+      "pass": true,
+      "ms": 203,
+      "content_type": "application/json",
+      "bytes": 168,
+      "keys": [
+        "message"
+      ],
+      "error_flag": false
+    },
+    {
+      "case": "lease-viewer-physical-store-denied",
+      "role": "thue-so-huu-hop-dong",
+      "method": "GET",
+      "path": "/api/auth/warehouses/31/vehicles",
+      "query": {},
+      "status": 403,
+      "expected": [
+        403
+      ],
+      "pass": true,
+      "ms": 312,
+      "content_type": "application/json",
+      "bytes": 121,
+      "keys": [
+        "error",
+        "message",
+        "data"
+      ],
+      "error_flag": true
+    },
+    {
+      "case": "binary-confirmation-normal-text-report-search",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/export/general_reports",
+      "query": {
+        "keyword": "Honda",
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 891,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 7307,
+      "zip_signature": true,
+      "pdf_signature": false
+    },
+    {
+      "case": "binary-confirmation-valid-source-array",
+      "role": "quan-tri-vien",
+      "method": "GET",
+      "path": "/api/auth/export/general_reports",
+      "query": {
+        "source[]": [
+          "123",
+          "NULL"
+        ],
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-02",
+        "limit": 3,
+        "per_page": 3
+      },
+      "status": 200,
+      "expected": [
+        200
+      ],
+      "pass": true,
+      "ms": 719,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 7307,
+      "zip_signature": true,
+      "pdf_signature": false
+    }
+  ]
+}

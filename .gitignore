@@ -42,3 +42,5 @@ crontab
 __pycache__/
 *.py[cod]
 /himoto-next/
+/build-static-uat.log
+/docs/migration/reviews/**/next-server.log

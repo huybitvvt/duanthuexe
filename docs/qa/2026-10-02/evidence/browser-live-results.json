@@ -1,0 +1,112 @@
+{
+  "mode": "deployed",
+  "checks": 13,
+  "failures": 1,
+  "results": [
+    {
+      "case": "quan-tri-vien/browser-run",
+      "passed": false,
+      "exception": "Error"
+    },
+    {
+      "case": "nhan-vien/warehouse-history-31",
+      "passed": true,
+      "rows": 12,
+      "expected": 12,
+      "actual": 12
+    },
+    {
+      "case": "nhan-vien/history-open-31",
+      "passed": true,
+      "modal": {
+        "loaded": true,
+        "loading": false,
+        "action": true
+      },
+      "history_responses": [
+        {
+          "path": "/api/auth/vehicles/986/movement-history",
+          "status": 200
+        }
+      ],
+      "response_paths": [
+        {
+          "path": "/api/verify-token",
+          "status": 200
+        },
+        {
+          "path": "/api/auth/stores/all",
+          "status": 200
+        },
+        {
+          "path": "/api/auth/warehouses/summary",
+          "status": 200
+        },
+        {
+          "path": "/api/auth/warehouses/32/vehicles",
+          "status": 200
+        }
+      ],
+      "network_errors": []
+    },
+    {
+      "case": "nhan-vien/warehouse-errors-31",
+      "passed": true,
+      "api_failures": [],
+      "script_errors": 0
+    },
+    {
+      "case": "nhan-vien/warehouse-history-32",
+      "passed": true,
+      "rows": 11,
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "case": "nhan-vien/warehouse-errors-32",
+      "passed": true,
+      "api_failures": [],
+      "script_errors": 0
+    },
+    {
+      "case": "nhan-su/warehouse-history-31",
+      "passed": true,
+      "rows": 12,
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "case": "nhan-su/warehouse-errors-31",
+      "passed": true,
+      "api_failures": [],
+      "script_errors": 0
+    },
+    {
+      "case": "telesale/warehouse-history-31",
+      "passed": true,
+      "rows": 12,
+      "expected": 0,
+      "actual": 0
+    },
+    {
+      "case": "telesale/warehouse-errors-31",
+      "passed": true,
+      "api_failures": [],
+      "script_errors": 0
+    },
+    {
+      "case": "ke-toan/receipt-store-selector",
+      "passed": true
+    },
+    {
+      "case": "ke-toan/receipt-orders-permission",
+      "passed": true
+    },
+    {
+      "case": "ke-toan/receipt-errors",
+      "passed": true,
+      "api_failures": [],
+      "script_errors": 0
+    }
+  ]
+}

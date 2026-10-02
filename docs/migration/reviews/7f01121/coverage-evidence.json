@@ -1,0 +1,37 @@
+{
+  "reviewed_commit": "7f01121",
+  "matrix_rows": 241,
+  "matrix_types": {
+    "UI_PAGE": 41,
+    "API_ENDPOINT": 196,
+    "CRON_JOB": 4
+  },
+  "rows_marked_next_pass": 241,
+  "referenced_screenshots_missing": 41,
+  "missing_named_ui_routes": [
+    "/banks-create",
+    "/banks-update/:id",
+    "/cash-create",
+    "/cash-update/:id",
+    "/customers-create",
+    "/customers-update/:id",
+    "/receipt/create",
+    "/receipt/update",
+    "/ref/:id",
+    "/register",
+    "/store-create",
+    "/store-update/:id"
+  ],
+  "health_false_positive_reproduction": [
+    {
+      "condition": "HTTP_500",
+      "tests": 2,
+      "incorrectly_reports_success": true
+    },
+    {
+      "condition": "TIMEOUT",
+      "tests": 2,
+      "incorrectly_reports_success": true
+    }
+  ]
+}

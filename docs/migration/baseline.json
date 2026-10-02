@@ -1,0 +1,50 @@
+{
+  "baseline_commit": "2b4911645cdeb388e43c8d3210d8eb0c48bac93a",
+  "baseline_short_commit": "2b49116",
+  "git_branch": "migration/nextjs-node-parity",
+  "frozen_from_branch": "main",
+  "deployment": {
+    "frontend_live": "https://himoto-web.onrender.com",
+    "backend_live": "https://himoto-api.onrender.com",
+    "health_check": "https://himoto-api.onrender.com/api/health",
+    "version_check": "https://himoto-web.onrender.com/version.json"
+  },
+  "database": {
+    "engine": "PostgreSQL 15+ (Supabase)",
+    "schema": "himoto",
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  "runtime_stack": {
+    "frontend": "Next.js 15 App Router, React 19, TypeScript",
+    "backend": "NestJS, Node.js 24 LTS, TypeScript",
+    "database_access": "node-postgres (pg) connection pool, parameterized SQL",
+    "test_framework": "Playwright (E2E), Jest/Vitest (Unit/Integration)"
+  },
+  "inventory_summary": {
+    "frontend_routes_count": 41,
+    "api_endpoints_count": 197,
+    "scheduled_jobs_count": 4
+  },
+  "schedules": [
+    {
+      "command": "command:crontab",
+      "frequency": "everyMinute",
+      "desc": "Hệ thống crontab heartbeat"
+    },
+    {
+      "command": "feature:calculate-minute-late-orders",
+      "frequency": "everyMinute",
+      "desc": "Tính số phút quá hạn và tiền phạt muộn cho đơn thuê"
+    },
+    {
+      "command": "feature:maintenance-schedule",
+      "frequency": "everyMinute",
+      "desc": "Quét và kích hoạt lịch bảo dưỡng xe tự động"
+    },
+    {
+      "command": "feature:get-lead",
+      "frequency": "*/15 * * * *",
+      "desc": "Đồng bộ lead từ website WordPress/CRM mỗi 15 phút"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+/* Global Application Styles for HIMOTO Next.js */
+@import "./himoto/himoto.scss";
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: Poppins, Helvetica, "sans-serif";
+  background-color: #f3f6f9;
+  color: #3f4254;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}

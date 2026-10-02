@@ -1,0 +1,72 @@
+{
+  "mode": "deployed",
+  "checks": 6,
+  "failures": 0,
+  "results": [
+    {
+      "case": "quan-tri-vien/warehouse-history-31",
+      "passed": true,
+      "rows": 12,
+      "expected": 12,
+      "actual": 12
+    },
+    {
+      "case": "quan-tri-vien/history-open-31",
+      "passed": true,
+      "modal": {
+        "loaded": true,
+        "loading": false,
+        "action": true
+      },
+      "history_responses": [
+        {
+          "path": "/api/auth/vehicles/986/movement-history",
+          "status": 200
+        }
+      ],
+      "response_paths": [
+        {
+          "path": "/api/verify-token",
+          "status": 200
+        },
+        {
+          "path": "/api/auth/stores/all",
+          "status": 200
+        },
+        {
+          "path": "/api/auth/notifications/summary",
+          "status": 200
+        },
+        {
+          "path": "/api/auth/banks",
+          "status": 200
+        },
+        {
+          "path": "/api/auth/order/car-rental",
+          "status": 200
+        }
+      ],
+      "network_errors": []
+    },
+    {
+      "case": "quan-tri-vien/warehouse-errors-31",
+      "passed": true,
+      "api_failures": [],
+      "script_errors": 0
+    },
+    {
+      "case": "quan-tri-vien/receipt-store-selector",
+      "passed": true
+    },
+    {
+      "case": "quan-tri-vien/receipt-orders-permission",
+      "passed": true
+    },
+    {
+      "case": "quan-tri-vien/receipt-errors",
+      "passed": true,
+      "api_failures": [],
+      "script_errors": 0
+    }
+  ]
+}
