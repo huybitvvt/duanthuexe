@@ -204,7 +204,7 @@
                                         <td>{{ item.store ? item.store.store_name : 'Chưa chọn' }}</td>
                                         <td><span class="font-weight-bold" :class="ORDER_STATUS_DEFINE_CSS[item.order_status]">{{ ORDER_STATUS_DEFINE[item.order_status] }}</span></td>
                                         <td class="contract-category-actions">
-                                            <button type="button" class="btn btn-xs btn-success mr-1" @click="openUpdateModal(item)">Sửa</button>
+                                            <button type="button" class="btn btn-xs btn-success mr-1" @click="openUpdateModal(item)">{{ ['cancel_pending_settlement', 'cancelled'].includes(item.order_status) ? 'Lịch sử' : 'Sửa' }}</button>
                                             <button type="button" class="btn btn-xs btn-outline-info mr-1" @click="openShowOrder(item)">Xem</button>
                                             <button type="button" class="btn btn-xs btn-outline-primary mr-1" @click="printOrderContract(item)">In</button>
                                             <button v-if="item.order_status === 'renting'" type="button" class="btn btn-xs btn-warning mr-1" @click="openUpdateModal(item)">Thu thêm / Trả xe</button>
@@ -378,9 +378,9 @@
                                     </td>
                                     <td class="button-container text-center">
 										<div class="d-flex align-items-center">
-											<button class="btn btn-xs btn-success font-weight-bold mr-1" title="Sửa hợp đồng"
+                                            <button class="btn btn-xs btn-success font-weight-bold mr-1" :title="['cancel_pending_settlement', 'cancelled'].includes(item.order_status) ? 'Xem lịch sử phê duyệt' : 'Sửa hợp đồng'"
 												@click="openUpdateModal(item)">
-												Sửa
+												{{ ['cancel_pending_settlement', 'cancelled'].includes(item.order_status) ? 'Lịch sử' : 'Sửa' }}
 											</button>
 											<button class="btn btn-xs btn-outline-info font-weight-bold mr-1" title="Xem chi tiết"
 												@click="openShowOrder(item)">
