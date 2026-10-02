@@ -57,7 +57,13 @@ class MaintenanceScheduleController extends Controller
     
     public function putOrPost(Request $request){
  
-        $data = $request->all();
+        $data = $request->validate([
+            'id' => 'nullable|integer|exists:maintenance_schedules,id',
+            'vehicle_id' => 'required|integer|exists:vehicles,id',
+            'maintenance_type_id' => 'required|integer|exists:maintenance_types,id',
+            'next_time_manual' => 'nullable|date|required_without:next_time_auto',
+            'next_time_auto' => 'nullable|date',
+        ]);
        
         $res = $this->putOrPostArr([$data]);
         return $res;
@@ -98,13 +104,12 @@ class MaintenanceScheduleController extends Controller
 
         $query = MaintenanceSchedule::query()
             ->with(['maintenanceType:id,name', 'vehicle:id,name,license,store_id'])
-            ->where(function ($q) use ($limitDate) {
-                $q->whereNotNull('next_time_manual')
-                  ->where('next_time_manual', '<=', $limitDate);
-            })
-            ->orWhere(function ($q) use ($limitDate) {
-                $q->whereNotNull('next_time_auto')
-                  ->where('next_time_auto', '<=', $limitDate);
+            ->where(function ($query) use ($limitDate) {
+                $query->where(function ($q) use ($limitDate) {
+                    $q->whereNotNull('next_time_manual')->where('next_time_manual', '<=', $limitDate);
+                })->orWhere(function ($q) use ($limitDate) {
+                    $q->whereNotNull('next_time_auto')->where('next_time_auto', '<=', $limitDate);
+                });
             });
 
         if ($storeId && $storeId !== 'all') {

@@ -11,6 +11,7 @@
       <div class="d-flex align-items-center">
         <!-- Nút Điều chuyển kho với 3 lựa chọn -->
         <b-dropdown
+          v-if="canManageTransfers"
           variant="primary"
           right
           text="Điều chuyển kho"
@@ -84,7 +85,7 @@
                 Tổng hợp
               </span>
               <span v-else class="badge badge-light-success font-weight-bold">
-                Quản lý
+                Xem chi tiết
               </span>
             </div>
 
@@ -122,7 +123,7 @@
       </div>
     </div>
 
-    <div class="card card-custom gutter-b">
+    <div v-if="canManageTransfers" class="card card-custom gutter-b">
       <div class="card-header border-0 py-4">
         <div class="card-title"><h3 class="card-label font-weight-bolder">Biến động kho trong ngày</h3></div>
         <div class="card-toolbar">
@@ -321,11 +322,12 @@
                         {{ vehicle.active_order.customer_name }} ({{ vehicle.active_order.customer_phone }})
                       </span>
                     </div>
-                    <span v-else class="text-muted font-italic small">Không có hợp đồng</span>
+                    <span v-else class="text-muted font-italic small">Không có hợp đồng được phép xem</span>
                   </td>
                   <td class="text-right">
                     <!-- Nút xem lịch sử di chuyển -->
                     <button
+                      v-if="canViewMovementHistory"
                       class="btn btn-sm btn-light-info font-weight-bold mr-1"
                       title="Xem sổ cái lịch sử di chuyển xe"
                       @click="viewMovementHistory(vehicle.id)"
@@ -335,7 +337,7 @@
 
                     <!-- Nút chuyển kho nhanh nếu xe ready -->
                     <button
-                      v-if="vehicle.status === 'ready'"
+                      v-if="canManageTransfers && vehicle.status === 'ready'"
                       class="btn btn-sm btn-light-primary font-weight-bold"
                       title="Điều chuyển xe này sang kho khác"
                       @click="quickTransferVehicle(vehicle)"
@@ -372,6 +374,7 @@
 
     <!-- Modals cho 3 luồng điều chuyển và sổ cái -->
     <ModalStoreTransfer
+      v-if="canManageTransfers"
       ref="modalStoreTransfer"
       :stores="summaryList"
       :default-store-id="selectedStoreId"
@@ -379,6 +382,7 @@
     />
 
     <ModalReturnDifferentStore
+      v-if="canManageTransfers"
       ref="modalReturnDifferentStore"
       :stores="summaryList"
       :default-store-id="selectedStoreId"
@@ -386,12 +390,14 @@
     />
 
     <ModalVehicleExchange
+      v-if="canManageTransfers"
       ref="modalVehicleExchange"
       :default-store-id="selectedStoreId"
       @success="refreshData"
     />
 
     <ModalVehicleMovementHistory
+      v-if="canViewMovementHistory"
       ref="modalMovementHistory"
     />
   </div>
@@ -445,7 +451,13 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(["currentUser"]),
+    ...mapGetters(["currentUser", "capabilities"]),
+    canManageTransfers() {
+      return this.capabilities.includes('*') || this.capabilities.includes('vehicle.manage');
+    },
+    canViewMovementHistory() {
+      return this.capabilities.includes('*') || this.capabilities.includes('vehicle.view_all');
+    },
     currentStoreName() {
       const found = this.summaryList.find((s) => s.id === this.selectedStoreId);
       return found ? found.store_name : "Kho xe";
@@ -470,10 +482,9 @@ export default {
         }
         this.$nextTick(() => this.handleDeepLink());
       });
-      this.fetchTransfers();
     },
     handleDeepLink() {
-      if (this.deepLinkHandled || this.$route.query.action !== "exchange" || !this.$route.query.order_id) {
+      if (!this.canManageTransfers || this.deepLinkHandled || this.$route.query.action !== "exchange" || !this.$route.query.order_id) {
         return;
       }
       const oldVehicleId = Number(this.$route.query.old_vehicle_id || 0);
@@ -568,6 +579,10 @@ export default {
       this.fetchTransfers();
     },
     fetchTransfers() {
+      if (!this.canManageTransfers) {
+        this.transferList = [];
+        return Promise.resolve();
+      }
       this.loadingTransfers = true;
       return this.$store.dispatch(WAREHOUSE_GET_TRANSFERS, {
         store_id: this.selectedStoreId || undefined,
@@ -583,20 +598,22 @@ export default {
       });
     },
     canReceiveTransfer(transfer) {
-      if (transfer.status !== 'dispatched') return false;
-      return this.currentUser?.role_id === 1 || Number(this.currentUser?.store_id) === Number(transfer.to_store_id);
+      if (!this.canManageTransfers || transfer.status !== 'dispatched') return false;
+      return this.capabilities.includes('*') || Number(this.currentUser?.store_id) === Number(transfer.to_store_id);
     },
     canCancelTransfer(transfer) {
-      if (transfer.status !== 'dispatched') return false;
-      return this.currentUser?.role_id === 1 || Number(this.currentUser?.store_id) === Number(transfer.from_store_id);
+      if (!this.canManageTransfers || transfer.status !== 'dispatched') return false;
+      return this.capabilities.includes('*') || Number(this.currentUser?.store_id) === Number(transfer.from_store_id);
     },
     receiveTransfer(transfer) {
+      if (!this.canReceiveTransfer(transfer)) return;
       this.$confirm(`Xác nhận cơ sở đã nhận đủ xe của phiếu ${transfer.transfer_code}?`, 'Xác nhận nhập kho', { type: 'warning' })
         .then(() => this.$store.dispatch(WAREHOUSE_RECEIVE_TRANSFER, { transferId: transfer.id, payload: {} }))
         .then(() => { this.$message.success('Đã xác nhận nhập kho.'); this.refreshData(); })
         .catch((err) => { if (err !== 'cancel') this.$message.error(err?.data?.message || 'Không thể xác nhận nhập kho.'); });
     },
     cancelTransfer(transfer) {
+      if (!this.canCancelTransfer(transfer)) return;
       this.$prompt('Nhập lý do hủy phiếu điều chuyển', 'Hủy phiếu', { inputPattern: /\S+/, inputErrorMessage: 'Phải nhập lý do' })
         .then(({ value }) => this.$store.dispatch(WAREHOUSE_CANCEL_TRANSFER, { transferId: transfer.id, reason: value }))
         .then(() => { this.$message.success('Đã hủy phiếu điều chuyển.'); this.refreshData(); })
@@ -615,18 +632,23 @@ export default {
       return `https://www.google.com/maps?q=${gps.latitude},${gps.longitude}`;
     },
     openStoreTransferModal() {
+      if (!this.canManageTransfers) return;
       this.$refs.modalStoreTransfer.open(null, this.selectedStoreId);
     },
     openReturnDifferentStoreModal() {
+      if (!this.canManageTransfers) return;
       this.$refs.modalReturnDifferentStore.open(null, this.selectedStoreId);
     },
     openVehicleExchangeModal() {
+      if (!this.canManageTransfers) return;
       this.$refs.modalVehicleExchange.open(null, null, this.selectedStoreId);
     },
     quickTransferVehicle(vehicle) {
+      if (!this.canManageTransfers) return;
       this.$refs.modalStoreTransfer.open(vehicle, this.selectedStoreId);
     },
     viewMovementHistory(vehicleId) {
+      if (!this.canViewMovementHistory) return;
       this.$refs.modalMovementHistory.open(vehicleId);
     },
     openOrder(orderId) {

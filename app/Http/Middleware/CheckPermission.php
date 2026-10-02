@@ -13,10 +13,10 @@ class CheckPermission
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure  $next
-     * @param  string  $permission
+     * @param  string[]  $permissions Accepted alternatives; each keeps its store scope.
      * @return mixed
      */
-    public function handle(Request $request, Closure $next, string $permission)
+    public function handle(Request $request, Closure $next, string ...$permissions)
     {
         $user = $request->user();
         if (!$user) {
@@ -29,14 +29,16 @@ class CheckPermission
         $storeId = $request->input('store_id') ?: $request->route('store_id');
         $storeIdInt = $storeId ? (int) $storeId : null;
 
-        if (!PermissionAccess::allows($user, $permission, $storeIdInt)) {
-            return response()->json([
-                'message' => 'Bạn không có quyền thực hiện chức năng này hoặc không thuộc cơ sở được phân công.',
-                'error' => 'Forbidden',
-                'required_permission' => $permission
-            ], 403);
+        foreach ($permissions as $permission) {
+            if (PermissionAccess::allows($user, $permission, $storeIdInt)) {
+                return $next($request);
+            }
         }
 
-        return $next($request);
+        return response()->json([
+            'message' => 'Bạn không có quyền thực hiện chức năng này hoặc không thuộc cơ sở được phân công.',
+            'error' => 'Forbidden',
+            'required_permission' => implode(',', $permissions)
+        ], 403);
     }
 }

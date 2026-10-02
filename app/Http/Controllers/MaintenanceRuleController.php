@@ -8,6 +8,8 @@ use App\Models\Vehicle;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class MaintenanceRuleController extends Controller
 {
@@ -22,9 +24,17 @@ class MaintenanceRuleController extends Controller
 
    public function putOrPost(Request $request){
  
-        $data = $request->all();
-        $res = $this->putOrPostArr($data);
-        return $res;
+        $validated = Validator::make(['rules' => $request->all()], [
+            'rules' => 'required|array|min:1',
+            'rules.*' => 'required|array',
+            'rules.*.id' => 'nullable|integer|exists:maintenance_rules,id',
+            'rules.*.maintenance_type_id' => 'required|integer|exists:maintenance_types,id',
+            'rules.*.value' => 'required|integer|min:1',
+            'rules.*.next_time' => 'nullable|date',
+        ])->validate();
+        return DB::transaction(function () use ($validated) {
+            return $this->putOrPostArr($validated['rules']);
+        });
    }
 
 public function putOrPostArr($data){
