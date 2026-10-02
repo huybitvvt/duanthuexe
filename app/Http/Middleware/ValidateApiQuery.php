@@ -16,7 +16,8 @@ class ValidateApiQuery
                 'page' => 'nullable|integer|min:1|max:2147483647',
                 'per_page' => 'nullable|integer|min:1|max:1000',
                 'limit' => 'nullable|integer|min:1|max:1000',
-                'store_id' => 'nullable|integer|min:1',
+                // Bank selectors use zero for accounts owned by the company.
+                'store_id' => 'nullable|integer|min:0',
                 'keyword' => 'nullable|string|max:255',
                 'start_date' => 'nullable|date',
                 'end_date' => 'nullable|date'.($request->filled('start_date') ? '|after_or_equal:start_date' : ''),

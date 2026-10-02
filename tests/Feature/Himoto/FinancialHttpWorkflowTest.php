@@ -15,7 +15,10 @@ class FinancialHttpWorkflowTest extends TestCase
         parent::setUp();
         Schema::create('roles', function ($t) { $t->increments('id'); $t->string('slug'); });
         Schema::create('stores', function ($t) { $t->increments('id'); $t->string('store_name'); });
-        Schema::create('banks', function ($t) { $t->increments('id'); $t->string('bank_name'); $t->integer('store_id'); });
+        Schema::create('banks', function ($t) {
+            $t->increments('id'); $t->string('bank_name'); $t->integer('store_id');
+            $t->string('status')->default('Active'); $t->decimal('opening_balance', 18, 2)->default(0);
+        });
         Schema::create('cash', function ($t) { $t->increments('id'); $t->integer('store_id'); $t->string('status'); });
         Schema::create('transactions', function ($t) {
             $t->increments('id'); $t->integer('store_id')->nullable(); $t->integer('user_id'); $t->string('name');
@@ -96,5 +99,13 @@ class FinancialHttpWorkflowTest extends TestCase
         $payload = ['store_id' => 31, 'user_id' => 1, 'type' => 'in', 'value' => 100, 'payment_method' => 1, 'name' => 'receipt'];
         $this->putJson('/api/auth/transactions/999', $payload)->assertStatus(404);
         $this->assertSame(0, Transaction::count());
+    }
+
+    public function testCompanyBankSelectorAcceptsZeroStoreIdentifier(): void
+    {
+        DB::table('banks')->insert(['id' => 2, 'bank_name' => 'Company bank', 'store_id' => 0]);
+        $response = $this->getJson('/api/auth/banks?store_id=0');
+        $response->assertStatus(200);
+        $this->assertSame(1, $response->json()['data']['total']);
     }
 }

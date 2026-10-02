@@ -397,7 +397,7 @@
     />
 
     <ModalVehicleMovementHistory
-      v-if="canViewMovementHistory"
+      v-if="vehicleList.some(canViewMovementHistory)"
       ref="modalMovementHistory"
     />
   </div>
@@ -468,7 +468,7 @@ export default {
       if (this.capabilities.includes('*')) return true;
       if (!this.capabilities.includes('vehicle.view_all')) return false;
       const storeId = Number(this.currentUser?.store_id);
-      return storeId > 0 && [Number(vehicle.store_id), Number(vehicle.current_store_id)].includes(storeId);
+      return storeId > 0 && [Number(vehicle.managed_store_id), Number(vehicle.current_store_id)].includes(storeId);
     },
     initData() {
       const qStoreId = this.$route.query.store_id;
@@ -651,7 +651,8 @@ export default {
       this.$refs.modalStoreTransfer.open(vehicle, this.selectedStoreId);
     },
     viewMovementHistory(vehicleId) {
-      if (!this.canViewMovementHistory) return;
+      const vehicle = this.vehicleList.find((item) => Number(item.id) === Number(vehicleId));
+      if (!vehicle || !this.canViewMovementHistory(vehicle)) return;
       this.$refs.modalMovementHistory.open(vehicleId);
     },
     openOrder(orderId) {
