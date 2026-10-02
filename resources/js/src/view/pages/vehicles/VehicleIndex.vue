@@ -228,10 +228,10 @@
 
                                     <td>
                                         <div class="d-flex align-items-center gap-1">
-                                            <button v-b-modal.modal-show-car-rental
+                                            <button
                                                 class="btn btn-xs btn-outline-info font-weight-bold" title="Xem chi tiết"
-                                                @click="showPopup(item)">
-                                                Xem
+                                                :disabled="loadingVehicleId !== null" @click="showPopup(item)">
+                                                {{ loadingVehicleId === item.id ? 'Đang tải...' : 'Xem' }}
                                             </button>
                                             <button v-b-modal.modal-vehicle-edit @click="item_current = item"
                                                 class="btn btn-xs btn-outline-info font-weight-bold" title="Sửa">
@@ -273,8 +273,8 @@
                                     <span class="meta-val font-weight-bold text-primary">{{ item.odometer }} km</span>
                                 </div>
                                 <div class="vehicle-card-actions">
-                                    <button class="btn btn-sm btn-secondary font-weight-bold" @click="showPopup(item)" v-b-modal.modal-show-car-rental>
-                                        Chi tiết
+                                    <button class="btn btn-sm btn-secondary font-weight-bold" :disabled="loadingVehicleId !== null" @click="showPopup(item)">
+                                        {{ loadingVehicleId === item.id ? 'Đang tải...' : 'Chi tiết' }}
                                     </button>
                                     <button class="btn btn-sm btn-secondary font-weight-bold" @click="item_current = item" v-b-modal.modal-vehicle-edit>
                                         Sửa
@@ -333,6 +333,7 @@ import HimotoCardSkeleton from "@/view/components/himoto/HimotoCardSkeleton.vue"
 import HimotoEmptyState from "@/view/components/himoto/HimotoEmptyState.vue";
 import { adaptVehicle, normalizePaginator } from "@/utils/paginatorAdapter";
 import { getApiMessage } from "@/utils/apiErrorHandler";
+import ApiService from "@/core/services/api.service";
 
 export default {
     mixins: [queryMixin],
@@ -352,6 +353,7 @@ export default {
         return {
 
             vehicle_show: null,
+            loadingVehicleId: null,
             query: {
                 name: "",
                 status: "",
@@ -439,9 +441,20 @@ export default {
 			return urls;
 		},
 
-        showPopup(item) {
-            this.vehicle_show = item;
-
+        async showPopup(item) {
+            if (this.loadingVehicleId !== null) return;
+            const sessionId = this.$store.getters.authSessionId;
+            this.loadingVehicleId = item.id;
+            try {
+                const { data } = await ApiService.get('/api/auth/vehicle/vehicles', item.id);
+                if (sessionId !== this.$store.getters.authSessionId) return;
+                this.vehicle_show = adaptVehicle(data.data || data);
+                this.$bvModal.show('modal-vehicle-details');
+            } catch (error) {
+                if (sessionId === this.$store.getters.authSessionId) this.$message.error(getApiMessage(error, 'Không thể tải chi tiết xe.'));
+            } finally {
+                this.loadingVehicleId = null;
+            }
         },
         switchView(mode) {
             this.viewMode = mode;
@@ -468,6 +481,7 @@ export default {
                 .dispatch(VEHICLE_GET_ALL, {
                     page: this.page,
                     ...this.query,
+                    list_view: true,
                 })
                 .then((data) => {
                     const paginated = normalizePaginator(data);

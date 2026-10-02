@@ -19,12 +19,40 @@ export const REFERENCING_TREE = "referencing_tree";
 // mutation types
 export const PURGE_AUTH = "logOut";
 export const SET_AUTH = "setUser";
+export const SET_VERIFIED_AUTH = "setVerifiedUser";
 export const SET_PASSWORD = "setPassword";
 export const SET_ERROR = "setError";
 export const SET_REFERENCING_TREE = "setReferencingTree";
 
 let sessionCounter = 0;
+let pendingVerification = null;
+let verifiedToken = null;
+let verifiedAt = 0;
+const VERIFICATION_TTL = 30000;
 export const generateSessionId = () => `sess_${Date.now()}_${++sessionCounter}_${Math.random().toString(36).substring(2, 8)}`;
+
+function authScope(user, capabilities) {
+    return JSON.stringify([user?.id, user?.store_id, user?.role_id, user?.role,
+        [...(capabilities || [])].sort()]);
+}
+
+function applyAuth(state, payload, preserveSession = false) {
+    const user = payload ? (payload.user || payload.data || payload) : {};
+    const capabilities = Array.isArray(payload?.capabilities) ? payload.capabilities : [];
+    const sameScope = state.isAuthenticated && authScope(state.user, state.capabilities) === authScope(user, capabilities);
+    state.user = user;
+    state.capabilities = capabilities;
+    state.errors = {};
+    state.isAuthenticated = true;
+    if (!preserveSession || !sameScope) {
+        state.authSessionId = generateSessionId();
+        ApiService.invalidateReads();
+    }
+    if (payload?.access_token) JwtService.saveToken(payload.access_token);
+    verifiedToken = JwtService.getToken();
+    verifiedAt = Date.now();
+    ApiService.setHeader();
+}
 
 const state = {
     user: {
@@ -84,19 +112,32 @@ const actions = {
                 });
         });
     },
-    [VERIFY_AUTH](context) {
-        if (JwtService.getToken()) {
-            ApiService.setHeader();
-            ApiService.get("/api/verify-token")
-                .then(({data}) => {
-                    context.commit(SET_AUTH, data);
-                })
-                .catch(() => {
-                    context.commit(PURGE_AUTH);
-                });
-        } else {
-            context.commit(PURGE_AUTH);
+    [VERIFY_AUTH](context, options = {}) {
+        const token = JwtService.getToken();
+        if (!token) {
+            if (context.state.isAuthenticated || context.state.user?.id) context.commit(PURGE_AUTH);
+            return Promise.resolve();
         }
+        ApiService.setHeader();
+        const session = context.state.authSessionId;
+        if (!options.force && context.state.user?.id && verifiedToken === token && Date.now() - verifiedAt < VERIFICATION_TTL) {
+            return Promise.resolve();
+        }
+        if (pendingVerification?.token === token && pendingVerification.session === session) return pendingVerification.promise;
+        const current = { token, session, promise: null };
+        current.promise = ApiService.get("/api/verify-token")
+            .then(({data}) => {
+                if (JwtService.getToken() === token && context.state.authSessionId === session) context.commit(SET_VERIFIED_AUTH, data);
+            })
+            .catch(error => {
+                if (JwtService.getToken() !== token || context.state.authSessionId !== session) return;
+                const status = error?.status || error?.response?.status;
+                if (status === 401 || status === 403) context.commit(PURGE_AUTH);
+                else throw error;
+            })
+            .finally(() => { if (pendingVerification === current) pendingVerification = null; });
+        pendingVerification = current;
+        return current.promise;
     },
     [UPDATE_PASSWORD](context, payload) {
         const password = payload;
@@ -202,20 +243,19 @@ const mutations = {
         state.errors = error;
     },
     [SET_AUTH](state, user) {
-        state.user = user ? (user.user || user.data || user) : {};
-        state.capabilities = user && Array.isArray(user.capabilities) ? user.capabilities : [];
-        state.errors = {};
-        state.isAuthenticated = true;
-        state.authSessionId = generateSessionId();
-        if (user && user.access_token) {
-            JwtService.saveToken(user.access_token);
-        }
-        ApiService.setHeader();
+        applyAuth(state, user);
+    },
+    [SET_VERIFIED_AUTH](state, user) {
+        applyAuth(state, user, true);
     },
     [SET_PASSWORD](state, password) {
         state.user.password = password;
     },
     [PURGE_AUTH](state) {
+        ApiService.invalidateReads();
+        verifiedToken = null;
+        verifiedAt = 0;
+        pendingVerification = null;
         state.isAuthenticated = false;
         state.user = {};
         state.capabilities = [];

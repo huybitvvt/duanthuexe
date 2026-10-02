@@ -168,7 +168,7 @@ import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import Swal from "sweetalert2";
 import { RECEIPT_DELETE, RECEIPT_INDEX } from "@/core/services/store/receipt.module";
 import  ModalShowReceipt  from './ModalShowReceipt';
-import moment from "moment-timezone";
+import moment from "moment";
 import { getTextShort } from "../../../utils";
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import queryMixin from '@/utils/queryMixin.js';

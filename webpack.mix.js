@@ -19,12 +19,15 @@ mix.copy(
     "node_modules/html2pdf.js/dist/html2pdf.bundle.min.js",
     "public/vendor/html2pdf.bundle.min.js"
 );
+mix.copy("node_modules/element-ui/lib/theme-chalk/index.css", "public/css/element-ui/index.css");
+mix.copyDirectory("node_modules/element-ui/lib/theme-chalk/fonts", "public/css/element-ui/fonts");
 
 if (!mix.inProduction()) {
     mix.sourceMaps();
 }
 
 mix.webpackConfig({
+    output: { chunkFilename: "js/chunks/[name].[contenthash:16].js" },
     plugins: [
         new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
         new webpack.DefinePlugin({

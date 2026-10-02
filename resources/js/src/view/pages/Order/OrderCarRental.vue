@@ -223,42 +223,38 @@
                 </div>
             </div>
 
-            <b-modal :title="modalCreateTitle" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
+            <b-modal v-model="showModalCreate" :title="modalCreateTitle" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
                 hide-footer>
-                <order-update :initial-mode="createMode" :initial-data="createInitialData" :print-after-create="createAndPrint" @createSuccess="createSuccess"></order-update>
+                <order-update v-if="showModalCreate" :initial-mode="createMode" :initial-data="createInitialData" :print-after-create="createAndPrint" @createSuccess="createSuccess"></order-update>
             </b-modal>
-            <b-modal :title='"Sửa hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-update" :centered="true"
+            <b-modal v-model="showModalUpdate" :title='"Sửa hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-update" :centered="true"
                 :scrollable="true" hide-footer>
-                <order-update :id="orderId" @updateSuccess="updateSuccess"></order-update>
+                <order-update v-if="showModalUpdate" :id="orderId" @updateSuccess="updateSuccess"></order-update>
             </b-modal>
-            <b-modal :title='"Xem hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-show" :centered="true"
+            <b-modal v-model="showModalDetail" :title='"Xem hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-show" :centered="true"
                 :scrollable="true">
-                <order-show :order="order_show"></order-show>
+                <order-show v-if="showModalDetail" :order="order_show"></order-show>
             </b-modal>
-            <b-modal title="Thu chi hợp đồng" size="xl" ref="modal-contract-payment" :centered="true" :scrollable="true"
+            <b-modal v-model="showModalPayment" title="Thu chi hợp đồng" size="xl" ref="modal-contract-payment" :centered="true" :scrollable="true"
                 hide-footer>
-                <order-payment :id="orderId" :order-status="order_status_prop" :suggested-amount="paymentSuggestedAmount"
+                <order-payment v-if="showModalPayment" :id="orderId" :order-status="order_status_prop" :suggested-amount="paymentSuggestedAmount"
                     @paymentSuccess="paymentSuccess" @updateSuccess="paymentSuccess"></order-payment>
             </b-modal>
-            <ModalContractPreview v-model="showPrintModal" :doc="printDocumentDto" />
+            <ModalContractPreview v-if="showPrintModal" v-model="showPrintModal" :doc="printDocumentDto" />
         </div>
     </div>
 </template>
 
 <script>
-import moment from 'moment-timezone';
+import moment from 'moment';
 import { LEAD_UNIQUE_USERS } from "@/core/services/store/lead.module";
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import { EXPORT_ORDERS } from "@/core/services/store/exports.module";
 import { mapGetters } from "vuex";
 import { SHOW_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL_REPORT, DELETE_ORDER, GET_ORDER_DOCUMENT } from "@/core/services/store/order.module";
 import { REPORT_CAR_RENTAL_NEW } from '../../../core/services/store/report.module';
-import OrderUpdate from "./components-order/OrderUpdate";
 import OrderQuickCreate from "./components-order/OrderQuickCreate";
 import RentalOrderTable from "./components-order/RentalOrderTable";
-import OrderShow from "./components-order/OrderShow";
-import OrderPayment from "./components-order/OrderPayment";
-import ModalContractPreview from "./components-order/ModalContractPreview";
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import { ORDER_STATUS } from "@/option/orderOption";
 import { ORDER_STATUS_DEFINE, ORDER_STATUS_DEFINE_CSS, STATUS_COMPLETED, ORDER_OUTDATE_FILTERS } from "../../../option/orderOption";
@@ -268,6 +264,11 @@ import HimotoTableSkeleton from "@/view/components/himoto/HimotoTableSkeleton.vu
 import HimotoErrorState from "@/view/components/himoto/HimotoErrorState.vue";
 import { normalizePaginator } from "@/utils/paginatorAdapter";
 import { getApiMessage } from "@/utils/apiErrorHandler";
+
+const OrderUpdate = () => import(/* webpackChunkName: "contract-form" */ "./components-order/OrderUpdate");
+const OrderShow = () => import(/* webpackChunkName: "contract-detail" */ "./components-order/OrderShow");
+const OrderPayment = () => import(/* webpackChunkName: "contract-payment" */ "./components-order/OrderPayment");
+const ModalContractPreview = () => import(/* webpackChunkName: "contract-print" */ "./components-order/ModalContractPreview");
 
 export default {
     name: "OrderCarRental",
@@ -301,6 +302,9 @@ export default {
             page: +page || 1,
             last_page: 1,
             showModalCreate: false,
+            showModalUpdate: false,
+            showModalDetail: false,
+            showModalPayment: false,
             createMode: 'standard',
             createInitialData: {},
             createAndPrint: false,

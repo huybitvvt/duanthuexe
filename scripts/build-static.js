@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
+const { createHash } = require("crypto");
 
 const projectRoot = path.resolve(__dirname, "..");
 const publicDir = path.join(projectRoot, "public");
@@ -74,7 +75,20 @@ fs.writeFileSync(path.join(projectRoot, "resources", "js", "src", "version.json"
 
 emptyDirectory(outputDir);
 copyDirectory(publicDir, outputDir);
-fs.copyFileSync(indexTemplate, path.join(outputDir, "index.html"));
+// Fingerprint the startup assets too. The HTML always selects the current
+// build, while a browser can reuse unchanged code/styles on subsequent visits.
+let indexHtml = fs.readFileSync(indexTemplate, "utf8");
+const startupAssets = ["/js/app.js", "/css/app.css", "/css/himoto-app.css", "/css/element-ui/index.css"];
+for (const asset of startupAssets) {
+    const source = path.join(outputDir, asset.slice(1));
+    const content = fs.readFileSync(source);
+    const hash = createHash("sha256").update(content).digest("hex").slice(0, 16);
+    const extension = path.extname(asset);
+    const versioned = asset.slice(0, -extension.length) + "." + hash + extension;
+    fs.writeFileSync(path.join(outputDir, versioned.slice(1)), content);
+    indexHtml = indexHtml.split(asset).join(versioned);
+}
+fs.writeFileSync(path.join(outputDir, "index.html"), indexHtml);
 
 // Write public and static-dist version.json artifacts
 fs.writeFileSync(path.join(publicDir, "version.json"), versionJson, "utf8");

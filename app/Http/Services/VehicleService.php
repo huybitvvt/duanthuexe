@@ -28,9 +28,10 @@ class VehicleService implements ICrud
     {
         $limit = data_get($params, 'limit', config('app.paginate'));
         $compact = filter_var(data_get($params, 'compact', false), FILTER_VALIDATE_BOOLEAN);
+        $listView = filter_var(data_get($params, 'list_view', false), FILTER_VALIDATE_BOOLEAN);
         $relations = ['store:id,store_name'];
         if (!$compact) {
-            $relations = array_merge($relations, [
+            $relations = array_merge($relations, $listView ? ['images'] : [
                 'maintenanceLog.maintenanceType',
                 'maintenanceVehicle',
                 'maintenanceSchedule.maintenanceType',
@@ -60,6 +61,18 @@ class VehicleService implements ICrud
 
         return $results;
     }
+    public function show(Vehicle $vehicle): Vehicle
+    {
+        $vehicle->load(['store:id,store_name', 'maintenanceLog.maintenanceType',
+            'maintenanceVehicle', 'maintenanceSchedule.maintenanceType', 'images']);
+        foreach ($vehicle->images as $image) {
+            if (($image->provider !== 'cloudinary' || !$image->url) && $image->key) {
+                $image->url = FileController::get_temp_url($image->key);
+            }
+        }
+        return $vehicle;
+    }
+
     public function indexWithRevenue(array $params, $all = false)
     {
         $limit = data_get($params, 'limit', config('app.paginate'));

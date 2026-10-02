@@ -151,7 +151,7 @@
 import { types, payment_methods } from "../../../option/transactionOption";
 import { receiptOptions } from "../../../option/receiptOptions";
 import { getTextShort } from "../../../utils";
-import moment from "moment-timezone";
+import moment from "moment";
 import { BANK_GET_ALL } from "@/core/services/store/banks.module";
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
 

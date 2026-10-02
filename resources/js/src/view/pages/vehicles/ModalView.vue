@@ -1,6 +1,6 @@
 <template>
     <div id="car-rental" class="d-inline">
-        <b-modal :centered="true" :scrollable="true" id="modal-show-car-rental" size="xl" title="Xem chi tiết xe"
+        <b-modal :centered="true" :scrollable="true" id="modal-vehicle-details" size="xl" title="Xem chi tiết xe"
             hide-footer>
             <section id="section-vehicle">
                 <div class="card card-custom gutter-b">

@@ -34,6 +34,11 @@ class VehicleController extends Controller
         return $this->successResponse($this->vehicleService->index($request->all(), $is_all));
     }
 
+    public function show(Vehicle $vehicle): JsonResponse
+    {
+        return $this->successResponse($this->vehicleService->show($vehicle));
+    }
+
     public function indexWithRevenue(Request $request)
     {
         $is_all = $request->get('is_all', false);

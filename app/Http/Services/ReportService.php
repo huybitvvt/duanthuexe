@@ -466,7 +466,7 @@ class ReportService
 		}
 
 		if ( $has_search_order_query ) {
-			$search_order_ids = $search_order_query->pluck('orders.id');
+			$search_order_ids = (clone $search_order_query)->select('orders.id');
 			$transaction_query->whereIn('orders.id', $search_order_ids);
 		}
 
@@ -491,7 +491,7 @@ class ReportService
 		
 		$total_origin_refund_query->where('orders.order_status', 'completed'); // Tổng số tiền cần refund mà chưa tính phí quá hạn hay trả sớm. VD hợp đồng A khách cọc 1tr thì khoản origin-refund phải là 1tr. Trên thực tế nếu phát sinh trả sớm hoặc trả muộn thì sẽ cộng trừ vào khoản cọc này.
 
-		$found_order_ids = $total_origin_refund_query->pluck('orders.id');
+		$found_order_ids = (clone $total_origin_refund_query)->select('orders.id');
 		$total_origin_refund_query2  = Order::query()->whereIn('orders.id', $found_order_ids);
 
 

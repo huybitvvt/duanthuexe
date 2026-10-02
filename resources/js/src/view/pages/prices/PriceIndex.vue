@@ -130,7 +130,7 @@
 </template>
 
 <script>
-import moment from "moment-timezone";
+import moment from "moment";
 import {Money} from 'v-money';
 import {mapGetters} from "vuex";
 import {PRICE_VEHICLES_INDEX, PRICE_VEHICLES_UPDATE, DELETE_PRICE_VEHICLES} from "@/core/services/store/vehicle.module";

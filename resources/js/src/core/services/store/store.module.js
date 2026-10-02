@@ -1,4 +1,5 @@
 import ApiService from "@/core/services/api.service";
+import { PURGE_AUTH } from "./auth.module";
 
 // action types
 export const STORE_GET_ALL = "store_get_all";
@@ -17,6 +18,8 @@ const state = {
     storeList: [],
     storesLoaded: false,
     storesLastFetchedAt: 0,
+    storesSessionId: null,
+    storesGeneration: 0,
 };
 
 const getters = {
@@ -31,17 +34,19 @@ const actions = {
     [STORE_GET_ALL](context, credentials) {
         // Cache-first: If requesting all stores with no specific filters and data is fresh (< 60s)
         const isDefaultQuery = !credentials || Object.keys(credentials).length === 0;
-        if (isDefaultQuery && context.state.storesLoaded && (Date.now() - context.state.storesLastFetchedAt < 60000)) {
+        const sessionId = context.rootGetters.authSessionId;
+        const generation = context.state.storesGeneration;
+        if (isDefaultQuery && context.state.storesSessionId === sessionId && context.state.storesLoaded && (Date.now() - context.state.storesLastFetchedAt < 60000)) {
             return Promise.resolve({ data: context.state.storeList });
         }
-        if (isDefaultQuery && pendingDefaultStoreRequest) {
-            return pendingDefaultStoreRequest;
+        if (isDefaultQuery && pendingDefaultStoreRequest?.sessionId === sessionId) {
+            return pendingDefaultStoreRequest.promise;
         }
 
         const request = ApiService.query("/api/auth/stores/all", credentials)
             .then(({data}) => {
-                if (isDefaultQuery) {
-                    context.commit("SET_CACHED_STORES", data.data || data);
+                if (isDefaultQuery && context.state.storesGeneration === generation && context.rootGetters.authSessionId === sessionId && context.rootGetters.isAuthenticated) {
+                    context.commit("SET_CACHED_STORES", { stores: data.data || data, sessionId });
                 }
                 return data;
             })
@@ -53,10 +58,12 @@ const actions = {
             return request;
         }
 
-        pendingDefaultStoreRequest = request.finally(() => {
-            pendingDefaultStoreRequest = null;
+        const pending = { sessionId, promise: null };
+        pending.promise = request.finally(() => {
+            if (pendingDefaultStoreRequest === pending) pendingDefaultStoreRequest = null;
         });
-        return pendingDefaultStoreRequest;
+        pendingDefaultStoreRequest = pending;
+        return pending.promise;
     },
     [STORE_INDEX](context, credentials) {
         return new Promise((resolve, reject) => {
@@ -73,6 +80,7 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.post("/api/auth/stores", payload)
                 .then(({data}) => {
+                    context.commit("INVALIDATE_CACHED_STORES");
                     resolve(data);
                 })
                 .catch(({response}) => {
@@ -96,6 +104,7 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.post(`/api/auth/stores/${payload.id}?_method=PUT`, payload)
                 .then(({data}) => {
+                    context.commit("INVALIDATE_CACHED_STORES");
                     resolve(data);
                 })
                 .catch(({response}) => {
@@ -108,6 +117,7 @@ const actions = {
         return new Promise((resolve, reject) => {
             ApiService.delete(`/api/auth/stores/${id}`)
                 .then(({data}) => {
+                    context.commit("INVALIDATE_CACHED_STORES");
                     resolve(data);
                 })
                 .catch(({response}) => {
@@ -137,14 +147,25 @@ const mutations = {
         state.selectedStoreId = storeId;
         localStorage.setItem("himoto_store_id", storeId);
     },
-    SET_CACHED_STORES(state, stores) {
+    SET_CACHED_STORES(state, { stores, sessionId }) {
         state.storeList = stores;
+        state.storesSessionId = sessionId;
         state.storesLoaded = true;
         state.storesLastFetchedAt = Date.now();
     },
     INVALIDATE_CACHED_STORES(state) {
+        state.storesGeneration++;
+        pendingDefaultStoreRequest = null;
         state.storesLoaded = false;
         state.storesLastFetchedAt = 0;
+    },
+    [PURGE_AUTH](state) {
+        state.storesGeneration++;
+        state.storeList = [];
+        state.storesSessionId = null;
+        state.storesLoaded = false;
+        state.storesLastFetchedAt = 0;
+        pendingDefaultStoreRequest = null;
     }
 };
 

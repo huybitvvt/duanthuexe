@@ -2,6 +2,24 @@ import Vue from "vue";
 import axios from "axios";
 import VueAxios from "vue-axios";
 import JwtService from "@/core/services/jwt.service";
+import { createPendingRequests } from "@/utils/pendingRequests";
+
+const pendingReads = createPendingRequests();
+let readToken = null;
+
+function read(resource, params) {
+    const token = JwtService.getToken();
+    if (readToken !== token) { pendingReads.clear(); readToken = token; }
+    const key = Vue.axios.getUri({ url: resource, params });
+    return pendingReads.run(key, () => Vue.axios.get(resource, { params }).catch(error => {
+        throw formatApiError(error, "[KT]");
+    }));
+}
+
+function write(fetch) {
+    pendingReads.clear();
+    return fetch().finally(() => pendingReads.clear());
+}
 
 const compiledApiUrl = (process.env.MIX_API_URL || "").replace(/\/$/, "");
 
@@ -48,6 +66,7 @@ function formatApiError(error, prefix = "[KT]") {
  * Service to call HTTP request via Axios
  */
 const ApiService = {
+    invalidateReads() { pendingReads.clear(); },
     init() {
         Vue.use(VueAxios, axios);
         if (configuredApiUrl) {
@@ -67,11 +86,7 @@ const ApiService = {
     },
 
     query(resource, params) {
-        return Vue.axios.get(resource, {
-            params: params
-        }).catch(error => {
-            throw formatApiError(error, "[KT]");
-        });
+        return read(resource, params);
     },
     download(resource, params) {
         return Vue.axios.get(resource, {
@@ -94,9 +109,7 @@ const ApiService = {
         } else {
             url = resource;
         }
-        return Vue.axios.get(url).catch(error => {
-            throw formatApiError(error, "[KT]");
-        });
+        return read(url);
     },
 
     /**
@@ -106,7 +119,7 @@ const ApiService = {
      * @returns {*}
      */
     post(resource, params) {
-        return Vue.axios.post(`${resource}`, params);
+        return write(() => Vue.axios.post(`${resource}`, params));
     },
 
     /**
@@ -117,7 +130,7 @@ const ApiService = {
      * @returns {IDBRequest<IDBValidKey> | Promise<void>}
      */
     update(resource, slug, params) {
-        return Vue.axios.put(`${resource}/${slug}`, params);
+        return write(() => Vue.axios.put(`${resource}/${slug}`, params));
     },
 
     /**
@@ -127,7 +140,7 @@ const ApiService = {
      * @returns {IDBRequest<IDBValidKey> | Promise<void>}
      */
     put(resource, params) {
-        return Vue.axios.put(`${resource}`, params);
+        return write(() => Vue.axios.put(`${resource}`, params));
     },
 
     /**
@@ -136,7 +149,7 @@ const ApiService = {
      * @returns {*}
      */
     delete(resource) {
-        return Vue.axios.delete(resource).catch(error => {
+        return write(() => Vue.axios.delete(resource)).catch(error => {
             // console.log(error);
             throw formatApiError(error, "[RWV]");
         });

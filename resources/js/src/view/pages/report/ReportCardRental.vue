@@ -289,7 +289,7 @@
 import { STORE_GET_ALL } from "../../../core/services/store/store.module";
 import { EXPORT_GENERAL_REPORT } from "../../../core/services/store/exports.module";
 import { REPORT_CAR_RENTAL_NEW, REPORT_CAR_RENTAL_DAY_BY_DAY } from "../../../core/services/store/report.module";
-import moment from "moment-timezone";
+import moment from "moment";
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import queryMixin from '@/utils/queryMixin.js';
 

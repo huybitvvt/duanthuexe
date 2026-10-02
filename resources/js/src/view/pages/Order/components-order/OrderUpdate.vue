@@ -673,7 +673,7 @@
 		<BusinessApprovalPanel v-if="id && order && order.store_id"
 			:subject-id="Number(id)" :store-id="Number(order.store_id)" subject-type="order" @changed="getOrder" />
 
-		<ModalContractPreview v-model="showPreviewModal" :doc="previewDocumentDto" />
+		<ModalContractPreview v-if="showPreviewModal" v-model="showPreviewModal" :doc="previewDocumentDto" />
     </div>
 </template>
 
@@ -706,7 +706,7 @@ import ModalComplete from "./ModalComplete";
 import ModalCloseDeposit from "./ModalCloseDeposit";
 import ModalStart from "./ModalStart";
 import TransactionHistory from "./TransactionHistory";
-import ModalContractPreview from "./ModalContractPreview";
+const ModalContractPreview = () => import(/* webpackChunkName: "contract-print" */ "./ModalContractPreview");
 import BusinessApprovalPanel from "../../approvals/BusinessApprovalPanel.vue";
 import { CUSTOMER_INDEX } from "@/core/services/store/customers.module";
 import { LEAD_INDEX } from "@/core/services/store/lead.module";

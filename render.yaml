@@ -74,6 +74,25 @@ services:
       git config --global url.https://github.com/.insteadOf ssh://git@github.com/ &&
       npm ci && npm run build:static
     staticPublishPath: ./static-dist
+    headers:
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /
+        name: Cache-Control
+        value: no-cache
+      - path: /version.json
+        name: Cache-Control
+        value: no-cache
+      - path: /js/chunks/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /js/app.*.js
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /css/*.css
+        name: Cache-Control
+        value: public, max-age=3600
     autoDeployTrigger: commit
     envVars:
       - key: MIX_API_URL

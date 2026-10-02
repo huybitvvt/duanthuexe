@@ -7,6 +7,8 @@
 /backend/.env
 /vendor
 /static-dist
+/public/js/chunks/
+/public/css/element-ui/
 /composer.phar
 /.idea
 /.DS_Store

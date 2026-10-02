@@ -79,4 +79,29 @@ class ReportAccessAndSearchTest extends TestCase
         }
         $this->assertSame(0.0, $service->handleDetailReportNew(['keyword' => 'No matching record'])['total_deposit']);
     }
+
+    public function testRefundSubqueriesPreserveTotalsWithMultipleVehiclesAndBranchFilters(): void
+    {
+        DB::table('orders')->where('id', 1)->update(['first_deposit_amount' => 1000, 'additional_deposit_amount' => 500]);
+        DB::table('orders')->where('id', 2)->update(['first_deposit_amount' => 2000]);
+        DB::table('order_vehicle_details')->insert(['order_id' => 1, 'vehicle_id' => 1,
+            'rent_at' => '2026-10-01 08:00:00', 'completed_at' => '2026-10-02 08:00:00']);
+        $this->actingAs(new User(['id' => 1, 'role_id' => 1, 'status' => 'active']), 'api');
+        $service = app(ReportService::class);
+        DB::enableQueryLog(); DB::flushQueryLog();
+        $report = $service->handleDetailReportNew(['keyword' => 'Honda']);
+        $this->assertSame(3500.0, $report['total_origin_refund']);
+        $this->assertSame(201.0, $report['total_deposit']);
+        foreach (DB::getQueryLog() as $query) {
+            $this->assertFalse((bool) preg_match('/^select ["`]?orders["`]?\.["`]?id["`]? from/i', $query['query']),
+                'Report must not materialize matching order IDs before its aggregate queries');
+        }
+        $this->assertSame(1500.0, $service->handleDetailReportNew(['keyword' => 'QA-1'])['total_origin_refund']);
+        $this->assertSame(0.0, $service->handleDetailReportNew(['keyword' => 'No matching record'])['total_origin_refund']);
+        $daily = $service->handleDetailReportNew(['keyword' => 'Honda', 'separate_result_by_day' => true]);
+        $this->assertEquals(3500, $daily['total_origin_refund']->sum('total_value'));
+        $this->actingAs(new User(['id' => 2, 'role_id' => 7, 'store_id' => 31]), 'api');
+        $this->assertSame(1500.0, $service->handleDetailReportNew(['store_id' => 32])['total_origin_refund']);
+        $this->assertSame(0.0, $service->handleDetailReportNew(['start_date' => '2026-10-03'])['total_origin_refund']);
+    }
 }

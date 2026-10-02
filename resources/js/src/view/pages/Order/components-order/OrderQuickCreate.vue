@@ -54,7 +54,7 @@
 </template>
 
 <script>
-import moment from 'moment-timezone';
+import moment from 'moment';
 import { mapGetters } from 'vuex';
 import { VEHICLE_GET_ALL, PRICE_VEHICLES_INDEX } from '@/core/services/store/vehicle.module';
 import { getApiMessage } from '@/utils/apiErrorHandler';

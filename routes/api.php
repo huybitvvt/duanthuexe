@@ -99,6 +99,7 @@ Route::group(['middleware' => 'api'], function ($router) {
             });
             Route::group(['prefix' => 'vehicle', 'middleware' => 'auth.jwt'], function ($router) {
                 Route::get('/vehicles', [VehicleController::class, 'index'])->middleware('permission:vehicle.view_all');
+                Route::get('/vehicles/{vehicle}', [VehicleController::class, 'show'])->where('vehicle', '[0-9]+')->middleware('permission:vehicle.view_all');
             });
             Route::group(['prefix' => 'leads', 'middleware' => ['auth.jwt', 'permission:lead.manage']], function () {
                 Route::get('/', [LeadController::class, 'index']);

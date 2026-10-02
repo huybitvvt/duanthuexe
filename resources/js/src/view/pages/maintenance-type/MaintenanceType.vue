@@ -88,7 +88,7 @@
 </template>
 
 <script>
-import moment from "moment-timezone";
+import moment from "moment";
 import { Money } from 'v-money';
 import { mapGetters } from "vuex";
 import { MAINTENANCE_RULE_CREATE, MAINTENANCE_RULE_DELETE, MAINTENANCE_RULE_UPDATE, MAINTENANCE_RULE_INDEX } from "@/core/services/store/vehicle.module";

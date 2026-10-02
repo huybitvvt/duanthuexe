@@ -5,7 +5,7 @@ import store from "@/core/services/store";
 import ApiService from "@/core/services/api.service";
 import {VERIFY_AUTH} from "@/core/services/store/auth.module";
 import {RESET_LAYOUT_CONFIG} from "@/core/services/store/config.module";
-import Element from 'element-ui';
+import '@/core/plugins/element-ui';
 import SearchSuggest from "@/view/components/SearchSuggest.vue";
 import Paginate from 'vuejs-paginate';
 import * as filters from '../src/filters'; // global filters
@@ -18,7 +18,6 @@ import VueMask from 'v-mask';
 import Notifications from 'vue-notification'
 import money from 'v-money';
 import mixin from '../src/common/common.js'
-import locale from 'element-ui/lib/locale/lang/vi'
 import VueSweetalert2 from 'vue-sweetalert2';
 import 'sweetalert2/dist/sweetalert2.min.css';
 
@@ -62,7 +61,6 @@ configure({
 Vue.use(money, {precision: 4})
 Vue.use(Notifications)
 Vue.use(VueMask);
-Vue.use(Element, {locale})
 Vue.component('search-suggest', SearchSuggest);
 Vue.component('paginate', Paginate);
 Vue.component('date-picker', DatePicker);
@@ -95,9 +93,23 @@ ApiService.init();
 // Remove this to disable mock API
 // MockService.init();
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
     // Ensure we checked auth before each page load.
-    Promise.all([store.dispatch(VERIFY_AUTH)]).then(next);
+    try {
+        await store.dispatch(VERIFY_AUTH);
+    } catch (error) {
+        // Retain the session during a network outage; protected API calls still
+        // validate JWT and permissions on the server for every request.
+        if (!store.getters.currentUser?.id && to.name !== 'login') {
+            next({ name: 'login' });
+            return;
+        }
+    }
+    if (!store.getters.isAuthenticated && !['login', 'register', 'ref'].includes(to.name)) {
+        next({ name: 'login' });
+        return;
+    }
+    next();
 
     // reset config to initial state
     store.dispatch(RESET_LAYOUT_CONFIG);

@@ -245,7 +245,7 @@ import { types, payment_methods } from "../../../option/transactionOption";
 import { SET_BREADCRUMB } from "@/core/services/store/breadcrumbs.module";
 import { getTextShort } from "../../../utils";
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
-import moment from "moment-timezone";
+import moment from "moment";
 import queryMixin from '@/utils/queryMixin.js';
 import { normalizePaginator } from "@/utils/paginatorAdapter";
 import { getApiMessage } from "@/utils/apiErrorHandler";
