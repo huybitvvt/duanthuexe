@@ -66,6 +66,154 @@ class HimotoContractTest extends TestCase
         CounterOrderPricing::validate(new Request($payload));
     }
 
+    /** @dataProvider listedPriceMetadata */
+    public function testCounterAcceptsCalculatedFeeInLegacyCustomFields(string $type, string $returnAt, int $amount): void
+    {
+        $payload = $this->counterPricingPayload($type, $returnAt, $amount);
+        $payload['order_items'][0]['custom_total_money'] = (string) $amount;
+        $payload['order_items'][0]['custom_hiring_fee'] = $amount;
+
+        CounterOrderPricing::validate(new Request($payload));
+
+        $this->assertSame($amount, $payload['total_rental_fees']);
+    }
+
+    public function listedPriceMetadata(): array
+    {
+        return [
+            'daily tariff' => ['day', '2026-10-02 09:00:00', 450000],
+            'package tariff' => ['total', '2026-10-02 09:00:00', 150000],
+            'daily tariff with extra hours' => ['day', '2026-10-02 13:00:00', 510000],
+        ];
+    }
+
+    /** @dataProvider unapprovedCustomFees */
+    public function testCounterStillRejectsAnActualCustomFee(string $field, $amount): void
+    {
+        $payload = $this->counterPricingPayload('day', '2026-10-02 09:00:00', 450000);
+        $payload['order_items'][0][$field] = $amount;
+
+        $this->expectException(ValidationException::class);
+        CounterOrderPricing::validate(new Request($payload));
+    }
+
+    public function unapprovedCustomFees(): array
+    {
+        return [
+            'discount in total field' => ['custom_total_money', 400000],
+            'increase in total field' => ['custom_total_money', 460000],
+            'discount in fee field' => ['custom_hiring_fee', 400000],
+            'increase in fee field' => ['custom_hiring_fee', 460000],
+            'negative amount' => ['custom_total_money', -1],
+            'invalid amount' => ['custom_hiring_fee', 'invalid'],
+            'invalid amount array' => ['custom_total_money', [450000]],
+            'manual package price' => ['handler_price', 450000],
+            'manual unit price' => ['substitute_unit_price', 150000],
+            'unapproved fees' => ['order_item_fees', [['value' => 10000]]],
+        ];
+    }
+
+    private function counterPricingPayload(string $type, string $returnAt, int $amount): array
+    {
+        $vehicle = Vehicle::create(['name' => 'Xe quầy', 'type' => 'xega', 'year' => 2023]);
+        PriceVehicle::create([
+            'type' => 'xega', 'price_type' => $type, 'from_year' => 2020,
+            'to_year' => 2026, 'from_date' => 2, 'to_date' => 5, 'price' => 150000,
+        ]);
+
+        return [
+            'order_items' => [[
+                'vehicle_id' => $vehicle->id, 'type' => $type,
+                'rent_at' => '2026-09-29 09:00:00', 'return_at' => $returnAt,
+                'total_money' => $amount,
+            ]],
+            'total' => $amount, 'total_rental_fees' => $amount, 'pid' => $amount,
+        ];
+    }
+
+    public function testCounterCanCreateListedPriceContractThroughHttp(): void
+    {
+        $payload = $this->counterHttpPayload();
+        $payload['order_items'][0]['custom_total_money'] = 450000;
+        $payload['order_items'][0]['custom_hiring_fee'] = 450000;
+
+        $response = $this->postJson('/api/auth/order/car-rental', $payload);
+        $this->assertSame(200, $response->status(), $response->getContent());
+        $this->assertSame(1, Order::count());
+        $this->assertSame(1, OrderVehicleDetail::count());
+        $this->assertSame(2, Transaction::count());
+        $this->assertEquals(1450000, Transaction::sum('value'));
+        $this->assertEquals(450000, OrderVehicleDetail::first()->hiring_fee);
+        $this->assertSame('Khách kiểm thử', Order::first()->contract_signer_b_name);
+        $this->assertSame(Vehicle::STATUS_USING, Vehicle::find($payload['order_items'][0]['vehicle_id'])->status);
+    }
+
+    public function testCounterHttpCustomFeeIsRejectedBeforeAnyWrites(): void
+    {
+        $payload = $this->counterHttpPayload();
+        $payload['order_items'][0]['custom_total_money'] = 400000;
+
+        $this->postJson('/api/auth/order/car-rental', $payload)->assertStatus(422);
+        $this->assertSame(0, Order::count());
+        $this->assertSame(0, Customer::count());
+        $this->assertSame(0, Transaction::count());
+        $this->assertSame(Vehicle::STATUS_READY, Vehicle::find($payload['order_items'][0]['vehicle_id'])->status);
+    }
+
+    public function testCounterCannotCreateContractForAnotherStore(): void
+    {
+        $payload = $this->counterHttpPayload();
+        $payload['store_id'] = 2;
+
+        $this->postJson('/api/auth/order/car-rental', $payload)->assertStatus(403);
+        $this->assertSame(0, Order::count());
+        $this->assertSame(0, Transaction::count());
+    }
+
+    private function counterHttpPayload(): array
+    {
+        Schema::table('orders', function ($table) {
+            $table->string('order_type')->nullable();
+            $table->decimal('total_rental_fees', 15, 2)->default(0);
+            $table->text('first_deposit_payment_method')->nullable();
+            $table->text('total_rental_payment_method')->nullable();
+            $table->text('additional_deposit_payment_method')->nullable();
+        });
+        Schema::table('vehicles', function ($table) {
+            $table->integer('store_id')->nullable();
+            $table->integer('current_store_id')->nullable();
+        });
+        Schema::table('order_vehicle_details', function ($table) { $table->integer('price_id')->default(0); });
+        Schema::table('transactions', function ($table) {
+            $table->integer('bank_id')->nullable();
+            $table->integer('cash_id')->nullable();
+            $table->integer('order_item_id')->nullable();
+            $table->string('object_name')->nullable();
+            $table->text('note')->nullable();
+        });
+        Schema::create('cash', function ($table) {
+            $table->increments('id'); $table->integer('store_id'); $table->string('status');
+        });
+        Store::create(['id' => 1, 'store_name' => 'CS 1']);
+        DB::table('cash')->insert(['store_id' => 1, 'status' => 'Active']);
+        $this->withoutMiddleware(\Tymon\JWTAuth\Http\Middleware\Authenticate::class);
+        $this->actingAs((new User())->forceFill([
+            'id' => 10, 'role' => 'nhan-vien', 'store_id' => 1, 'status' => 'active',
+        ]), 'api');
+
+        $payload = $this->counterPricingPayload('day', '2026-10-02 09:00:00', 450000);
+        Vehicle::find($payload['order_items'][0]['vehicle_id'])->update([
+            'store_id' => 1, 'current_store_id' => 1, 'status' => Vehicle::STATUS_READY,
+        ]);
+        return array_merge($payload, [
+            'store_id' => 1, 'customer_name' => 'Khách kiểm thử',
+            'customer_phone' => '0912345678', 'customer_id_card' => '123456789',
+            'first_deposit_amount' => 1000000, 'pid' => 1450000,
+            'first_deposit_payment_method' => ['payment_method' => 1, 'cash_amount' => 1000000],
+            'total_rental_payment_method' => ['payment_method' => 1, 'cash_amount' => 450000],
+        ]);
+    }
+
     public function testCounterCheckInRecordsVehicleWithoutSettlingMoney(): void
     {
         Schema::table('users', function ($table) { $table->integer('store_id')->nullable(); });

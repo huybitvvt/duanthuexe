@@ -1,7 +1,7 @@
 <template>
     <div v-loading="loadingComponent">
-        <ValidationObserver v-slot="{ handleSubmit }" ref="form">
-            <form class="form" @submit.prevent="handleSubmit(handleFormSubmit)">
+        <ValidationObserver ref="form">
+            <form class="form" @submit.prevent="submitContractForm" @pointerdown.capture="onContractStepPointerdown" @keydown.capture="contractStepPointerNavigation = false">
 				<div v-if="!id && initialMode === 'draft'" class="alert alert-custom alert-light-success p-3 mb-4">
 					<div class="d-flex align-items-center justify-content-between flex-wrap">
 						<div>
@@ -56,16 +56,6 @@
 						</div>
 					</div>
 					<div class="col-md-6 text-right">
-						<div class="d-flex justify-content-end align-items-center flex-wrap mb-2">
-							<router-link
-								:to="order.store_id ? { name: 'warehouse', query: { store_id: order.store_id } } : { name: 'warehouse' }"
-								class="btn btn-sm btn-outline-warning font-weight-bold"
-								title="Mở kho xe thuê / điều chuyển"
-								target="_blank"
-							>
-								<i class="fas fa-warehouse mr-1"></i>Xem kho xe Thuê &rarr;
-							</router-link>
-						</div>
 						<div class="d-flex justify-content-end align-items-center" v-if="id && order && order.order_status == 'deposit_contract'">
 							<div class="checkbox-wrapper deposit-contract-checkbox">
 								<input type="checkbox" class="checkbox-input" v-model="start_this_contract" id="start-this-contract">
@@ -86,8 +76,14 @@
 						<li v-for="(error, index) in serverValidationErrors" :key="index">{{ error }}</li>
 					</ul>
 				</div>
-				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4">
-					<el-tab-pane label="Thông tin hợp đồng" name="contract">
+				<div v-if="isGuidedContract" class="contract-step-summary mb-3">
+					<strong ref="contractStepHeading" tabindex="-1" aria-live="polite">Bước {{ activeContractStep + 1 }}/{{ contractSteps.length }}: {{ contractSteps[activeContractStep].label }}</strong>
+					<p class="text-muted mb-0 mt-1">Điền từ trên xuống. Rời ô cuối để tự chuyển bước, hoặc bấm Tiếp tục để bỏ qua ô không bắt buộc.</p>
+				</div>
+				<div v-if="stepValidationMessage" class="alert alert-danger" role="alert">{{ stepValidationMessage }}</div>
+				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4" @focusout.native="onContractStepFocusout">
+					<el-tab-pane :label="contractStepLabel('contract')" name="contract">
+					<ValidationObserver ref="contractStep" tag="div">
 
 				<div class="card card-custom gutter-b border p-4 bg-light-secondary mb-6">
 					<div class="d-flex justify-content-between align-items-center mb-3">
@@ -109,7 +105,10 @@
 						</div>
 						<div class="col-md-4 form-group">
 							<label><strong>Ngày ký hợp đồng<span class="text-danger">(*)</span></strong></label>
-							<el-date-picker class="w-100" v-model="order.contract_signed_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Chọn ngày ký"></el-date-picker>
+							<ValidationProvider vid="contract_signed_on" name="Ngày ký hợp đồng" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
+								<el-date-picker class="w-100" v-model="order.contract_signed_on" format="dd-MM-yyyy" value-format="yyyy-MM-dd" type="date" placeholder="Chọn ngày ký"></el-date-picker>
+								<error-message :errors="errors" field="contract_signed_on"></error-message>
+							</ValidationProvider>
 						</div>
 						<div class="col-md-4 form-group" v-if="id == 0 || id == null">
 							<label><strong>Ngày tạo hợp đồng<span v-if="!isDraftMode" class="text-danger">(*)</span></strong></label>
@@ -190,24 +189,16 @@
                         <div class="col-md-4 form-group"><label><strong>CCCD người giám hộ</strong></label><el-input v-model="order.guardian_id_card" placeholder="Số CCCD"></el-input></div>
                     </div>
                 </div>
+					</ValidationObserver>
 					</el-tab-pane>
 
-					<el-tab-pane label="Thông tin khách hàng (Bên B)" name="customer">
+					<el-tab-pane :label="contractStepLabel('customer')" name="customer" :disabled="isGuidedContract && furthestContractStep < 1">
+					<ValidationObserver ref="customerStep" tag="div">
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <label class="mb-0"><strong>Cửa hàng xe</strong> <span v-if="!isDraftMode" class="text-danger">(*)</span></label>
-                                <router-link
-                                    v-if="order.store_id"
-                                    :to="{ name: 'warehouse', query: { store_id: order.store_id } }"
-                                    target="_blank"
-                                    class="text-primary font-weight-bold"
-                                    style="font-size: 12px;"
-                                    title="Mở xem tồn kho xe của cơ sở này"
-                                >
-                                    <i class="fas fa-warehouse mr-1"></i>Xem kho PGD này &rarr;
-                                </router-link>
                             </div>
                             <ValidationProvider vid="store_id" name="Cửa hàng xe" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
                                 <el-select name="store_id" v-model="order.store_id" :clearable="canChooseContractStore"
@@ -339,19 +330,21 @@
                     :closable="false">
                 </el-alert>
 
+					</ValidationObserver>
 					</el-tab-pane>
 
-					<el-tab-pane label="Thông tin phương tiện" name="vehicle" :disabled="!!warningTemp">
+					<el-tab-pane :label="contractStepLabel('vehicle')" name="vehicle" :disabled="!!warningTemp || (isGuidedContract && furthestContractStep < 2)">
+					<ValidationObserver ref="vehicleStep" tag="div">
                     <div class="mb-3 d-flex flex-grow-1 align-items-center p-2 rounded">
                         <div class="mr-4 flex-shrink-0">
                             <button :style="{
                                 'pointer-events': order.order_status === 'completed' ? 'none' : 'auto'
-                            }" class="btn btn-sm btn-outline-success font-weight-bold" @click="addVehicle()">
+                            }" type="button" class="btn btn-sm btn-outline-success font-weight-bold" @click="addVehicle()">
                                 Thêm phương tiện
                             </button>
                         </div>
                     </div>
-                    <div v-if="order.order_items" v-for="(item, key) in order.order_items" :key="key">
+                    <ValidationObserver v-for="(item, key) in order.order_items" :key="key" tag="div">
                         <items-order :priceVehicles="priceVehicles" :order_item="item" :banks="banks"
 							:is_deposit_contract_mode="is_deposit_contract_mode"
 							:is_draft_mode="isDraftMode"
@@ -372,10 +365,12 @@
                             @other_fee_payment_method="changeOtherFeePaymentMethod" :order_status="order.order_status"
 							@item_hiring_fee_changed="item_hiring_fee_changed">
                         </items-order>
-                    </div>
+                    </ValidationObserver>
+					</ValidationObserver>
 					</el-tab-pane>
 
-					<el-tab-pane label="Chi phí" name="payment" :disabled="!!warningTemp">
+					<el-tab-pane :label="contractStepLabel('payment')" name="payment" :disabled="!!warningTemp || (isGuidedContract && furthestContractStep < 3)">
+					<ValidationObserver ref="paymentStep" tag="div">
 					<div class="row">
 						<div class="col-md-9 left-column">
 
@@ -391,6 +386,7 @@
 
 			<div class="row mb-10" v-if="!order.create_order_without_input_deposit" :class="order?.created_without_collect_deposit ? 'd-none' : ''">
 								<div class="col-12">
+									<ValidationObserver tag="div">
 									<PaymentMethod label="Hình thức thu cọc" :settings="order.first_deposit_payment_method" :banks="banks" :fixedAmount="firstDepositValInput" @setting_changed="order_first_deposit_changed" class="contract-payment-method">
 										<template #amount>
 											<div class="form-group col-md-3">
@@ -405,6 +401,7 @@
 								</div>
 										</template>
 									</PaymentMethod>
+									</ValidationObserver>
 								</div>
 							</div>
 
@@ -412,6 +409,7 @@
 
 							<div class="row mb-10" v-if="start_this_contract || (id && order.additional_deposit_amount)">
 								<div class="col-12">
+									<ValidationObserver tag="div">
 									<PaymentMethod label="Hình thức thu thêm cọc" :settings="order.additional_deposit_payment_method" :banks="banks" :fixedAmount="order.additional_deposit_amount" @setting_changed="additional_deposit_amount_changed" class="contract-payment-method">
 										<template #amount>
 											<div class="col-md-3 form-group">
@@ -423,6 +421,7 @@
 								</div>
 										</template>
 									</PaymentMethod>
+									</ValidationObserver>
 								</div>
 							</div>
 
@@ -440,17 +439,20 @@
 
 							<div class="row" v-if="!is_deposit_contract_mode && !order.create_order_without_input_rental_fee && !order.deposit_closed" :class="order?.created_without_collect_rental_fees || (order && order.data_version == null) ? 'd-none' : ''">
 								<div class="col-12">
+									<ValidationObserver tag="div">
 									<PaymentMethod label="Hình thức thu phí thuê" :settings="order.total_rental_payment_method" :banks="banks" :fixedAmount="totalFeeAllOrderItems" @setting_changed="order_total_rental_fee_changed" class="contract-payment-method">
 										<template #amount>
 											<div class="form-group col-md-3">
-									<label for="paid"><strong>Tổng phí thuê xe</strong></label>
+									<label for="rental-fee"><strong>Tổng phí thuê xe</strong></label>
 									<ValidationProvider name="Tổng phí thuê xe" rules="min_value:0" mode="lazy" v-slot="{ errors }" vid="amount">
-										<money id="paid" v-model="totalFeeAllOrderItems" @input="onManualRentalFeeInput" v-bind="money" class="form-control"></money>
+										<money id="rental-fee" :value="totalFeeAllOrderItems" @input="onManualRentalFeeInput" :disabled="!canEditRentalPricing" v-bind="money" class="form-control"></money>
+										<small v-if="!canEditRentalPricing" class="text-muted">Tính theo bảng giá của xe và thời gian thuê.</small>
 										<error-message :errors="errors" field="amount"></error-message>
 									</ValidationProvider>
 								</div>
 										</template>
 									</PaymentMethod>
+									</ValidationObserver>
 								</div>
 							</div>
 						</div>
@@ -514,9 +516,11 @@
 							</div>
 						</div>
 					</div>
+					</ValidationObserver>
 					</el-tab-pane>
 
-					<el-tab-pane label="Ký kết & Ghi chú" name="signing" :disabled="!!warningTemp">
+					<el-tab-pane :label="contractStepLabel('signing')" name="signing" :disabled="!!warningTemp || (isGuidedContract && furthestContractStep < 4)">
+					<ValidationObserver ref="signingStep" tag="div">
                     <!-- Thông tin ký kết & Tài sản thế chấp theo hợp đồng Himoto -->
                     <div class="row">
                         <div class="col-md-12 form-group">
@@ -555,6 +559,7 @@
                                 placeholder="Họ tên người thuê ký hợp đồng"
                                 v-model="order.contract_signer_b_name">
                             </el-input>
+                            <small class="text-muted">Tự điền theo tên khách hàng; có thể sửa nếu người ký là người đại diện.</small>
                         </div>
                     </div>
 
@@ -608,8 +613,15 @@
 						<label for="bad-debt">Nợ xấu</label>
 					</div>
 
+					</ValidationObserver>
 					</el-tab-pane>
 				</el-tabs>
+
+				<div v-if="isGuidedContract" class="contract-step-navigation d-flex justify-content-between align-items-center mb-3">
+					<button type="button" class="btn btn-outline-secondary font-weight-bold" :disabled="activeContractStep === 0 || navigatingContractStep || loading" @click="previousContractStep">Quay lại</button>
+					<el-button v-if="activeContractStep < contractSteps.length - 1" native-type="button" class="btn btn-primary font-weight-bold" :loading="navigatingContractStep" :disabled="loading" @click="nextContractStep(false)">Tiếp tục: {{ contractSteps[activeContractStep + 1].label }}</el-button>
+					<span v-else class="text-muted">Kiểm tra thông tin và lưu hợp đồng.</span>
+				</div>
 
 					<div class="update-order-buttons card-toolbar mt-3 d-flex justify-content-center"
 						v-if="parent !== 'vehicle-revenue'">
@@ -628,14 +640,15 @@
 							Lưu bản nháp giao xe
 						</el-button>
 
-						<el-button v-if="!id" native-type="submit" class="btn btn-sm btn-success mr-2"
+						<el-button v-if="!id && activeContractStep === contractSteps.length - 1" native-type="submit" class="btn btn-sm btn-success mr-2"
 							style="color: #fff" :loading="loading">
 							<span v-if="initialMode === 'handover'">Lưu & In biên bản bàn giao</span>
 							<span v-else-if="initialMode === 'draft'">Lưu bản nháp giao xe</span>
-							<span v-else>Lưu hợp đồng</span>
+                            <span v-else>{{ printAfterCreate ? 'Lưu hợp đồng & In' : 'Lưu hợp đồng' }}</span>
 						</el-button>
 						<el-button v-if="
 							id &&
+							(!isGuidedContract || activeContractStep === contractSteps.length - 1) &&
 							!['cancel_pending_settlement', 'cancelled'].includes(order.order_status) &&
 							(order.order_status !== HOAN_THANH ||
 								currentUser.role_id === 1)
@@ -718,6 +731,8 @@ export default {
         Money,
     },
     props: {
+        initialData: { type: Object, default: () => ({}) },
+        printAfterCreate: { type: Boolean, default: false },
         parent: {
             type: String,
             default: () => {
@@ -743,6 +758,17 @@ export default {
             HOAN_THANH: HOAN_THANH,
 			loadingLock: false,
             activeContractTab: "contract",
+            contractSteps: [
+                { name: 'contract', label: 'Thông tin hợp đồng' },
+                { name: 'customer', label: 'Thông tin khách hàng (Bên B)' },
+                { name: 'vehicle', label: 'Thông tin phương tiện' },
+                { name: 'payment', label: 'Chi phí' },
+                { name: 'signing', label: 'Ký kết & Ghi chú' },
+            ],
+            furthestContractStep: 0,
+            navigatingContractStep: false,
+            contractStepPointerNavigation: false,
+            stepValidationMessage: '',
             showPreviewModal: false,
             previewDocumentDto: null,
             previewLoading: false,
@@ -869,6 +895,16 @@ export default {
     },
     computed: {
         ...mapGetters(["currentUser", "capabilities"]),
+        isGuidedContract() {
+            return !this.id || this.order.order_status === 'draft';
+        },
+        activeContractStep() {
+            return this.contractSteps.findIndex(step => step.name === this.activeContractTab);
+        },
+        canEditRentalPricing() {
+            return Boolean(this.id) && this.order.order_status !== 'draft'
+                && (this.capabilities.includes('*') || this.capabilities.includes('order.discount_approve'));
+        },
         canChooseContractStore() {
             return (this.capabilities || []).includes('*') || Number(this.currentUser?.role_id) === 1;
         },
@@ -1105,9 +1141,11 @@ export default {
             await this.getOrder();
         } else {
             this.addVehicle();
+            this.applyInitialData();
         }
         // this.getBank();
         await this.getStore();
+        if (!this.id && this.initialData.store_id && this.order.store_id) this.onStoreChange(this.order.store_id);
         await this.getStaffByStore(this.order.store_id || this.currentUser?.store_id);
         await this.getListVehicles();
 
@@ -1132,6 +1170,16 @@ export default {
 
     },
     watch: {
+        activeContractTab() {
+            this.furthestContractStep = Math.max(this.furthestContractStep, this.activeContractStep);
+            this.stepValidationMessage = '';
+        },
+        "order.customer_name"(name, previousName) {
+            const signer = String(this.order.contract_signer_b_name || '').trim();
+            if (!signer || signer === String(previousName || '').trim()) {
+                this.order.contract_signer_b_name = String(name || '').trim();
+            }
+        },
         currentUser() {
             this.selectAssignedContractStore();
         },
@@ -1180,6 +1228,135 @@ export default {
 		},
     },
     methods: {
+        applyInitialData() {
+            if (this.id) return;
+            const data = this.initialData;
+            ['customer_name', 'customer_phone', 'note'].forEach(field => {
+                if (data[field] !== undefined) this.order[field] = data[field];
+            });
+            const storeId = Number(data.store_id);
+            if (storeId && (this.canChooseContractStore || storeId === Number(this.currentUser?.store_id))) this.order.store_id = storeId;
+            const item = this.order.order_items[0];
+            if (item) {
+                if (data.vehicle_id) item.vehicle_id = Number(data.vehicle_id);
+                if (data.rent_at) item.rent_at = new Date(data.rent_at);
+                if (data.return_at) item.return_at = new Date(data.return_at);
+            }
+        },
+        contractStepLabel(name) {
+            const index = this.contractSteps.findIndex(step => step.name === name);
+            return `${this.isGuidedContract ? `${index + 1}. ` : ''}${this.contractSteps[index].label}`;
+        },
+        focusContractStep() {
+            this.$nextTick(() => {
+                const heading = this.$refs.contractStepHeading;
+                if (!heading) return;
+                heading.focus({ preventScroll: true });
+                heading.scrollIntoView({ block: 'nearest' });
+            });
+        },
+        previousContractStep() {
+            if (this.activeContractStep <= 0 || this.navigatingContractStep) return;
+            this.activeContractTab = this.contractSteps[this.activeContractStep - 1].name;
+            this.focusContractStep();
+        },
+        contractStepIssue(name) {
+            if (name === 'customer' && this.warningTemp) return this.warningTemp;
+            if (this.isDraftMode) return '';
+            if (name === 'vehicle') {
+                const items = this.order.order_items || [];
+                if (!items.length) return 'Cần chọn ít nhất một xe thuê.';
+                const selectedIds = new Set();
+                for (const [index, item] of items.entries()) {
+                    const rentAt = moment(item.rent_at);
+                    const returnAt = moment(item.return_at);
+                    if (!item.vehicle_id || !item.rent_at || !item.return_at
+                        || !rentAt.isValid() || !returnAt.isValid()) {
+                        return `Xe số ${index + 1}: cần chọn xe và nhập đủ thời gian thuê, hẹn trả.`;
+                    }
+                    if (!returnAt.isAfter(rentAt)) return `Xe số ${index + 1}: thời gian hẹn trả phải muộn hơn thời gian thuê.`;
+                    if (selectedIds.has(Number(item.vehicle_id))) return 'Một xe chỉ được chọn một lần trên hợp đồng.';
+                    selectedIds.add(Number(item.vehicle_id));
+                    if (!this.is_deposit_contract_mode && !(Number(item.hiringFee) > 0)) {
+                        return `Xe số ${index + 1}: chưa có giá niêm yết phù hợp với thời gian thuê. Cần cập nhật bảng giá trước khi tạo hợp đồng.`;
+                    }
+                }
+            }
+            if (name === 'payment') {
+                const collections = [];
+                if (!this.order.create_order_without_input_deposit) {
+                    collections.push(['Tiền cọc', this.firstDepositValInput, this.order.first_deposit_payment_method]);
+                }
+                if (!this.is_deposit_contract_mode && !this.order.create_order_without_input_rental_fee) {
+                    collections.push(['Phí thuê xe', this.totalFeeAllOrderItems, this.order.total_rental_payment_method]);
+                }
+                for (const [label, expected, settings] of collections) {
+                    const cash = Number(settings?.cash_amount || 0);
+                    const bank = Number(settings?.bank_transfer_amount || 0);
+                    if (!Number.isFinite(cash) || !Number.isFinite(bank) || cash < 0 || bank < 0
+                        || cash + bank !== Number(expected || 0)) {
+                        return `${label}: tổng tiền mặt và chuyển khoản phải khớp số tiền cần thu.`;
+                    }
+                    if (bank > 0 && !settings?.bank_id) return `${label}: cần chọn tài khoản nhận chuyển khoản.`;
+                }
+            }
+            return '';
+        },
+        async nextContractStep(automatic = false) {
+            if (this.loading || this.navigatingContractStep || this.activeContractStep >= this.contractSteps.length - 1) return;
+            const name = this.activeContractTab;
+            const observer = this.$refs[`${name}Step`];
+            if (!observer) return;
+            this.navigatingContractStep = true;
+            try {
+                const valid = await observer.validate({ silent: automatic });
+                if (name !== this.activeContractTab) return;
+                const issue = this.contractStepIssue(name);
+                if (!valid || issue) {
+                    if (!automatic) this.stepValidationMessage = issue || 'Vui lòng điền đủ và kiểm tra các thông tin được đánh dấu ở bước này.';
+                    return;
+                }
+                this.activeContractTab = this.contractSteps[this.activeContractStep + 1].name;
+                this.focusContractStep();
+            } finally {
+                this.navigatingContractStep = false;
+            }
+        },
+        onContractStepPointerdown(event) {
+            this.contractStepPointerNavigation = Boolean(event.target.closest('button, a, [role="tab"]'));
+        },
+        onContractStepFocusout(event) {
+            if (!this.isGuidedContract || this.loading || this.navigatingContractStep) return;
+            const pane = this.$refs[`${this.activeContractTab}Step`]?.$el;
+            if (!pane || !pane.contains(event.target)) return;
+            if (this.contractStepPointerNavigation
+                || event.relatedTarget?.closest('a, [role="tab"], .close, .el-select-dropdown, .el-picker-panel')) return;
+            const inputs = Array.from(pane.querySelectorAll('input, textarea, select')).filter(input =>
+                !input.disabled && !input.readOnly && input.type !== 'hidden'
+                && !['checkbox', 'radio'].includes(input.type) && input.getClientRects().length);
+            if (inputs.length && event.target === inputs[inputs.length - 1]) {
+                this.$nextTick(() => this.nextContractStep(true));
+            }
+        },
+        async submitContractForm() {
+            if (this.loading || this.navigatingContractStep) return;
+            if (this.isGuidedContract && this.activeContractStep < this.contractSteps.length - 1) {
+                return this.nextContractStep(false);
+            }
+            const valid = await this.$refs.form.validate();
+            for (const step of this.contractSteps) {
+                const observer = this.$refs[`${step.name}Step`];
+                const issue = this.isGuidedContract ? this.contractStepIssue(step.name) : '';
+                if (observer?.flags.invalid || issue) {
+                    this.activeContractTab = step.name;
+                    await this.$nextTick();
+                    this.stepValidationMessage = issue || 'Vui lòng kiểm tra các thông tin được đánh dấu ở bước này.';
+                    this.focusContractStep();
+                    return;
+                }
+            }
+            if (valid) this.handleFormSubmit();
+        },
 		async onPreviewContract() {
 			const paperDraft = this.isDraftMode || this.order.order_status === 'draft';
 			if (!paperDraft && (!this.order.customer_name || !this.order.customer_id_card)) {
@@ -1433,7 +1610,9 @@ export default {
             }
         },
         onManualRentalFeeInput(val) {
+            if (!this.canEditRentalPricing) return;
             const numericVal = parseInt(val) || 0;
+            if (numericVal === Number(this.totalFeeAllOrderItems)) return;
             this.totalFeeAllOrderItems = numericVal;
             this.order.custom_total_rental_fees = numericVal;
             if (this.order.order_items && this.order.order_items.length === 1) {
@@ -1861,6 +2040,9 @@ export default {
         },
         resetForm() {
             this.serverValidationErrors = [];
+            this.activeContractTab = 'contract';
+            this.furthestContractStep = 0;
+            this.stepValidationMessage = '';
             this.order = {
                 store_id: this.canChooseContractStore ? "" : (this.contractStores[0]?.id || ""),
                 order_mode: this.initialMode,
@@ -1924,7 +2106,6 @@ export default {
                 driver_license_issued_on: item.driver_license_issued_on ? moment(item.driver_license_issued_on).format('YYYY-MM-DD') : null,
                 borrow_raincoats: item.borrow_raincoats || 0,
             }));
-            this.order.order_items = formattedItems;
 
             const cleanRelatives = (this.order.relatives || [])
                 .filter(r => r && (r.name || r.relationship || r.phone))
@@ -1939,6 +2120,8 @@ export default {
 
             return {
                 ...this.order,
+                order_items: formattedItems,
+                contract_signer_b_name: String(this.order.contract_signer_b_name || '').trim() || String(this.order.customer_name || '').trim(),
                 order_mode: this.id ? (this.order.order_mode || this.initialMode) : this.initialMode,
                 manual_contract_number: (this.order.manual_contract_number || "").trim(),
                 contract_signed_on: this.order.contract_signed_on ? moment(this.order.contract_signed_on).format('YYYY-MM-DD') : null,
@@ -2067,7 +2250,7 @@ export default {
 					} else if (this.initialMode === 'handover' && handoverTab) {
 						handoverTab.close();
 					}
-                    this.$emit("createSuccess");
+                    this.$emit("createSuccess", { id: createdId, print: this.printAfterCreate && this.initialMode !== 'handover' });
                     this.resetForm();
                     this.noticeMessage(
                         "success",
@@ -2357,5 +2540,32 @@ export default {
 
 .contract-form-tabs .el-tabs__content {
     padding: 16px 16px 8px;
+}
+
+.contract-step-summary {
+    padding: 12px 16px;
+    background: #f5f8fa;
+    border-left: 3px solid #009ef7;
+    border-radius: 4px;
+}
+
+.contract-step-summary strong:focus-visible {
+    outline: 2px solid #009ef7;
+    outline-offset: 3px;
+}
+
+.contract-step-navigation {
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.contract-step-navigation .el-button {
+    white-space: normal;
+    text-align: left;
+}
+
+.update-order-buttons {
+    gap: 8px;
+    flex-wrap: wrap;
 }
 </style>

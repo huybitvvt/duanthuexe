@@ -21,7 +21,6 @@ final class CounterOrderPricing
         $vehicleIds = [];
         foreach ($items as $item) {
             if (!is_array($item) || !empty($item['pricing_scheme'])
-                || !empty($item['custom_total_money']) || !empty($item['custom_hiring_fee'])
                 || !empty($item['handler_price']) || !empty($item['substitute_unit_price'])
                 || !empty($item['order_item_fees'])) {
                 throw ValidationException::withMessages(['order_items' => 'Giá hoặc phí ngoài bảng cần trưởng phòng duyệt.']);
@@ -67,6 +66,16 @@ final class CounterOrderPricing
                 throw ValidationException::withMessages(['order_items' => 'Chưa có giá niêm yết cho xe và thời gian thuê này.']);
             }
             $amount = $type === 'total' ? (float) $price->price : (float) $price->price * $days + $hourlyFee;
+            // Older forms send the calculated rental fee in custom fields even
+            // when it matches the tariff. Only a real override needs approval.
+            foreach (['custom_total_money', 'custom_hiring_fee'] as $field) {
+                $customAmount = $item[$field] ?? null;
+                if ($customAmount !== null && $customAmount !== ''
+                    && (!is_numeric($customAmount)
+                        || ((float) $customAmount !== 0.0 && (float) $customAmount !== $amount))) {
+                    throw ValidationException::withMessages(['order_items' => 'Giá hoặc phí ngoài bảng cần trưởng phòng duyệt.']);
+                }
+            }
             if ((float) ($item['total_money'] ?? -1) !== $amount) {
                 throw ValidationException::withMessages(['order_items' => 'Tiền thuê từng xe phải khớp bảng giá hiện có.']);
             }
