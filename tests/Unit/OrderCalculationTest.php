@@ -344,65 +344,34 @@ class OrderCalculationTest extends TestCase
      */
     public function testReceiptControllerZeroAmountValidation()
     {
+        \Illuminate\Support\Facades\Schema::create('stores', function ($table) { $table->increments('id'); });
+        \Illuminate\Support\Facades\DB::table('stores')->insert(['id' => 1]);
         $transactionServiceMock = $this->createMock(\App\Http\Services\TransactionService::class);
+        $transactionServiceMock->expects($this->never())->method('processPaymentMethod');
         $controller = new \App\Http\Controllers\ReceiptController($transactionServiceMock);
-
         $request = new \Illuminate\Http\Request([
-            'cash_amount' => 0,
-            'bank_transfer_amount' => 0
+            'cash_amount' => 0, 'bank_transfer_amount' => 0,
+            'type' => 'in', 'payment_method' => 1, 'store_id' => 1,
         ]);
-
-        $response = $controller->putOrPost($request);
-
-        $this->assertEquals(422, $response->getStatusCode());
-        $responseData = json_decode($response->getContent(), true);
-        $this->assertEquals('Số tiền thanh toán phải lớn hơn 0', $responseData['message']);
+        $request->setUserResolver(function () { return \Illuminate\Support\Facades\Auth::user(); });
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        $controller->putOrPost($request);
     }
 
     /**
-     * Test ReceiptController role store boundary enforcement:
-     * Staff with role_id != 1 (Store 2) cannot create receipts for another store_id (e.g. 999).
-     * Verifies that the inserted transaction in the database is strictly store_id = 2.
+     * A branch staff account cannot bypass the manual receipt permission gate.
+     * Exercise the HTTP middleware instead of calling an unguarded controller.
      */
     public function testReceiptControllerRoleStoreBoundaryEnforcement()
     {
-        $branchStaff = new User(['role_id' => 2, 'store_id' => 2]);
-        $branchStaff->id = 5;
-        $this->actingAs($branchStaff);
-        \Illuminate\Support\Facades\Auth::setUser($branchStaff);
-
-        $transactionServiceMock = $this->createMock(\App\Http\Services\TransactionService::class);
-        // Expect that processPaymentMethod receives store_id = 2, overriding store_id = 999
-        $transactionServiceMock->expects($this->once())
-            ->method('processPaymentMethod')
-            ->with(
-                $this->anything(),
-                $this->anything(),
-                $this->equalTo(2) // Scoped strictly to branch staff store_id
-            )
-            ->willReturn(['bank_id' => null, 'cash_id' => 1]);
-
-        $controller = new \App\Http\Controllers\ReceiptController($transactionServiceMock);
-        $request = new \Illuminate\Http\Request([
-            'cash_amount' => 100000,
-            'bank_transfer_amount' => 0,
-            'payment_method' => 1,
-            'bank_id' => null,
-            'store_id' => 999 // Attempt to inject foreign store ID
-        ]);
-
-        $response = $controller->putOrPost($request);
-        $this->assertEquals(200, $response->getStatusCode());
-
-        // Verify database persistence respects branch isolation
-        $this->assertDatabaseHas('transactions', [
-            'store_id' => 2,
-            'user_id' => 5,
-            'value' => 100000
-        ]);
-        $this->assertDatabaseMissing('transactions', [
-            'store_id' => 999
-        ]);
+        $branchStaff = (new User(['role_id' => 2, 'role' => 'nhan-vien', 'store_id' => 2]))->forceFill(['id' => 5]);
+        $this->actingAs($branchStaff, 'api');
+        $this->withoutMiddleware(\Tymon\JWTAuth\Http\Middleware\Authenticate::class);
+        $this->postJson('/api/auth/receipt', [
+            'type' => 'in', 'cash_amount' => 100000, 'bank_transfer_amount' => 0,
+            'payment_method' => 1, 'bank_id' => null, 'store_id' => 999,
+        ])->assertStatus(403);
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('transactions')->count());
     }
 
     /**

@@ -4,32 +4,17 @@ namespace App\Http\Controllers\Order;
 
 use App\Entities\SellOrder;
 use App\Http\Controllers\Controller;
-use App\Http\Services\CustomerService;
-use App\Http\Services\Orders\OrderSellItemService;
 use App\Http\Services\Orders\OrderSellService;
-use App\Http\Services\VehicleService;
-use App\Models\Vehicle;
-use http\Client\Response;
+use App\Validators\CustomerValidator;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class OrderSellController extends Controller
 {
     private $orderSellService;
-    private $orderSellItemService;
-    private $customerService;
-    private $vehicleService;
 
-    public function __construct(OrderSellService     $orderSellService,
-                                OrderSellItemService $orderSellItemService,
-                                CustomerService      $customerService,
-                                VehicleService       $vehicleService
-    )
+    public function __construct(OrderSellService $orderSellService)
     {
         $this->orderSellService = $orderSellService;
-        $this->orderSellItemService = $orderSellItemService;
-        $this->customerService = $customerService;
-        $this->vehicleService = $vehicleService;
     }
 
     public function index(Request $request)
@@ -45,93 +30,38 @@ class OrderSellController extends Controller
 
     public function store(Request $request)
     {
-        DB::beginTransaction();
-        try {
-            $items = $request->items;
-            $customer = $request->customer;
-            foreach ($items as $item) {
-                if (!$this->vehicleService->checkStatusOtherSold($item['vehicle_id'])) {
-                    return $this->errorResponse('Có xe đã bị bán trong danh sách của bạn', 400);
-                }
-            }
-            $customer = $this->customerService->checkExistCustomer($customer['id_card']);
-            if (!$customer) {
-                $requestCustomer = new \Illuminate\Http\Request();
-                $requestCustomer->replace($request->customer);
-                $customer = $this->customerService->store($requestCustomer);
-            }
-            data_set($request, 'customer_id', $customer->id);
-            $sellOrder = $this->orderSellService->store($request->all());
-            if (!$sellOrder) {
-                return $this->errorResponse('Tạo đơn hàng thất bại', 400);
-            }
-            $this->storeMultipleOrderItem($items, $sellOrder->id);
-            $this->updateStatusVehicle($items, Vehicle::STATUS_SOLD);
-            DB::commit();
-            return $this->successResponse($sellOrder);
-        } catch (\Exception $exception) {
-            DB::rollBack();
-            return $this->errorResponse($exception->getMessage(), 400);
-        }
-
+        $data = $this->validateSale($request, 'items');
+        return $this->successResponse($this->orderSellService->saveSale($data, $data['items']));
     }
 
     public function update(Request $request)
     {
-        DB::beginTransaction();
-        try {
-            $id = $request->id;
-            $items = $request->order_items;
-            $customer = $request->customer;
-//            foreach ($items as $item) {
-//                if (!$this->vehicleService->checkStatusOtherSold($item['vehicle_id'])) {
-//                    return $this->errorResponse('Có xe đã bị bán trong danh sách của bạn', 400);
-//                }
-//            }
-            $customer = $this->customerService->checkExistCustomer($customer['id_card']);
-            if (!$customer) {
-                $requestCustomer = new \Illuminate\Http\Request();
-                $requestCustomer->replace($request->customer);
-                $customer = $this->customerService->store($requestCustomer);
-            }
-            data_set($request, 'customer_id', $customer->id);
-            $sellOrder = $this->orderSellService->update($id, $request->all());
-            if (!$sellOrder) {
-                return $this->errorResponse('Tạo đơn hàng thất bại', 400);
-            }
-            $this->orderSellItemService->deleteMultiple($id);
-            $this->storeMultipleOrderItem($items, $sellOrder->id);
-            $this->updateStatusVehicle($items, Vehicle::STATUS_SOLD);
-            DB::commit();
-            return $this->successResponse($sellOrder, 'Cập nhật đơn hàng thành công');
-        } catch (\Exception $exception) {
-            DB::rollBack();
-            return $this->errorResponse($exception->getMessage(), 400);
-        }
+        $request->validate(['id' => 'required|integer|exists:sell_orders,id']);
+        $data = $this->validateSale($request, 'order_items');
+        return $this->successResponse($this->orderSellService->saveSale($data, $data['order_items'], (int) $request->id), 'Cập nhật đơn hàng thành công');
     }
 
-    private function storeMultipleOrderItem($items, $order_id)
+    private function validateSale(Request $request, string $itemsKey): array
     {
-        foreach ($items as $item) {
-            data_set($item, 'order_id', $order_id);
-            $this->orderSellItemService->store($item);
+        $rules = [
+            'store_id' => 'required|integer|exists:stores,id',
+            'sale_id' => 'nullable|integer|exists:users,id,deleted_at,NULL',
+            'customer' => 'required|array',
+            $itemsKey => 'required|array|min:1',
+            $itemsKey.'.*.vehicle_id' => 'required|integer|distinct|exists:vehicles,id',
+            $itemsKey.'.*.price' => 'required|numeric|min:0|max:1000000000000',
+            $itemsKey.'.*.desc' => 'nullable|string|max:1000',
+        ];
+        foreach (CustomerValidator::rules() as $field => $rule) {
+            $rules['customer.'.$field] = $rule;
         }
-        return true;
-    }
-
-    private function updateStatusVehicle($items, $status)
-    {
-        foreach ($items as $item) {
-            $this->vehicleService->updateStatus($item['vehicle_id'], $status);
-        }
-        return true;
+        $rules['customer.id_card'] = 'required|string|max:30';
+        return $request->validate($rules);
     }
 
     public function destroy(SellOrder $sellOrder)
     {
-        $sellOrder->orderItems()->delete();
-        $sellOrder->delete();
+        $this->orderSellService->deleteSale($sellOrder->id);
         return $this->successResponse(true, 'Xóa đơn hàng thành công');
-
     }
 }

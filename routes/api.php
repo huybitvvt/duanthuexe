@@ -49,6 +49,16 @@ use App\Http\Controllers\BusinessApprovalController;
 |
 */
 
+// Resource identifiers are numeric. Reject malformed paths before model binding
+// reaches PostgreSQL or a controller parameter with an integer type.
+foreach (['id', 'store', 'storeId', 'vehicle', 'vehicleId', 'order', 'lead', 'customer',
+    'user', 'bank', 'cash', 'transaction', 'receipt', 'priceVehicle', 'sellOrder', 'file_id',
+    'maintenanceRule', 'maintenanceVehicle', 'maintenanceSchedule', 'maintenanceLogs',
+    'maintenanceLog', 'maintenanceType', 'deviceId', 'accountId', 'allocationId'] as $parameter) {
+    Route::pattern($parameter, '[0-9]+');
+}
+Route::pattern('data', '[0-9]+(?:,[0-9]+)*');
+
 Route::get('/health', function () {
 	$commit = getenv('RENDER_GIT_COMMIT') ?: null;
 	try {
