@@ -54,6 +54,7 @@
 
         <!-- Quick Action: Create Order -->
         <button
+          v-if="canCreateOrder"
           type="button"
           class="btn btn-primary btn-quick-order"
           @click="$router.push('/car-rental')"
@@ -338,7 +339,7 @@
     </div>
 
     <!-- Lead Management Integration -->
-    <div class="himoto-card">
+    <div v-if="canManageLeads" class="himoto-card">
       <div class="himoto-card-header">
         <h3 class="himoto-card-title">
           Danh sách Lead khách hàng mới nhất
@@ -415,7 +416,16 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(["currentUser", "selectedStoreId"]),
+    ...mapGetters(["currentUser", "selectedStoreId", "capabilities"]),
+    canCreateOrder() {
+      return this.capabilities.includes('*') || this.capabilities.includes('order.create');
+    },
+    canManageLeads() {
+      return this.capabilities.includes('*') || this.capabilities.includes('lead.manage');
+    },
+    canManageVehicles() {
+      return this.capabilities.includes('*') || this.capabilities.includes('vehicle.manage');
+    },
     currentStoreName() {
       const storeId = this.selectedStoreId;
       if (!storeId || storeId === "all") return "Toàn hệ thống HIMOTO";
@@ -493,6 +503,7 @@ export default {
         params.store_id = this.selectedStoreId;
       }
       this.loading = true;
+      this.fetchUpcomingMaintenance();
       return this.$store
         .dispatch(DASHBOARD_OVERVIEW, params)
         .then((res) => {
@@ -518,15 +529,18 @@ export default {
         .finally(() => {
           this.loading = false;
         });
-      this.fetchUpcomingMaintenance();
     },
     fetchUpcomingMaintenance() {
+      if (!this.canManageVehicles) {
+        this.upcomingMaintenance = [];
+        return;
+      }
       const params = { days: 7 };
       if (this.selectedStoreId && this.selectedStoreId !== "all") {
         params.store_id = this.selectedStoreId;
       }
       this.loadingMaintenance = true;
-      ApiService.query("/api/auth/maintenance-schedules/upcoming", params)
+      return ApiService.query("/api/auth/maintenance-schedules/upcoming", params)
         .then(({ data }) => {
           const res = data?.data || data;
           this.upcomingMaintenance = Array.isArray(res) ? res : [];
