@@ -22,7 +22,7 @@ class MaintenanceSchedule extends Model
 
     public function setNextTimeAutoAttribute($value)
     {
-        if(!$value){return;}
+        if (!$value) { $this->attributes['next_time_auto'] = null; return; }
         $carbonDate = Carbon::parse($value);
 
         
@@ -31,7 +31,7 @@ class MaintenanceSchedule extends Model
 
     public function setNextTimeManualAttribute($value)
     {
-        if(!$value){return;}
+        if (!$value) { $this->attributes['next_time_manual'] = null; return; }
         $carbonDate = Carbon::parse($value);
 
          

@@ -139,14 +139,19 @@ class WarehouseService
         $with = [
             'store:id,store_name,store_address',
             'currentStore:id,store_name,store_address',
-            'orders' => function ($q) {
-                $q->select(['orders.id', 'orders.contract_number', 'orders.customer_id', 'orders.order_status'])
+        ];
+        if (PermissionAccess::allows($user, 'order.view_store')) {
+            $with['orders'] = function ($q) use ($user) {
+                $q->select(['orders.id', 'orders.contract_number', 'orders.customer_id', 'orders.order_status', 'orders.store_id'])
                   ->whereIn('order_status', ['renting'])
                   ->orderBy('orders.id', 'desc')
                   ->with('customer:id,name,phone');
-            }
-        ];
-        if (Schema::hasTable('gps_devices') && Schema::hasTable('gps_positions') && Schema::hasTable('gps_alerts')) {
+                if (!\App\Support\PilotAccess::isAdmin($user)) {
+                    $q->where('orders.store_id', $user->store_id ?: 0);
+                }
+            };
+        }
+        if (PermissionAccess::allows($user, 'gps.view') && Schema::hasTable('gps_devices') && Schema::hasTable('gps_positions') && Schema::hasTable('gps_alerts')) {
             $with[] = 'gpsDevice.latestPosition';
             $with['gpsDevice.alerts'] = function ($q) {
                 $q->whereIn('status', ['opened', 'acknowledged'])->orderBy('opened_at', 'desc');
@@ -209,7 +214,7 @@ class WarehouseService
             $effectiveStoreId = $vehicle->current_store_id ?: $vehicle->store_id;
             $effectiveStoreName = $vehicle->currentStore ? $vehicle->currentStore->store_name : ($vehicle->store ? $vehicle->store->store_name : 'Chưa gán');
             
-            $activeOrder = $vehicle->orders->first();
+            $activeOrder = $vehicle->relationLoaded('orders') ? $vehicle->orders->first() : null;
             $gpsDevice = $vehicle->relationLoaded('gpsDevice') ? $vehicle->gpsDevice : null;
             $gpsPosition = $gpsDevice && $gpsDevice->relationLoaded('latestPosition') ? $gpsDevice->latestPosition : null;
             $gpsAlerts = $gpsDevice && $gpsDevice->relationLoaded('alerts') ? $gpsDevice->alerts : collect();

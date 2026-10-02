@@ -141,7 +141,7 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             Route::group(['prefix' => 'report'], function () {
                 Route::get('/quick-report', [ReportController::class, 'quickReport'])->middleware('permission:order.count');
                 Route::get('/detail-report', [ReportController::class, 'detailReport'])->middleware('permission:accounting.view');
-                Route::get('/detail-report-new', [ReportController::class, 'detailReportNew'])->middleware('permission:order.report_store');
+                Route::get('/detail-report-new', [ReportController::class, 'detailReportNew'])->middleware('permission:order.report_store,accounting.view');
                 Route::get('/detail-report-day-by-day', [ReportController::class, 'detailReportDayByDay'])->middleware('permission:accounting.view');
                 Route::get('/kpi', [KpiReportController::class, 'index'])->middleware(['permission:accounting.view', 'schema.ready:kpi', 'schema.ready:rbac']);
             });
@@ -193,7 +193,7 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
             });
             Route::group(['prefix' => 'users'], function () {
                 Route::get('/', [UserController::class, 'index'])->middleware('admin');
-                Route::get('/get-staff-by-store', [UserController::class, 'getStaffByStore'])->middleware('permission:hr.view');
+                Route::get('/get-staff-by-store', [UserController::class, 'getStaffByStore'])->middleware('permission:hr.view,order.create');
                 Route::group(['middleware' => ['admin']], function () {
                     Route::post('/store', [UserController::class, 'store']);
                     Route::post('/update', [UserController::class, 'update']);

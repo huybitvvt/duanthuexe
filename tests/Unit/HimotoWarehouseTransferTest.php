@@ -379,6 +379,89 @@ class HimotoWarehouseTransferTest extends TestCase
         $this->assertLessThanOrEqual(5, $queryCount);
     }
 
+    public function test_warehouse_customer_details_respect_order_store_permission()
+    {
+        $customerId = DB::table('customers')->insertGetId(['name' => 'Private customer', 'phone' => '0900000001']);
+        $vehicle = Vehicle::create(['name' => 'Privacy fixture', 'store_id' => $this->storeB->id,
+            'current_store_id' => $this->storeA->id, 'status' => Vehicle::STATUS_USING]);
+        $order = Order::create(['store_id' => $this->storeB->id, 'customer_id' => $customerId,
+            'contract_number' => 'QA-PRIVATE', 'order_status' => 'renting']);
+        OrderVehicleDetail::create(['order_id' => $order->id, 'vehicle_id' => $vehicle->id]);
+
+        // The vehicle is present at A but its rental belongs to B.
+        $staffA = $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->staffUserA);
+        $this->assertNull($staffA['vehicles']->items()[0]['active_order']);
+        $staffB = $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->staffUserB);
+        $this->assertSame('Private customer', $staffB['vehicles']->items()[0]['active_order']['customer_name']);
+        $admin = $this->warehouseService->getStoreVehicles($this->storeB->id, [], $this->adminUser);
+        $this->assertSame($order->id, $admin['vehicles']->items()[0]['active_order']['id']);
+
+        DB::table('roles')->insert(['id' => 8, 'name' => 'Telesale', 'slug' => 'telesale']);
+        $viewer = User::create(['name' => 'Viewer', 'email' => 'viewer@example.test', 'role_id' => 8]);
+        $view = $this->warehouseService->getStoreVehicles($this->storeB->id, [], $viewer);
+        $this->assertNull($view['vehicles']->items()[0]['active_order']);
+    }
+
+    public function test_warehouse_gps_requires_gps_permission()
+    {
+        Schema::create('gps_devices', function ($table) {
+            $table->increments('id'); $table->integer('vehicle_id');
+            $table->string('mapping_status'); $table->timestamp('last_sync_at')->nullable(); $table->timestamps();
+        });
+        Schema::create('gps_positions', function ($table) {
+            $table->increments('id'); $table->integer('gps_device_id');
+            $table->decimal('latitude', 12, 8); $table->decimal('longitude', 12, 8);
+            $table->timestamp('provider_recorded_at'); $table->string('normalized_status'); $table->timestamps();
+        });
+        Schema::create('gps_alerts', function ($table) {
+            $table->increments('id'); $table->integer('gps_device_id');
+            $table->string('status'); $table->string('alert_type'); $table->timestamp('opened_at'); $table->timestamps();
+        });
+        $vehicle = Vehicle::create(['name' => 'GPS fixture', 'store_id' => $this->storeA->id]);
+        $deviceId = DB::table('gps_devices')->insertGetId(['vehicle_id' => $vehicle->id, 'mapping_status' => 'mapped']);
+        DB::table('gps_positions')->insert(['gps_device_id' => $deviceId, 'latitude' => 21.0,
+            'longitude' => 105.0, 'provider_recorded_at' => '2026-10-02 08:00:00', 'normalized_status' => 'online']);
+        $view = $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->staffUserA);
+        $this->assertNull($view['vehicles']->items()[0]['gps']);
+        $admin = $this->warehouseService->getStoreVehicles($this->storeA->id, [], $this->adminUser);
+        $this->assertSame(21.0, $admin['vehicles']->items()[0]['gps']['latitude']);
+    }
+
+    public function test_accountant_report_preserves_selected_store_and_manager_stays_scoped()
+    {
+        Schema::table('orders', function ($table) {
+            $table->decimal('first_deposit_amount', 15, 2)->default(0);
+            $table->decimal('additional_deposit_amount', 15, 2)->default(0);
+        });
+        Schema::table('order_vehicle_details', function ($table) {
+            $table->decimal('handler_price', 15, 2)->default(0);
+            $table->decimal('money_out_date', 15, 2)->default(0);
+        });
+        DB::table('roles')->insert([
+            ['id' => 8, 'name' => 'Kế toán', 'slug' => 'ke-toan'],
+            ['id' => 9, 'name' => 'Quản lý', 'slug' => 'quan-ly-cua-hang'],
+        ]);
+        $accountant = User::create(['name' => 'Accountant', 'email' => 'acc@example.test', 'role_id' => 8]);
+        $manager = User::create(['name' => 'Manager', 'email' => 'manager@example.test', 'role_id' => 9,
+            'store_id' => $this->storeA->id]);
+        foreach ([[$this->storeA->id, 100], [$this->storeB->id, 200]] as [$storeId, $amount]) {
+            $order = Order::create(['store_id' => $storeId, 'order_status' => 'renting']);
+            Transaction::create(['order_id' => $order->id, 'store_id' => $storeId,
+                'type' => 'in', 'name' => 'order:rental_fees', 'value' => $amount]);
+        }
+        \Illuminate\Support\Facades\Auth::setUser($accountant);
+        $service = app(ReportService::class);
+        $all = $service->handleDetailReportNew([]);
+        $this->assertEquals(300, $all['total_rental_fees']);
+        $selected = $service->handleDetailReportNew(['store_id' => $this->storeB->id]);
+        $this->assertEquals(200, $selected['total_rental_fees']);
+        $this->assertSame([$this->storeB->id], array_column($selected['by_store'], 'store_id'));
+        \Illuminate\Support\Facades\Auth::setUser($manager);
+        $scoped = $service->handleDetailReportNew(['store_id' => $this->storeB->id]);
+        $this->assertEquals(100, $scoped['total_rental_fees']);
+        $this->assertSame([$this->storeA->id], array_column($scoped['by_store'], 'store_id'));
+    }
+
     public function test_quick_order_stats_uses_one_aggregate_query()
     {
         Order::insert([

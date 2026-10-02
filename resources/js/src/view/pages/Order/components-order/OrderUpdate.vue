@@ -2128,6 +2128,7 @@ export default {
             this.warningTemp = "";
         },
         getCustomerByCardId(val, name) {
+            if (!this.capabilities.includes('*') && !this.capabilities.includes('customer.manage')) return;
             if (!val) {
                 this.resetCustomerInfo();
                 return;
@@ -2180,8 +2181,7 @@ export default {
         },
 
         getLeads() {
-            console.log("getLeads!")
-            if (!(this.order.customer_phone)) {
+            if ((!this.capabilities.includes('*') && !this.capabilities.includes('lead.manage')) || !this.order.customer_phone) {
                 this.leadIds = [];
                 this.leads = [];
                 return;

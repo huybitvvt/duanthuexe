@@ -10,6 +10,7 @@ use App\Mail\ForgotPassword;
 use App\Models\PasswordReset;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Support\PermissionAccess;
 use App\Validators\OrderValidator;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -38,7 +39,15 @@ class UserController extends Controller
 
     public function getStaffByStore(Request $request)
     {
-        return $this->successResponse($this->userService->getByStore($request->store_id));
+        $request->validate(['store_id' => 'nullable|integer|exists:stores,id']);
+        $storeId = $request->input('store_id') ?: $request->user()->store_id;
+        if (!$storeId) {
+            return $this->successResponse([]);
+        }
+        if (!PermissionAccess::allows($request->user(), 'hr.view', (int) $storeId)) {
+            PermissionAccess::can($request->user(), 'order.create', (int) $storeId);
+        }
+        return $this->successResponse($this->userService->getByStore($storeId));
     }
 
     public function store(Request $request)

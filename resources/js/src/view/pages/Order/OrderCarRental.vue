@@ -107,7 +107,7 @@
                             </el-select>
                         </div>
 
-                        <div class=" col-md-3">
+                        <div v-if="canManageLeads" class=" col-md-3">
                             <el-select multiple filterable class="w-100" placeholder="Nguồn lead" v-model="query.source"
                                 clearable>
                                 <el-option label="Landing page Himoto" value="NULL"></el-option>
@@ -556,6 +556,9 @@ export default {
         canReportStore() {
             return this.capabilities.includes('*') || this.capabilities.includes('order.report_store');
         },
+        canManageLeads() {
+            return this.capabilities.includes('*') || this.capabilities.includes('lead.manage');
+        },
         activeCategoryLabel() {
             return this.categoryLabel(this.activeCategory);
         },
@@ -719,6 +722,7 @@ export default {
 			return total;
 		},
         listSources() {
+            if (!this.canManageLeads) return;
             this.$store.dispatch(LEAD_UNIQUE_USERS, {}).then((data) => {
                 this.sources = data?.data || [];
             }).catch(() => {});

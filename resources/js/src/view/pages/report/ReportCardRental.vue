@@ -348,7 +348,7 @@ export default {
         this.pullParamsUrl();
         this.getDateDefault();
         this.getStore();
-        this.report();
+        this.search();
     },
     methods: {
 		calcTotalReportValue(data, field) {
@@ -578,6 +578,9 @@ export default {
                         await this.getStoreDetailReport(params, store_id);
                     }
                 }
+            } catch (error) {
+                this.reports_all_stores = {};
+                this.noticeMessage('error', 'Không tải được báo cáo', error?.data?.message || 'Vui lòng thử lại.');
             } finally {
                 this.is_loading_search = false;
             }

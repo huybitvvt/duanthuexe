@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Services\OrderService;
 use App\Repositories\OrderRepositoryEloquent;
+use App\Support\PermissionAccess;
 
 class ReportService
 {
@@ -351,8 +352,9 @@ class ReportService
 		$separate_result_by_day = ( isset( $params['separate_result_by_day'] ) && $params['separate_result_by_day'] ) ? true : false;
 
 		$user  = Auth::user();
-        if ($user && $user->role_id !== 1){
-            $store_id = $user->store ? $user->store->id : $user->store_id;
+        if (!PermissionAccess::allows($user, 'accounting.view')) {
+            $store_id = $user->store_id ?: 0;
+            PermissionAccess::can($user, 'order.report_store', (int) $store_id);
         }
 
 		if ( isset( $params['dates'] ) && is_array( $params['dates'] ) && count( $params['dates'] ) == 2 ) {
@@ -447,10 +449,6 @@ class ReportService
             }
         }
 
-		$user = auth()->user();
-		if ( 0 == $store_id && $user->role_rel->slug !== 'quan-tri-vien') {
-			$store_id = $user->store_id;
-		}
         if ($store_id > 0) {
 			$transaction_query->where('orders.store_id', $store_id);
 			$order_item_query->where('orders.store_id', $store_id);

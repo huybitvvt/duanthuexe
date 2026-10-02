@@ -337,6 +337,54 @@ class PermissionMatrixTest extends TestCase
         PermissionAccess::can($this->bodUser, 'accounting.post');
     }
 
+    public function testAlternativeReportPermissionsKeepStoreRestrictions(): void
+    {
+        $managerRole = Role::create(['name' => 'Quản lý cửa hàng', 'slug' => 'quan-ly-cua-hang']);
+        $manager = User::create(['name' => 'Manager', 'email' => 'manager@example.test',
+            'role_id' => $managerRole->id, 'store_id' => $this->store1->id]);
+        $middleware = new \App\Http\Middleware\CheckPermission();
+        foreach ([[$this->accountantUser, $this->store2->id, 200],
+                  [$manager, $this->store1->id, 200], [$manager, $this->store2->id, 403],
+                  [$this->staffUser1, $this->store1->id, 403], [$this->hrUser, null, 403]] as [$user, $storeId, $status]) {
+            $req = Request::create('/report', 'GET', ['store_id' => $storeId]);
+            $req->setUserResolver(function () use ($user) { return $user; });
+            $response = $middleware->handle($req, function () { return response()->json([]); },
+                'order.report_store', 'accounting.view');
+            $this->assertSame($status, $response->getStatusCode());
+        }
+    }
+
+    public function testContractStaffSelectorDefaultsToAssignedStore(): void
+    {
+        $service = $this->createMock(\App\Http\Services\Users\UserService::class);
+        $service->expects($this->once())->method('getByStore')->with($this->store1->id)->willReturn([]);
+        $controller = new \App\Http\Controllers\UserController($service);
+        $req = Request::create('/staff', 'GET');
+        $req->setUserResolver(function () { return $this->staffUser1; });
+        $this->assertSame(200, $controller->getStaffByStore($req)->getStatusCode());
+    }
+
+    public function testContractStaffSelectorRejectsAnotherStore(): void
+    {
+        $service = $this->createMock(\App\Http\Services\Users\UserService::class);
+        $service->expects($this->never())->method('getByStore');
+        $controller = new \App\Http\Controllers\UserController($service);
+        $req = Request::create('/staff', 'GET', ['store_id' => $this->store2->id]);
+        $req->setUserResolver(function () { return $this->staffUser1; });
+        $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
+        $controller->getStaffByStore($req);
+    }
+
+    public function testStaffSelectorReturnsNoUnassignedUsersForCompanyRole(): void
+    {
+        $service = $this->createMock(\App\Http\Services\Users\UserService::class);
+        $service->expects($this->never())->method('getByStore');
+        $controller = new \App\Http\Controllers\UserController($service);
+        $req = Request::create('/staff', 'GET');
+        $req->setUserResolver(function () { return $this->hrUser; });
+        $this->assertSame([], $controller->getStaffByStore($req)->getData(true)['data']);
+    }
+
     public function testAccountantCannotModifyHrStaff(): void
     {
         $this->assertFalse(PermissionAccess::allows($this->accountantUser, 'hr.manage_staff'));
