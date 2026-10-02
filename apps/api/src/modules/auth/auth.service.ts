@@ -9,6 +9,7 @@ export interface AuthUser {
   email: string;
   role_id: number;
   role?: string;
+  role_slug?: string;
   is_admin?: number;
   store_id?: number | null;
   status?: string;
@@ -53,7 +54,7 @@ export class AuthService {
     this.jwtSecret = process.env.JWT_SECRET || 'himoto-secret-jwt-key-2b49116';
   }
 
-  getCapabilities(user: AuthUser, roleSlug?: string): string[] {
+  getCapabilities(user: AuthUser, roleSlug = user.role_slug): string[] {
     if (user.role_id === 1 || user.role === 'admin' || user.is_admin === 1 || roleSlug === 'quan-tri-vien') {
       return ['*'];
     }
@@ -65,7 +66,7 @@ export class AuthService {
 
   async login(email: string, pass: string) {
     const res = await this.db.query(
-      'SELECT id, name, email, password, role_id, role, is_admin, store_id, status, avatar FROM users WHERE email = $1 LIMIT 1',
+      'SELECT id, name, email, password, role_id, role, is_admin, store_id, status, avatar FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1',
       [email]
     );
 
@@ -122,7 +123,7 @@ export class AuthService {
     try {
       const decoded = jwt.verify(token, this.jwtSecret) as any;
       const res = await this.db.query(
-        'SELECT id, name, email, role_id, role, is_admin, store_id, status, avatar FROM users WHERE id = $1 LIMIT 1',
+        'SELECT u.id, u.name, u.email, u.role_id, u.role, u.is_admin, u.store_id, u.status, u.avatar, r.slug AS role_slug FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = $1 AND u.deleted_at IS NULL LIMIT 1',
         [decoded.sub]
       );
 
@@ -158,7 +159,7 @@ export class AuthService {
 
   async getUserById(id: number): Promise<AuthUser | null> {
     const res = await this.db.query(
-      'SELECT id, name, email, role_id, role, is_admin, store_id, status, avatar FROM users WHERE id = $1 LIMIT 1',
+      'SELECT u.id, u.name, u.email, u.role_id, u.role, u.is_admin, u.store_id, u.status, u.avatar, r.slug AS role_slug FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = $1 AND u.deleted_at IS NULL LIMIT 1',
       [id]
     );
     return res.rows[0] || null;

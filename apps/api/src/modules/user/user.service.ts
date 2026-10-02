@@ -1,17 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import * as bcrypt from 'bcryptjs';
+import { AuthUser } from '../auth/auth.service';
 
 @Injectable()
 export class UserService {
   constructor(private readonly db: DatabaseService) {}
 
-  async findAll(params: any = {}) {
-    const conditions: string[] = [];
+  async findAll(params: any = {}, user: AuthUser) {
+    const conditions: string[] = ["u.deleted_at IS NULL", "u.status != 'deactive'"];
     const values: any[] = [];
     let idx = 1;
 
-    if (params.store_id && params.store_id !== 'all') {
+    if (user.role_id !== 1) {
+      const role = await this.db.query('SELECT slug FROM roles WHERE id = $1', [user.role_id]);
+      if (role.rows[0]?.slug === 'quan-ly-cua-hang' && user.store_id) {
+        conditions.push(`u.store_id = $${idx++}`);
+        values.push(user.store_id);
+      } else {
+        conditions.push(`u.id = $${idx++}`);
+        values.push(user.id);
+      }
+    } else if (params.store_id && params.store_id !== 'all') {
       conditions.push(`u.store_id = $${idx++}`);
       values.push(parseInt(params.store_id, 10));
     }
@@ -56,14 +66,17 @@ export class UserService {
 
   async getStaffByStore(storeId: number) {
     const res = await this.db.query(
-      `SELECT id, name, email, phone, store_id FROM users WHERE store_id = $1 AND status != 'deactive'`,
+      `SELECT id, name, email, phone, store_id FROM users WHERE store_id = $1 AND deleted_at IS NULL AND status != 'deactive'`,
       [storeId]
     );
     return res.rows;
   }
 
   async create(data: any) {
-    const hashedPassword = await bcrypt.hash(data.password || '123456', 10);
+    if (!data.password || typeof data.password !== 'string' || data.password.length < 6) {
+      throw new BadRequestException('Mật khẩu cần ít nhất 6 ký tự');
+    }
+    const hashedPassword = await bcrypt.hash(data.password, 10);
     const res = await this.db.query(
       `INSERT INTO users (name, email, password, phone, role_id, store_id, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
@@ -91,7 +104,7 @@ export class UserService {
            store_id = COALESCE($5, store_id),
            status = COALESCE($6, status),
            updated_at = NOW()
-       WHERE id = $7
+       WHERE id = $7 AND deleted_at IS NULL
        RETURNING id, name, email, phone, role_id, store_id, status`,
       [
         data.name || null,
@@ -116,7 +129,14 @@ export class UserService {
   }
 
   async delete(id: number) {
-    await this.db.query('DELETE FROM users WHERE id = $1', [id]);
+    const result = await this.db.query(
+      `UPDATE users SET status = 'deactive', deleted_at = NOW(), remember_token = NULL, updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
+      [id],
+    );
+    if (result.rows.length === 0) {
+      throw new NotFoundException(`User #${id} không tồn tại`);
+    }
     return { success: true, message: `Đã xóa người dùng #${id}` };
   }
 }

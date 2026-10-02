@@ -12,7 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "test": "jest"
+    "test": "npm run build && node --test test/*.test.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.10",
