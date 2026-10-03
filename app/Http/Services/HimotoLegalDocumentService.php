@@ -4,6 +4,7 @@ namespace App\Http\Services;
 
 use App\Models\LeaseContract;
 use App\Models\Order;
+use App\Support\LeaseBillingSchedule;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -37,6 +38,11 @@ class HimotoLegalDocumentService
             ],
             'isDraft' => $order->order_status === 'draft',
         ])->render();
+    }
+
+    public function leaseRental(LeaseContract $contract): string
+    {
+        return view('documents.himoto-lease-rental', $this->leaseData($contract))->render();
     }
 
     public function leaseHandover(LeaseContract $contract): string
@@ -116,7 +122,37 @@ class HimotoLegalDocumentService
             // The annex asks for asset value, not total rental installments.
             'assetValue' => $assetValue > 0 ? number_format($assetValue, 0, ',', '.') : null,
             'assetValueWords' => $assetValue > 0 ? LeasePdfService::numberToVietnameseWords($assetValue) : null,
+            'billingCycle' => $terms['billing_cycle'] ?? ($contract->billing_cycle ?: 'month'),
+            'billingLabel' => LeaseBillingSchedule::cycleLabel($terms['billing_cycle'] ?? ($contract->billing_cycle ?: 'month')),
+            'periodAmount' => number_format((float) ($terms['period_amount'] ?? $contract->period_amount), 0, ',', '.'),
+            'depositAmount' => number_format((float) ($terms['deposit_amount'] ?? $contract->deposit_amount), 0, ',', '.'),
+            'prepaidAmount' => number_format((float) ($terms['prepaid_amount'] ?? ($contract->prepaid_amount ?? 0)), 0, ',', '.'),
+            'endOn' => $this->date($terms['end_date'] ?? $contract->end_date),
+            'relativesText' => $this->relativesText($customer['relatives'] ?? (optional($contract->customer)->relatives ?? [])),
+            'driver' => $snapshot['paperwork'] ?? (is_array($contract->paperwork) ? $contract->paperwork : []),
+            'vehicleColor' => $vehicle['color'] ?? optional($contract->vehicle)->color,
+            'vehicleYear' => $vehicle['year'] ?? optional($contract->vehicle)->year,
+            'vehicleBrand' => $vehicle['brand'] ?? optional($contract->vehicle)->brand,
         ];
+    }
+
+    private function relativesText($relatives): string
+    {
+        if (!is_array($relatives)) {
+            return '';
+        }
+        $parts = [];
+        foreach ($relatives as $relative) {
+            if (!is_array($relative)) {
+                continue;
+            }
+            $label = trim(($relative['name'] ?? '') . ' ' . (!empty($relative['relationship']) ? '(' . $relative['relationship'] . ')' : '') . ' ' . ($relative['phone'] ?? ''));
+            if ($label !== '') {
+                $parts[] = $label;
+            }
+        }
+
+        return implode('; ', $parts);
     }
 
     private function vehicleFields($vehicle): array

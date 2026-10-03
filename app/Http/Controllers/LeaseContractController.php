@@ -73,7 +73,15 @@ class LeaseContractController extends Controller
             'total_amount' => 'required|numeric|min:0',
             'deposit_amount' => 'nullable|numeric|min:0',
             'installment_count' => 'required|integer|in:6,12,24',
+            'billing_cycle' => 'nullable|in:day,week,month',
+            'prepaid_amount' => 'nullable|numeric|min:0',
             'period_amount' => 'nullable|numeric|min:0',
+            'driver_name' => 'nullable|string|max:191',
+            'driver_license_number' => 'nullable|string|max:64',
+            'driver_license_issued_on' => 'nullable|date',
+            'customer.id_card_issued_on' => 'nullable|date',
+            'customer.id_card_issued_by' => 'nullable|string|max:191',
+            'customer.relatives' => 'nullable|array',
             'assigned_user_id' => 'nullable|integer',
             'notes' => 'nullable|string',
             'guardian_name' => 'nullable|string|max:191',
@@ -259,6 +267,16 @@ class LeaseContractController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
         ]);
+    }
+
+    public function rentalContract(int $id, HimotoLegalDocumentService $documents)
+    {
+        $contract = LeaseContract::findOrFail($id);
+        $this->leaseService->authorizeContract($contract, Auth::user());
+        if ($contract->status === LeaseContract::STATUS_DRAFT) {
+            return $this->errorResponse('Hợp đồng nháp chưa được phát hành.', 422);
+        }
+        return $this->legalHtml($documents->leaseRental($contract));
     }
 
     public function handover(int $id, HimotoLegalDocumentService $documents)

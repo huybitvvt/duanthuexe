@@ -10,9 +10,9 @@
                     <router-link
                         :to="rentalWarehouseLink"
                         class="btn btn-warning font-weight-bold mb-1 text-dark"
-                        title="Mở kho xe thuê / điều chuyển"
+                        title="Mở kho thuê xe"
                     >
-                        <i class="fas fa-warehouse mr-1"></i>Xem kho xe Thuê &rarr;
+                        <i class="fas fa-warehouse mr-1"></i>Kho thuê xe
                     </router-link>
                 </div>
             </div>

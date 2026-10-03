@@ -8,6 +8,7 @@ use App\Models\Bank;
 use App\Support\PilotAccess;
 use App\Support\PermissionAccess;
 use App\Support\HimotoStores;
+use App\Support\LeaseBillingSchedule;
 use App\Models\LeaseContract;
 use App\Models\LeaseInstallment;
 use App\Models\LeasePaymentAllocation;
@@ -35,6 +36,7 @@ class LeaseContractService
         }
         return DB::transaction(function () use ($data, $user) {
         $customerId = data_get($data, 'customer_id');
+        $customer = null;
         if (!$customerId && isset($data['customer'])) {
             $cData = $data['customer'];
             $customer = Customer::firstOrCreate(
@@ -54,7 +56,12 @@ class LeaseContractService
             ]);
         }
 
-        Customer::findOrFail($customerId);
+        if (!$customer) {
+            $customer = Customer::findOrFail($customerId);
+        }
+        if (isset($data['customer']) && is_array($data['customer'])) {
+            $this->syncLesseeProfile($customer, $data['customer']);
+        }
         $vehicleId = data_get($data, 'vehicle_id');
         $storeId = data_get($data, 'store_id');
         if (!$storeId) {
@@ -77,25 +84,40 @@ class LeaseContractService
         if (!in_array($installmentCount, [6, 12, 24], true)) {
             throw ValidationException::withMessages(['installment_count' => 'Kỳ hạn thuê sở hữu chỉ gồm 6, 12 hoặc 24 tháng.']);
         }
-
-        if ($totalAmount <= 0 || $depositAmount < 0 || $depositAmount > $totalAmount || $installmentCount > 120) {
-            throw ValidationException::withMessages(['total_amount' => 'Giá trị hợp đồng, trả trước hoặc số kỳ không hợp lệ.']);
+        $billingCycle = (string) data_get($data, 'billing_cycle', 'month');
+        if ($billingCycle === '') {
+            $billingCycle = 'month';
         }
-        $remainingToPay = $totalAmount - $depositAmount;
+        LeaseBillingSchedule::assertAllowed($installmentCount, $billingCycle);
+        $paymentCount = LeaseBillingSchedule::paymentCount($installmentCount, $billingCycle);
+        $prepaidAmount = (float) data_get($data, 'prepaid_amount', 0);
+
+        if ($totalAmount <= 0 || $depositAmount < 0 || $prepaidAmount < 0 || ($depositAmount + $prepaidAmount) > $totalAmount) {
+            throw ValidationException::withMessages(['total_amount' => 'Giá trị hợp đồng, tiền trả trước hoặc tiền đặt cọc không hợp lệ.']);
+        }
+        $remainingToPay = $totalAmount - $depositAmount - $prepaidAmount;
         $periodAmount = (float)data_get($data, 'period_amount');
         if (!$periodAmount || $periodAmount <= 0) {
-            $periodAmount = round($remainingToPay / $installmentCount, 0);
+            $periodAmount = $paymentCount > 0 ? round($remainingToPay / $paymentCount, 0) : 0;
         }
 
-        if ($periodAmount * ($installmentCount - 1) > $remainingToPay) {
+        if ($paymentCount > 1 && $periodAmount * ($paymentCount - 1) > $remainingToPay) {
             throw ValidationException::withMessages(['period_amount' => 'Tổng các kỳ vượt số tiền còn phải trả.']);
         }
         $startDate = data_get($data, 'start_date') ? Carbon::parse($data['start_date']) : Carbon::now();
         $code = 'TSH-' . Carbon::now()->format('Ymd') . '-' . strtoupper(bin2hex(random_bytes(8)));
+        $paperwork = array_filter([
+            'driver_name' => data_get($data, 'driver_name'),
+            'driver_license_number' => data_get($data, 'driver_license_number'),
+            'driver_license_issued_on' => data_get($data, 'driver_license_issued_on'),
+        ], function ($value) {
+            return $value !== null && $value !== '';
+        });
 
         return DB::transaction(function () use (
             $code, $customerId, $vehicleId, $storeId, $startDate, $totalAmount,
-            $depositAmount, $installmentCount, $periodAmount, $data, $user
+            $depositAmount, $prepaidAmount, $installmentCount, $paymentCount, $billingCycle,
+            $periodAmount, $paperwork, $data, $user
         ) {
             $attributes = [
                 'contract_code' => $code,
@@ -103,7 +125,7 @@ class LeaseContractService
                 'vehicle_id' => $vehicleId,
                 'store_id' => $storeId,
                 'start_date' => $startDate,
-                'end_date' => $startDate->copy()->addMonthsNoOverflow($installmentCount),
+                'end_date' => LeaseBillingSchedule::endDate($startDate, $installmentCount, $billingCycle),
                 'total_amount' => $totalAmount,
                 'deposit_amount' => $depositAmount,
                 'installment_count' => $installmentCount,
@@ -125,22 +147,46 @@ class LeaseContractService
             if (Schema::hasColumn('lease_contracts', 'created_by')) {
                 $attributes['created_by'] = $user->id;
             }
+            if (Schema::hasColumn('lease_contracts', 'billing_cycle')) {
+                $attributes['billing_cycle'] = $billingCycle;
+            }
+            if (Schema::hasColumn('lease_contracts', 'prepaid_amount')) {
+                $attributes['prepaid_amount'] = $prepaidAmount;
+            }
+            if (Schema::hasColumn('lease_contracts', 'paperwork')) {
+                $attributes['paperwork'] = $paperwork ?: null;
+            }
             $contract = LeaseContract::create($attributes);
 
             // A promised initial payment is a due item, not a fictitious receipt.
+            $installmentNotes = Schema::hasColumn('lease_installments', 'notes');
             if ($depositAmount > 0) {
-                LeaseInstallment::create([
+                $depositRow = [
                     'lease_contract_id' => $contract->id, 'period_number' => 0,
                     'due_date' => $startDate, 'amount_due' => $depositAmount,
                     'amount_paid' => 0, 'status' => LeaseInstallment::STATUS_UNPAID,
-                ]);
+                ];
+                if ($installmentNotes) {
+                    $depositRow['notes'] = 'Đặt cọc';
+                }
+                LeaseInstallment::create($depositRow);
+            }
+            if ($prepaidAmount > 0) {
+                $prepaidRow = [
+                    'lease_contract_id' => $contract->id, 'period_number' => 0,
+                    'due_date' => $startDate, 'amount_due' => $prepaidAmount,
+                    'amount_paid' => 0, 'status' => LeaseInstallment::STATUS_UNPAID,
+                ];
+                if ($installmentNotes) {
+                    $prepaidRow['notes'] = 'Trả trước';
+                }
+                LeaseInstallment::create($prepaidRow);
             }
             // Generate installment schedule
-            for ($i = 1; $i <= $installmentCount; $i++) {
-                $dueDate = $startDate->copy()->addMonthsNoOverflow($i);
-                // Adjust for last installment rounding diff if any
-                $currentAmount = ($i === $installmentCount)
-                    ? ($totalAmount - $depositAmount - ($periodAmount * ($installmentCount - 1)))
+            for ($i = 1; $i <= $paymentCount; $i++) {
+                $dueDate = LeaseBillingSchedule::dueDate($startDate, $billingCycle, $i);
+                $currentAmount = ($i === $paymentCount)
+                    ? ($totalAmount - $depositAmount - $prepaidAmount - ($periodAmount * ($paymentCount - 1)))
                     : $periodAmount;
 
                 LeaseInstallment::create([
@@ -720,7 +766,7 @@ class LeaseContractService
             if ($bucket === 'current') {
                 $query->whereDoesntHave('installments', function ($q) use ($today, $open) { $open($q); $q->where('due_date', '<', $today->toDateString()); });
             } else {
-                $ranges = ['overdue_1_5' => [1,5], 'overdue_6_30' => [6,30], 'overdue_30_plus' => [31,null]];
+                $ranges = ['overdue_1_5' => [1,5], 'overdue_6_15' => [6,15], 'overdue_6_30' => [16,30], 'overdue_30_plus' => [31,null]];
                 if (!isset($ranges[$bucket])) { throw ValidationException::withMessages(['aging_bucket' => 'Nhóm nợ không hợp lệ.']); }
                 list($min,$max) = $ranges[$bucket];
                 $query->whereHas('installments', function ($q) use ($today,$open,$min,$max) {
@@ -760,14 +806,7 @@ class LeaseContractService
             }
 
             // Aging bucket
-            $bucket = 'current';
-            if ($maxOverdueDays > 30) {
-                $bucket = 'overdue_30_plus';
-            } elseif ($maxOverdueDays >= 6) {
-                $bucket = 'overdue_6_30';
-            } elseif ($maxOverdueDays >= 1) {
-                $bucket = 'overdue_1_5';
-            }
+            $bucket = $this->agingKey($maxOverdueDays);
 
             // Current due installment (next upcoming or overdue)
             $currentInstallment = $contract->installments->first(function ($inst) {
@@ -841,12 +880,14 @@ class LeaseContractService
         $bucketCounts = [
             'current' => 0,
             'overdue_1_5' => 0,
+            'overdue_6_15' => 0,
             'overdue_6_30' => 0,
             'overdue_30_plus' => 0,
         ];
         $bucketAmounts = [
             'current' => 0,
             'overdue_1_5' => 0,
+            'overdue_6_15' => 0,
             'overdue_6_30' => 0,
             'overdue_30_plus' => 0,
         ];
@@ -871,21 +912,16 @@ class LeaseContractService
                 $maxOverdueDays = Carbon::parse($earliestDue)->diffInDays($today);
             }
 
-            if ($maxOverdueDays > 30) {
-                $bucketCounts['overdue_30_plus']++;
-                $bucketAmounts['overdue_30_plus'] += $cOverdueAmount;
-            } elseif ($maxOverdueDays >= 6) {
-                $bucketCounts['overdue_6_30']++;
-                $bucketAmounts['overdue_6_30'] += $cOverdueAmount;
-            } elseif ($maxOverdueDays >= 1) {
-                $bucketCounts['overdue_1_5']++;
-                $bucketAmounts['overdue_1_5'] += $cOverdueAmount;
-            } else {
+            $bucket = $this->agingKey($maxOverdueDays);
+            if ($bucket === 'current') {
                 $bucketCounts['current']++;
                 $paid = (float)$contract->allocations->filter(function ($allocation) {
                     return $allocation->status === null || $allocation->status === LeasePaymentAllocation::STATUS_ACTIVE;
                 })->sum('amount');
                 $bucketAmounts['current'] += max(0, (float)$contract->total_amount - (float)($contract->discount_amount ?? 0) - $paid);
+            } else {
+                $bucketCounts[$bucket]++;
+                $bucketAmounts[$bucket] += $cOverdueAmount;
             }
         }
 
@@ -938,6 +974,57 @@ class LeaseContractService
         }
         if ($role === 'nhan-vien') {
             $query->where('assigned_user_id', $user->id);
+        }
+        if ($role === 'thue-so-huu-hop-dong') {
+            $query->where('status', LeaseContract::STATUS_DRAFT);
+            if (Schema::hasColumn('lease_contracts', 'created_by')) {
+                $query->where('created_by', $user->id);
+            }
+        }
+    }
+
+    private function agingKey(int $days): string
+    {
+        if ($days > 30) {
+            return 'overdue_30_plus';
+        }
+        if ($days >= 16) {
+            return 'overdue_6_30';
+        }
+        if ($days >= 6) {
+            return 'overdue_6_15';
+        }
+        if ($days >= 1) {
+            return 'overdue_1_5';
+        }
+
+        return 'current';
+    }
+
+    private function syncLesseeProfile(Customer $customer, array $profile): void
+    {
+        $updates = [];
+        foreach (['name', 'address', 'id_card'] as $field) {
+            if (!empty($profile[$field]) && Schema::hasColumn('customers', $field)) {
+                $updates[$field] = $profile[$field];
+            }
+        }
+        if (!empty($profile['id_card_issued_on']) && Schema::hasColumn('customers', 'id_card_issued_on')) {
+            $updates['id_card_issued_on'] = $profile['id_card_issued_on'];
+        }
+        if (!empty($profile['id_card_issued_by']) && Schema::hasColumn('customers', 'id_card_issued_by')) {
+            $updates['id_card_issued_by'] = $profile['id_card_issued_by'];
+        }
+        if (!empty($profile['relatives']) && is_array($profile['relatives']) && Schema::hasColumn('customers', 'relatives')) {
+            $relatives = array_values(array_filter($profile['relatives'], function ($relative) {
+                return is_array($relative) && (!empty($relative['name']) || !empty($relative['phone']));
+            }));
+            if ($relatives) {
+                $updates['relatives'] = $relatives;
+            }
+        }
+        if ($updates) {
+            $customer->fill($updates)->save();
         }
     }
 

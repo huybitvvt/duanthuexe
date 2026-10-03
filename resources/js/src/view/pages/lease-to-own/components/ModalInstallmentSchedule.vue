@@ -86,7 +86,7 @@
                   :key="item.id"
                   :class="{ 'table-danger-light': isInstallmentOverdue(item) }"
                 >
-                  <td class="text-center font-weight-bolder">#{{ item.period_number }}</td>
+                  <td class="text-center font-weight-bolder">{{ item.period_number === 0 ? (item.notes === 'Trả trước' ? 'Trả trước' : 'Cọc') : ('#' + item.period_number) }}</td>
                   <td>
                     <span class="font-weight-bold" :class="isInstallmentOverdue(item) ? 'text-danger' : 'text-dark'">
                       {{ item.due_date | formatDate }}
@@ -314,7 +314,8 @@ export default {
       const map = {
         current: "Đúng hạn",
         overdue_1_5: "Nợ sớm (1-5 ngày)",
-        overdue_6_30: "Nợ muộn (6-30 ngày)",
+        overdue_6_15: "Nợ muộn (6-15 ngày)",
+        overdue_6_30: "Nợ muộn (16-30 ngày)",
         overdue_30_plus: "Cần thu hồi (>30 ngày)",
       };
       return map[bucket] || "Bình thường";
@@ -323,6 +324,7 @@ export default {
       const map = {
         current: "badge badge-success",
         overdue_1_5: "badge badge-warning",
+        overdue_6_15: "badge badge-warning",
         overdue_6_30: "badge badge-danger",
         overdue_30_plus: "badge badge-dark",
       };

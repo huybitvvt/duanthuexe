@@ -76,12 +76,12 @@
 						<li v-for="(error, index) in serverValidationErrors" :key="index">{{ error }}</li>
 					</ul>
 				</div>
-				<div v-if="isGuidedContract" class="contract-step-summary mb-3">
+				<div v-if="isGuidedContract && !isHandoverMode" class="contract-step-summary mb-3">
 					<strong ref="contractStepHeading" tabindex="-1" aria-live="polite">Bước {{ activeContractStep + 1 }}/{{ contractSteps.length }}: {{ contractSteps[activeContractStep].label }}</strong>
 					<p class="text-muted mb-0 mt-1">Điền từ trên xuống. Rời ô cuối để tự chuyển bước, hoặc bấm Tiếp tục để bỏ qua ô không bắt buộc.</p>
 				</div>
 				<div v-if="stepValidationMessage" class="alert alert-danger" role="alert">{{ stepValidationMessage }}</div>
-				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4" @focusout.native="onContractStepFocusout">
+				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4" :class="{ 'contract-form-stack': isHandoverMode }" @focusout.native="onContractStepFocusout">
 					<el-tab-pane :label="contractStepLabel('contract')" name="contract">
 					<ValidationObserver ref="contractStep" tag="div">
 
@@ -194,6 +194,7 @@
 
 					<el-tab-pane :label="contractStepLabel('customer')" name="customer" :disabled="isGuidedContract && furthestContractStep < 1">
 					<ValidationObserver ref="customerStep" tag="div">
+                <h5 v-if="isHandoverMode" class="handover-section-title">Thông tin khách hàng (Bên B)</h5>
                 <div class="row">
                     <div class="col-md-4">
                         <div class="form-group">
@@ -335,6 +336,7 @@
 
 					<el-tab-pane :label="contractStepLabel('vehicle')" name="vehicle" :disabled="!!warningTemp || (isGuidedContract && furthestContractStep < 2)">
 					<ValidationObserver ref="vehicleStep" tag="div">
+                    <h5 v-if="isHandoverMode" class="handover-section-title">Thông tin phương tiện</h5>
                     <div class="mb-3 d-flex flex-grow-1 align-items-center p-2 rounded">
                         <div class="mr-4 flex-shrink-0">
                             <button :style="{
@@ -371,6 +373,7 @@
 
 					<el-tab-pane :label="contractStepLabel('payment')" name="payment" :disabled="!!warningTemp || (isGuidedContract && furthestContractStep < 3)">
 					<ValidationObserver ref="paymentStep" tag="div">
+					<h5 v-if="isHandoverMode" class="handover-section-title">Chi phí</h5>
 					<div class="row">
 						<div class="col-md-9 left-column">
 
@@ -521,6 +524,7 @@
 
 					<el-tab-pane :label="contractStepLabel('signing')" name="signing" :disabled="!!warningTemp || (isGuidedContract && furthestContractStep < 4)">
 					<ValidationObserver ref="signingStep" tag="div">
+                    <h5 v-if="isHandoverMode" class="handover-section-title">Ký kết & Ghi chú</h5>
                     <!-- Thông tin ký kết & Tài sản thế chấp theo hợp đồng Himoto -->
                     <div class="row">
                         <div class="col-md-12 form-group">
@@ -617,7 +621,7 @@
 					</el-tab-pane>
 				</el-tabs>
 
-				<div v-if="isGuidedContract" class="contract-step-navigation d-flex justify-content-between align-items-center mb-3">
+				<div v-if="isGuidedContract && !isHandoverMode" class="contract-step-navigation d-flex justify-content-between align-items-center mb-3">
 					<button type="button" class="btn btn-outline-secondary font-weight-bold" :disabled="activeContractStep === 0 || navigatingContractStep || loading" @click="previousContractStep">Quay lại</button>
 					<el-button v-if="activeContractStep < contractSteps.length - 1" native-type="button" class="btn btn-primary font-weight-bold" :loading="navigatingContractStep" :disabled="loading" @click="nextContractStep(false)">Tiếp tục: {{ contractSteps[activeContractStep + 1].label }}</el-button>
 					<span v-else class="text-muted">Kiểm tra thông tin và lưu hợp đồng.</span>
@@ -640,7 +644,7 @@
 							Lưu bản nháp giao xe
 						</el-button>
 
-						<el-button v-if="!id && activeContractStep === contractSteps.length - 1" native-type="submit" class="btn btn-sm btn-success mr-2"
+						<el-button v-if="!id && (isHandoverMode || activeContractStep === contractSteps.length - 1)" native-type="submit" class="btn btn-sm btn-success mr-2"
 							style="color: #fff" :loading="loading">
 							<span v-if="initialMode === 'handover'">Lưu & In biên bản bàn giao</span>
 							<span v-else-if="initialMode === 'draft'">Lưu bản nháp giao xe</span>
@@ -896,6 +900,7 @@ export default {
     computed: {
         ...mapGetters(["currentUser", "capabilities"]),
         isGuidedContract() {
+            if (this.isHandoverMode) return false;
             return !this.id || this.order.order_status === 'draft';
         },
         activeContractStep() {
@@ -1340,7 +1345,7 @@ export default {
         },
         async submitContractForm() {
             if (this.loading || this.navigatingContractStep) return;
-            if (this.isGuidedContract && this.activeContractStep < this.contractSteps.length - 1) {
+            if (!this.isHandoverMode && this.isGuidedContract && this.activeContractStep < this.contractSteps.length - 1) {
                 return this.nextContractStep(false);
             }
             const valid = await this.$refs.form.validate();
@@ -2567,5 +2572,39 @@ export default {
 .update-order-buttons {
     gap: 8px;
     flex-wrap: wrap;
+}
+</style>
+
+<style>
+.contract-form-stack.el-tabs--border-card {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+}
+
+.contract-form-stack > .el-tabs__header {
+    display: none;
+}
+
+.contract-form-stack > .el-tabs__content {
+    padding: 0;
+    overflow: visible;
+}
+
+.contract-form-stack .el-tab-pane {
+    display: block !important;
+}
+
+.handover-section-title {
+    margin: 4px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #ffc107;
+    font-weight: 700;
+    color: #3f4254;
+}
+
+.contract-form-stack .el-tab-pane + .el-tab-pane {
+    margin-top: 12px;
 }
 </style>

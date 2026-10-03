@@ -123,10 +123,18 @@
             <button
               type="button"
               class="btn btn-sm mr-2 font-weight-bold"
+              :class="query.aging_bucket === 'overdue_6_15' ? 'btn-warning' : 'btn-light-warning'"
+              @click="setAgingBucket('overdue_6_15')"
+            >
+              Nợ muộn 6-15 ngày ({{ stats?.buckets?.counts?.overdue_6_15 || 0 }})
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm mr-2 font-weight-bold"
               :class="query.aging_bucket === 'overdue_6_30' ? 'btn-danger' : 'btn-light-danger'"
               @click="setAgingBucket('overdue_6_30')"
             >
-              Nợ muộn 6-30 ngày ({{ stats?.buckets?.counts?.overdue_6_30 || 0 }})
+              Nợ muộn 16-30 ngày ({{ stats?.buckets?.counts?.overdue_6_30 || 0 }})
             </button>
             <button
               type="button"
@@ -243,10 +251,11 @@
 
                 <!-- Kỳ hạn -->
                 <td>
-                  <div class="font-weight-bold">{{ item.installment_count }} tháng</div>
+                  <div class="font-weight-bold">{{ item.installment_count }} tháng · {{ cycleLabel(item.billing_cycle) }}</div>
                   <div class="font-size-xs text-muted">
                     {{ item.period_amount | formatPrice }} / kỳ
                   </div>
+                  <div v-if="Number(item.prepaid_amount) > 0" class="font-size-xs text-muted">Trả trước {{ item.prepaid_amount | formatPrice }}</div>
                   <div class="progress progress-xs mt-1" style="height: 4px;">
                     <div
                       class="progress-bar bg-success"
@@ -366,22 +375,22 @@
                       text="In tài liệu"
                     >
                       <b-dropdown-header class="font-size-xs text-uppercase font-weight-bold">
-                        5 Mẫu hợp đồng & Biên bản
+                        Bộ 3 giấy tờ từ cùng một hồ sơ
                       </b-dropdown-header>
-                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'pdf')">
-                        1. Hợp đồng thuê sở hữu (mẫu phổ thông)
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openPaperSet(item)">
+                        In cả 3 giấy tờ
+                      </b-dropdown-item>
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openLegalDocument(item, 'rental-contract')">
+                        1. Hợp đồng thuê xe
                       </b-dropdown-item>
                       <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openLegalDocument(item, 'handover')">
-                        2. Biên bản bàn giao xe (mẫu 2 liên)
+                        2. Biên bản bàn giao xe
                       </b-dropdown-item>
-                      <b-dropdown-item :disabled="downloadingDoc === item.id || Number(item.installment_count) !== 6" @click="openAnnexDocument(item, 6)">
-                        3. Phụ lục HĐ thuê 6 tháng (SH06)
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="openAnnexDocument(item, Number(item.installment_count))">
+                        3. Phụ lục {{ Number(item.installment_count) }} tháng
                       </b-dropdown-item>
-                      <b-dropdown-item :disabled="downloadingDoc === item.id || Number(item.installment_count) !== 12" @click="openAnnexDocument(item, 12)">
-                        4. Phụ lục HĐ thuê 12 tháng (SH12)
-                      </b-dropdown-item>
-                      <b-dropdown-item :disabled="downloadingDoc === item.id || Number(item.installment_count) !== 24" @click="openAnnexDocument(item, 24)">
-                        5. Phụ lục HĐ thuê 24 tháng (SH24)
+                      <b-dropdown-item :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'pdf')">
+                        PDF hợp đồng thuê sở hữu
                       </b-dropdown-item>
                       <b-dropdown-divider></b-dropdown-divider>
                       <b-dropdown-item :disabled="downloadingDoc === item.id" @click="downloadPdf(item, 'debt-statement.pdf')">
@@ -419,6 +428,9 @@
           #{{ item.id }} · {{ item.contract_code || item.customer_name || 'Hợp đồng' }}
         </option>
       </select>
+      <p v-if="canCreateLease && !canApproveLease" class="text-muted mb-2">
+        Nhân viên lập hợp đồng ở trạng thái nháp. Trưởng phòng duyệt xong, hợp đồng mới có hiệu lực và chỉ quản lý xem được.
+      </p>
       <BusinessApprovalPanel subject-type="lease" :subject-id="selectedApprovalContractId"
         :store-id="Number(currentUser && currentUser.store_id || 0)" @changed="refreshData" />
     </div>
@@ -504,7 +516,7 @@ export default {
     canExportLease() { return this.hasCapability('lease.export'); },
     overdueContracts() {
       const counts = this.stats?.buckets?.counts || {};
-      return Number(counts.overdue_1_5 || 0) + Number(counts.overdue_6_30 || 0) + Number(counts.overdue_30_plus || 0);
+      return Number(counts.overdue_1_5 || 0) + Number(counts.overdue_6_15 || 0) + Number(counts.overdue_6_30 || 0) + Number(counts.overdue_30_plus || 0);
     },
     overduePercentage() {
       if (!this.stats || !this.stats.total_contracts) return 0;
@@ -546,6 +558,14 @@ export default {
       } catch (error) {
         this.$message.error(error.response?.data?.message || 'Không thể duyệt hợp đồng.');
       }
+    },
+    cycleLabel(cycle) {
+      return { day: "theo ngày", week: "theo tuần", month: "theo tháng" }[cycle || "month"] || "theo tháng";
+    },
+    openPaperSet(item) {
+      this.openLegalDocument(item, "rental-contract");
+      this.openLegalDocument(item, "handover");
+      this.openAnnexDocument(item, Number(item.installment_count));
     },
     openAnnexDocument(item, months) {
       const query = months ? `?months=${months}` : '';
@@ -657,7 +677,8 @@ export default {
       const map = {
         current: "Đúng hạn",
         overdue_1_5: "Nợ sớm (1-5 ngày)",
-        overdue_6_30: "Nợ muộn (6-30 ngày)",
+        overdue_6_15: "Nợ muộn (6-15 ngày)",
+        overdue_6_30: "Nợ muộn (16-30 ngày)",
         overdue_30_plus: "Cần thu hồi (>30 ngày)",
       };
       return map[bucket] || "Bình thường";
@@ -666,6 +687,7 @@ export default {
       const map = {
         current: "badge badge-success",
         overdue_1_5: "badge badge-warning",
+        overdue_6_15: "badge badge-warning",
         overdue_6_30: "badge badge-danger",
         overdue_30_plus: "badge badge-dark font-weight-bolder",
       };
@@ -700,13 +722,8 @@ export default {
       if (!this.canCollectLease) return;
       this.openPaymentModal(contract, amount);
     },
-    handleModalSuccess(contract, documentType) {
+    handleModalSuccess() {
       this.refreshData();
-      if (contract && contract.id && documentType && contract.status !== 'draft') {
-        if (documentType === 'pdf') this.downloadPdf(contract, 'pdf');
-        else if (documentType === 'handover') this.openLegalDocument(contract, 'handover');
-        else this.openAnnexDocument(contract, Number(documentType.slice(5)));
-      }
     },
     handleExportExcel() {
       this.exporting = true;
