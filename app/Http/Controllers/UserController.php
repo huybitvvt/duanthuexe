@@ -71,6 +71,35 @@ class UserController extends Controller
         }
     }
 
+    public function bulkStore(Request $request)
+    {
+        $data = $request->validate([
+            'password' => 'required|string|min:6|max:255',
+            'users' => 'required|array|min:1|max:50',
+            'users.*.name' => 'required|string|max:255',
+            'users.*.email' => 'required|email|max:255',
+            'users.*.phone' => 'nullable|string|max:25',
+            'users.*.role_id' => 'required|integer|exists:roles,id',
+            'users.*.store_id' => 'nullable|integer|exists:stores,id',
+            'users.*.staff_code' => 'nullable|string|max:50',
+            'users.*.position' => 'nullable|string|max:100',
+            'users.*.department_code' => 'nullable|string|max:50',
+            'users.*.department_name' => 'nullable|string|max:100',
+            'users.*.notes' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $count = $this->userService->storeMany($data['password'], $data['users']);
+            return $this->successResponse(['created' => $count], 'Đã tạo '.$count.' tài khoản nhân sự.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'error' => true,
+                'message' => $e->validator->errors()->first(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+    }
+
     public function update(Request $request)
     {
         $request->validate(['id' => 'required|integer|exists:users,id,deleted_at,NULL']);

@@ -1,7 +1,7 @@
 <template>
     <div>
-        <button v-b-modal.modal-user-create class="btn btn-success btn-sm">
-            Thêm mới
+        <button v-b-modal.modal-user-create class="btn btn-success font-weight-bold" type="button">
+            Thêm nhân sự
         </button>
         <b-modal id="modal-user-create" title="Thêm mới nhân viên" size="xl" centered @show="resetModal"
             @hidden="resetModal" hide-footer>

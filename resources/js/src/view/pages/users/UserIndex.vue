@@ -5,8 +5,9 @@
                 <div class="card-title">
                     <h3 class="card-label">Danh sách nhân sự</h3>
                 </div>
-                <div v-if="currentUser.role_id === 1" class="card-title">
+                <div class="card-toolbar">
                     <ModalUserCreate @storeSuccess="getList"></ModalUserCreate>
+                    <ModalUserBulk :roles="roles" :stores="stores" @storeSuccess="getList"></ModalUserBulk>
                 </div>
             </div>
             <div class="card-body">
@@ -238,6 +239,7 @@ import {
 } from "../../../option/vehicle";
 import { STORE_GET_ALL } from "../../../core/services/store/store.module";
 import ModalUserCreate from "./ModalCreateUser";
+import ModalUserBulk from "./ModalUserBulkCreate";
 import {
     USER_DELETE,
     USER_GET_ALL,
@@ -250,7 +252,7 @@ import queryMixin from '@/utils/queryMixin.js';
 export default {
     mixins: [queryMixin],
     name: "UserIndex",
-    components: { ModalUserEdit, ModalUserCreate },
+    components: { ModalUserEdit, ModalUserCreate, ModalUserBulk },
     data() {
         const { page, store_id, role_id, ...restQuery } =
             this.$route?.query || {};

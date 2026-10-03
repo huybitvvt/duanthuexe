@@ -207,6 +207,7 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::get('/get-staff-by-store', [UserController::class, 'getStaffByStore'])->middleware('permission:hr.view,order.create');
                 Route::group(['middleware' => ['admin']], function () {
                     Route::post('/store', [UserController::class, 'store']);
+                    Route::post('/bulk', [UserController::class, 'bulkStore']);
                     Route::post('/update', [UserController::class, 'update']);
                     Route::post('/change-password', [UserController::class, 'changePassword']);
                     Route::delete('/{user}', [UserController::class, 'destroy']);
@@ -307,6 +308,7 @@ Route::group(['middleware' => ['api', 'auth.jwt']], function ($router) {
                 Route::get('/export', [LeaseContractController::class, 'export'])->middleware('permission:lease.export');
                 Route::get('/{id}', [LeaseContractController::class, 'show'])->middleware('permission:lease.view');
                 Route::get('/{id}/pdf', [LeaseContractController::class, 'pdf'])->middleware(['schema.ready:lease_document', 'permission:lease.view']);
+                Route::get('/{id}/rental-contract', [LeaseContractController::class, 'rentalContract'])->middleware('permission:lease.view');
                 Route::get('/{id}/handover', [LeaseContractController::class, 'handover'])->middleware('permission:lease.view');
                 Route::get('/{id}/annex', [LeaseContractController::class, 'annex'])->middleware('permission:lease.view');
                 Route::get('/{id}/debt-statement.pdf', [LeaseContractController::class, 'debtStatementPdf'])->middleware(['schema.ready:lease_document', 'permission:lease.view']);

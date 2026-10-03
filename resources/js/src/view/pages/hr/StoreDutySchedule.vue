@@ -310,11 +310,18 @@
             <div class="col-md-7 text-right pt-md-4">
               <button
                 type="button"
-                class="btn btn-outline-primary font-weight-bold"
+                class="btn btn-outline-primary font-weight-bold mr-2"
                 :disabled="loadingOrganization"
                 @click="fetchOrganizationChart"
               >
                 {{ loadingOrganization ? 'Đang tải...' : 'Làm mới sơ đồ' }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-success font-weight-bold"
+                @click="openAddStaffModal"
+              >
+                Thêm nhân sự
               </button>
             </div>
           </div>
@@ -324,6 +331,15 @@
           </div>
           <div v-else-if="!organizationUnits.length" class="text-center text-muted py-8">
             Chưa có dữ liệu phòng ban hoặc nhân sự đang làm việc.
+            <div class="mt-4">
+              <button
+                type="button"
+                class="btn btn-success font-weight-bold"
+                @click="openAddStaffModal"
+              >
+                Thêm nhân sự
+              </button>
+            </div>
           </div>
           <div v-else class="organization-grid">
             <section v-for="unit in organizationUnits" :key="unit.code || unit.id" class="organization-unit">
@@ -634,9 +650,27 @@
           <label class="font-weight-bold">Chức danh / Vị trí</label>
           <el-input
             v-model="staffForm.position"
-            placeholder="Ví dụ: Quản lý chi nhánh, Nhân viên kỹ thuật..."
+            placeholder="Ví dụ: TPKD, NVKD, PT, Leader..."
             class="w-100"
           />
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="font-weight-bold">Phòng ban</label>
+          <el-select
+            v-model="staffForm.department_id"
+            placeholder="Chọn phòng ban trên sơ đồ"
+            class="w-100"
+            clearable
+            filterable
+          >
+            <el-option
+              v-for="unit in departmentOptions"
+              :key="unit.id"
+              :label="unit.code ? unit.code + ' — ' + unit.name : unit.name"
+              :value="unit.id"
+            />
+          </el-select>
         </div>
 
         <div class="form-group mb-3">
@@ -715,6 +749,7 @@ export default {
 
       staffList: [],
       organizationUnits: [],
+      departmentOptions: [],
       orgStoreId: null,
       loadingOrganization: false,
       attendanceRows: [],
@@ -736,6 +771,7 @@ export default {
         phone: "",
         email: "",
         position: "",
+        department_id: null,
         store_id: null,
         status: "active",
       },
@@ -745,6 +781,7 @@ export default {
     this.fetchStores();
     this.fetchDutySchedules();
     this.fetchStaffList();
+    this.fetchOrganizationChart();
   },
   methods: {
     selectTab(tab) {
@@ -835,6 +872,7 @@ export default {
         });
         const payload = res.data.data || [];
         this.organizationUnits = Array.isArray(payload) ? payload : [];
+        this.mergeDepartmentOptions(this.organizationUnits);
       } catch (err) {
         this.organizationUnits = [];
         this.$message.error(err.response?.data?.message || "Không thể tải sơ đồ tổ chức");
@@ -967,6 +1005,13 @@ export default {
       }
     },
 
+    mergeDepartmentOptions(units) {
+      const incoming = (units || []).filter((unit) => unit && unit.id);
+      const merged = new Map(this.departmentOptions.map((unit) => [unit.id, unit]));
+      incoming.forEach((unit) => merged.set(unit.id, unit));
+      this.departmentOptions = Array.from(merged.values());
+    },
+
     openAddStaffModal() {
       this.editingStaffId = null;
       this.staffForm = {
@@ -975,7 +1020,8 @@ export default {
         phone: "",
         email: "",
         position: "",
-        store_id: null,
+        department_id: null,
+        store_id: this.activeTab === "organization" ? (this.orgStoreId || null) : null,
         status: "active",
       };
       this.showStaffModal = true;
@@ -990,6 +1036,7 @@ export default {
         phone: staff.phone || "",
         email: staff.email || staff.personal_email || "",
         position: staff.position || "",
+        department_id: staff.department_id || null,
         store_id: staff.store_id || null,
         status: staff.status || "active",
       };
@@ -1012,6 +1059,7 @@ export default {
         this.$message.success(this.editingStaffId ? "Cập nhật hồ sơ thành công" : "Thêm mới nhân sự thành công");
         this.showStaffModal = false;
         this.fetchStaffList();
+        this.fetchOrganizationChart();
       } catch (err) {
         this.$message.error(err.response?.data?.message || "Không thể lưu thông tin nhân sự");
       } finally {

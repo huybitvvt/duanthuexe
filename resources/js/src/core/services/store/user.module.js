@@ -3,6 +3,7 @@ import ApiService from "@/core/services/api.service";
 // action types
 export const USER_GET_ALL = "user_get_all";
 export const USER_CREATE = "user_create";
+export const USER_BULK_CREATE = "user_bulk_create";
 export const USER_UPDATE = "user_update";
 export const USER_GET_STAFF_BY_STORE = "user_get_staff_by_store";
 export const USER_CHANGE_PASSWORD = "user_change_password";
@@ -55,6 +56,15 @@ const actions = {
                 reject(response)
             });
         })
+    },
+    [USER_BULK_CREATE](context, payload) {
+        return new Promise((resolve, reject) => {
+            ApiService.post("/api/auth/users/bulk", payload).then(({data}) => {
+                resolve(data);
+            }).catch(({response}) => {
+                reject(response);
+            });
+        });
     },
 
     [USER_UPDATE](context, payload) {
