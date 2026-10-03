@@ -178,7 +178,6 @@
                                 {{ category.label }}
                             </button>
                         </div>
-                        <OrderQuickCreate v-if="canCreateOrder" ref="quickCreate" :mode="activeCategory" :stores="stores" @continue="openQuickCreate" />
                         <div class="rental-list-heading">
                             <h4>Danh sách {{ activeCategoryLabel.toLowerCase() }}</h4>
                             <button v-if="canCreateOrder" type="button" class="btn btn-sm btn-outline-primary font-weight-bold" @click="openModalCreate(activeCategory)">
@@ -224,7 +223,7 @@
             </div>
 
             <b-modal v-model="showModalCreate" :title="modalCreateTitle" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
-                hide-footer>
+                hide-footer @hidden="continueDraftEditing">
                 <order-update v-if="showModalCreate" :initial-mode="createMode" :initial-data="createInitialData" :print-after-create="createAndPrint" @createSuccess="createSuccess"></order-update>
             </b-modal>
             <b-modal v-model="showModalUpdate" :title='"Sửa hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-update" :centered="true"
@@ -253,7 +252,6 @@ import { EXPORT_ORDERS } from "@/core/services/store/exports.module";
 import { mapGetters } from "vuex";
 import { SHOW_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL, GET_ORDER_CAR_RENTAL_REPORT, DELETE_ORDER, GET_ORDER_DOCUMENT } from "@/core/services/store/order.module";
 import { REPORT_CAR_RENTAL_NEW } from '../../../core/services/store/report.module';
-import OrderQuickCreate from "./components-order/OrderQuickCreate";
 import RentalOrderTable from "./components-order/RentalOrderTable";
 import { STORE_GET_ALL } from "@/core/services/store/store.module";
 import { ORDER_STATUS } from "@/option/orderOption";
@@ -308,6 +306,7 @@ export default {
             createMode: 'standard',
             createInitialData: {},
             createAndPrint: false,
+            pendingCreatedDraftId: null,
             modalCreateTitle: 'Tạo <Hợp đồng phổ thông>',
             loading: false,
             errorMessage: null,
@@ -344,7 +343,6 @@ export default {
     components: {
         OrderShow,
         OrderUpdate,
-        OrderQuickCreate,
         RentalOrderTable,
         OrderPayment,
         ModalContractPreview,
@@ -618,9 +616,6 @@ export default {
                 }
             });
         },
-        openQuickCreate(data) {
-            this.openModalCreate(this.activeCategory, data, true);
-        },
         openModalCreate(mode = this.activeCategory, initialData = {}, print = false) {
             if (!this.canCreateOrder) return;
             this.createMode = mode;
@@ -662,15 +657,17 @@ export default {
             this.$refs['modal-contract-payment'].show();
         },
         async createSuccess(result = {}) {
+            this.pendingCreatedDraftId = result.continueEditing && result.id ? result.id : null;
             this.showModalCreate = false;
             this.$refs['modal-contract-create'].hide();
-            if (this.$refs.quickCreate) {
-                this.$refs.quickCreate.reset();
-                this.$refs.quickCreate.loadVehicles();
-            }
             this.getList();
             this.getReport();
             if (result.print && result.id) await this.printOrderContract({ id: result.id });
+        },
+        continueDraftEditing() {
+            const id = this.pendingCreatedDraftId;
+            this.pendingCreatedDraftId = null;
+            if (id) this.openUpdateModal({ id });
         },
         updateSuccess() {
             this.$refs['modal-contract-update'].hide();

@@ -8,6 +8,18 @@ use Illuminate\Support\Facades\Log;
 
 class ContractNumberService
 {
+    public static function generateForDraft($date = null): string
+    {
+        do {
+            $number = self::generate($date);
+            $exists = \App\Models\Order::withTrashed()->where(function ($query) use ($number) {
+                $query->where('contract_number', $number)->orWhere('draft_reference', $number);
+            })->exists();
+        } while ($exists);
+
+        return $number;
+    }
+
     /**
      * Cấp số hợp đồng cho đơn hàng với tính chất idempotent (nếu đơn đã có số thì giữ nguyên).
      *

@@ -1,0 +1,29 @@
+{
+  "all_passed": true,
+  "cases": [
+    {
+      "width": 1440,
+      "role": "staff",
+      "passed": true,
+      "writes": "intercepted fixtures only"
+    },
+    {
+      "width": 1440,
+      "role": "admin",
+      "passed": true,
+      "writes": "intercepted fixtures only"
+    },
+    {
+      "width": 375,
+      "role": "staff",
+      "passed": true,
+      "writes": "intercepted fixtures only"
+    },
+    {
+      "width": 375,
+      "role": "admin",
+      "passed": true,
+      "writes": "intercepted fixtures only"
+    }
+  ]
+}

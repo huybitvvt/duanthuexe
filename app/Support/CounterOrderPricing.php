@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 
 final class CounterOrderPricing
 {
-    public static function validate(Request $request): void
+    public static function validate(Request $request, bool $allowCustomUnitPrice = false): void
     {
         $items = $request->input('order_items', []);
         if (!is_array($items) || !$items) {
@@ -21,7 +21,7 @@ final class CounterOrderPricing
         $vehicleIds = [];
         foreach ($items as $item) {
             if (!is_array($item) || !empty($item['pricing_scheme'])
-                || !empty($item['handler_price']) || !empty($item['substitute_unit_price'])
+                || !empty($item['handler_price']) || (!$allowCustomUnitPrice && !empty($item['substitute_unit_price']))
                 || !empty($item['order_item_fees'])) {
                 throw ValidationException::withMessages(['order_items' => 'Giá hoặc phí ngoài bảng cần trưởng phòng duyệt.']);
             }
@@ -65,7 +65,13 @@ final class CounterOrderPricing
             if (!$price) {
                 throw ValidationException::withMessages(['order_items' => 'Chưa có giá niêm yết cho xe và thời gian thuê này.']);
             }
-            $amount = $type === 'total' ? (float) $price->price : (float) $price->price * $days + $hourlyFee;
+            $customUnitPrice = $item['substitute_unit_price'] ?? 0;
+            if (!is_numeric($customUnitPrice) || !is_finite((float) $customUnitPrice) || (float) $customUnitPrice < 0) {
+                throw ValidationException::withMessages(['order_items' => 'Đơn giá tùy chỉnh phải là số không âm.']);
+            }
+            $unitPrice = $allowCustomUnitPrice && (float) $customUnitPrice > 0
+                ? (float) $customUnitPrice : (float) $price->price;
+            $amount = $type === 'total' ? $unitPrice : $unitPrice * $days + $hourlyFee;
             // Older forms send the calculated rental fee in custom fields even
             // when it matches the tariff. Only a real override needs approval.
             foreach (['custom_total_money', 'custom_hiring_fee'] as $field) {

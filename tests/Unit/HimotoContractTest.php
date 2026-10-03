@@ -214,6 +214,135 @@ class HimotoContractTest extends TestCase
         ]);
     }
 
+    private function numberedDraftPayload(): array
+    {
+        $payload = $this->counterHttpPayload();
+        Schema::table('orders', function ($table) {
+            $table->string('order_mode')->nullable();
+            $table->string('draft_reference')->nullable()->unique();
+            $table->text('draft_payload')->nullable();
+        });
+        unset($payload['customer_phone'], $payload['customer_id_card']);
+        return array_merge($payload, ['save_as_draft' => true, 'order_mode' => 'standard',
+            'contract_signed_on' => '2026-10-03']);
+    }
+
+    public function testStandardDraftReceivesSequentialReferenceWithoutBookingMoneyOrVehicle(): void
+    {
+        $payload = $this->numberedDraftPayload();
+        $this->postJson('/api/auth/order/car-rental', $payload)->assertStatus(200);
+        $this->postJson('/api/auth/order/car-rental', $payload)->assertStatus(200);
+
+        $orders = Order::orderBy('id')->get();
+        $this->assertSame(['261003-0001', '261003-0002'], $orders->pluck('draft_reference')->all());
+        foreach ($orders as $order) {
+            $this->assertSame(OrderValidator::ORDER_DRAFT, $order->order_status);
+            $this->assertNull($order->contract_number);
+            $this->assertNull($order->contract_issued_at);
+        }
+        $this->assertSame(0, Transaction::count());
+        $this->assertSame(Vehicle::STATUS_READY, Vehicle::find($payload['order_items'][0]['vehicle_id'])->status);
+        $this->assertSame(2, (int) DB::table('contract_number_counters')->value('last_number'));
+    }
+
+    public function testStandardDraftKeepsReferenceWhenSavedAgainAndPublished(): void
+    {
+        $payload = $this->numberedDraftPayload();
+        $this->postJson('/api/auth/order/car-rental', $payload)->assertStatus(200);
+        $order = Order::first();
+        $payload['order_items'][0]['id'] = $order->orderItems()->first()->id;
+        $payload['note'] = 'Bổ sung thông tin còn thiếu';
+        $payload['draft_reference'] = '';
+        $this->putJson('/api/auth/order/car-rental/'.$order->id, $payload)->assertStatus(200);
+        $this->assertSame('261003-0001', $order->fresh()->draft_reference);
+        $this->assertSame(1, (int) DB::table('contract_number_counters')->value('last_number'));
+        $this->assertSame(0, Transaction::count());
+
+        $payload['save_as_draft'] = false;
+        $payload['customer_phone'] = '0912345678';
+        $payload['customer_id_card'] = '123456789';
+        $this->putJson('/api/auth/order/car-rental/'.$order->id, $payload)->assertStatus(200);
+        $this->assertSame('261003-0001', $order->fresh()->contract_number);
+        $this->assertSame(OrderValidator::ORDER_RENTING, $order->fresh()->order_status);
+        $this->assertSame(1, (int) DB::table('contract_number_counters')->value('last_number'));
+    }
+
+    public function testAutomaticDraftReferenceSkipsPaperNumbersIncludingDeletedOrders(): void
+    {
+        $this->numberedDraftPayload();
+        $order = Order::create(['contract_number' => '261003-0001']);
+        $order->delete();
+        Order::create(['draft_reference' => '261003-0002']);
+        $this->assertSame('261003-0003', ContractNumberService::generateForDraft('2026-10-03'));
+    }
+
+    public function testAuthorizedUnitPriceUsesTheRequestedRateAndStillChecksTotals(): void
+    {
+        $payload = $this->counterPricingPayload('day', '2026-10-02 09:00:00', 360000);
+        $payload['order_items'][0]['substitute_unit_price'] = 120000;
+        CounterOrderPricing::validate(new Request($payload), true);
+        $this->assertSame(360000, $payload['total']);
+        $payload['total_rental_fees'] = 350000;
+        $this->expectException(ValidationException::class);
+        CounterOrderPricing::validate(new Request($payload), true);
+    }
+
+    public function testCounterCannotBypassUnitPriceApproval(): void
+    {
+        $payload = $this->counterHttpPayload();
+        $payload['save_as_draft'] = true;
+        $payload['order_items'][0]['substitute_unit_price'] = 120000;
+        $this->postJson('/api/auth/order/car-rental', $payload)->assertStatus(422);
+        $this->assertSame(0, Order::count());
+        $this->assertSame(0, Transaction::count());
+    }
+
+    public function testManagerCanAdjustDraftUnitPriceAndPublishWithTheSameNumber(): void
+    {
+        $payload = $this->numberedDraftPayload();
+        $this->actingAs((new User())->forceFill(['id' => 11, 'role_id' => 1,
+            'store_id' => 1, 'status' => 'active']), 'api');
+        $this->postJson('/api/auth/order/car-rental', $payload)->assertStatus(200);
+        $order = Order::first();
+        $payload['order_items'][0]['id'] = $order->orderItems()->first()->id;
+        $payload['order_items'][0]['substitute_unit_price'] = 120000;
+        $payload['order_items'][0]['total_money'] = 360000;
+        $payload['total'] = $payload['total_rental_fees'] = 360000;
+        $payload['pid'] = 1360000;
+        $payload['total_rental_payment_method']['cash_amount'] = 360000;
+        $this->putJson('/api/auth/order/car-rental/'.$order->id, $payload)->assertStatus(200);
+        $this->assertSame(0, Transaction::count());
+        $this->assertEquals(120000, $order->fresh()->orderItems()->first()->substitute_unit_price);
+
+        $payload['save_as_draft'] = false;
+        $payload['customer_phone'] = '0912345678';
+        $payload['customer_id_card'] = '123456789';
+        $this->putJson('/api/auth/order/car-rental/'.$order->id, $payload)->assertStatus(200);
+        $this->assertEquals(360000, $order->fresh()->total);
+        $this->assertSame('261003-0001', $order->fresh()->contract_number);
+        $this->assertSame(Vehicle::STATUS_USING, Vehicle::find($payload['order_items'][0]['vehicle_id'])->status);
+    }
+
+    public function testFailedDraftSaveRollsBackTheReservedNumberAndCustomer(): void
+    {
+        $payload = $this->numberedDraftPayload();
+        $original = app(OrderService::class);
+        $this->app->instance(OrderService::class, new class($original) extends OrderService {
+            private $original;
+            public function __construct(OrderService $original) { $this->original = $original; }
+            public function store(Request $request) {
+                $this->original->store($request);
+                throw new \RuntimeException('Simulated failure after draft creation.');
+            }
+        });
+        $this->postJson('/api/auth/order/car-rental', $payload)->assertStatus(422);
+        $this->assertSame(0, Order::count());
+        $this->assertSame(0, Customer::count());
+        $this->assertSame(0, DB::table('contract_number_counters')->count());
+        $this->assertSame(0, Transaction::count());
+        $this->assertSame(Vehicle::STATUS_READY, Vehicle::find($payload['order_items'][0]['vehicle_id'])->status);
+    }
+
     public function testCounterCheckInRecordsVehicleWithoutSettlingMoney(): void
     {
         Schema::table('users', function ($table) { $table->integer('store_id')->nullable(); });

@@ -161,6 +161,22 @@
 
         </div>
 
+        <div class="row" v-if="!is_deposit_contract_mode">
+            <div class="col-md-4 form-group">
+                <label :for="'default-unit-price-' + index"><strong>Đơn giá theo bảng giá</strong></label>
+                <money :id="'default-unit-price-' + index" :value="Number(local_order_item.default_unit_price) || 0"
+                    v-bind="money" class="form-control" disabled></money>
+            </div>
+            <div class="col-md-4 form-group">
+                <label :for="'applied-unit-price-' + index"><strong>{{ is_all_in_one ? 'Giá gói áp dụng' : 'Đơn giá áp dụng / ngày' }}</strong></label>
+                <money :id="'applied-unit-price-' + index" v-model="substitute_unit_price_input"
+                    :disabled="!canCustomizePrice" v-bind="money" class="form-control"></money>
+                <small v-if="!canCustomizePrice" class="text-muted">Giá tùy chỉnh cần người có quyền duyệt giá.</small>
+                <button v-else-if="Number(local_order_item.substitute_unit_price) > 0" type="button"
+                    class="btn btn-sm btn-link px-0" @click="substitute_unit_price_input = Number(local_order_item.default_unit_price) || 0">Dùng giá mặc định</button>
+            </div>
+        </div>
+
         <div v-if="order_id != 0">
             <el-collapse accordion style="display: none" data-note="Temporary disabled by TuyenDev">
                 <el-collapse-item name="1">
@@ -233,6 +249,7 @@ import moment from "moment";
 export default {
     name: "ItemsOrder",
     props: {
+        canCustomizePrice: { type: Boolean, default: false },
         banks: {
             type: Array,
             default: () => {
@@ -379,16 +396,21 @@ export default {
 
         substitute_unit_price_input: {
             get() {
-                return this.local_order_item.substitute_unit_price;
+                return Number(this.local_order_item.substitute_unit_price) > 0
+                    ? Number(this.local_order_item.substitute_unit_price) : (Number(this.local_order_item.default_unit_price) || 0);
             },
             set(data) {
-                if (data !== this.local_order_item.substitute_unit_price) {
+                if (!this.canCustomizePrice) return;
+                const amount = Number(data);
+                if (!Number.isFinite(amount) || amount <= 0) return;
+                const value = amount === Number(this.local_order_item.default_unit_price) ? 0 : amount;
+                if (value !== Number(this.local_order_item.substitute_unit_price)) {
 					this.editing_custom_hiring_fee = false;
 					this.custom_hiring_fee = null;
 
                     this.$emit("change_substitute_unit_price", {
                         index: this.index,
-                        data,
+                        data: value,
                     });
                 }
             },

@@ -86,9 +86,9 @@ def check_layout(browser, base_url, width, admin, output_dir):
     page = context.new_page()
     page.on('pageerror', lambda error: errors.append(str(error)))
     page.goto(base_url + '/car-rental', wait_until='domcontentloaded')
-    expect(page.locator('#quick-customer')).to_be_visible(timeout=20000)
-    expect(page.locator('#quick-vehicle')).to_be_enabled()
-    expect(page.get_by_role('link', name=re.compile('Xem kho xe Thuê'))).to_have_count(1)
+    expect(page.get_by_role('button', name='Thêm mới đơn thuê xe phổ thông', exact=True)).to_be_visible(timeout=20000)
+    expect(page.locator('.rental-quick-create')).to_have_count(0)
+    expect(page.get_by_role('link', name=re.compile('Kho thuê xe'))).to_have_count(1)
     category = page.locator('.contract-category-list')
     master = page.locator('.contract-master-list')
     expect(category.locator('tbody tr')).to_have_count(1)
@@ -108,71 +108,18 @@ def check_layout(browser, base_url, width, admin, output_dir):
     assert not any(query.get('page') == ['2'] and 'order_mode' not in query for query in reads)
 
     if admin:
-        expect(page.locator('#quick-store')).to_be_enabled()
-        page.locator('#quick-store').select_option('2')
-        expect(page.locator('#quick-vehicle option')).to_have_count(2)
-        page.locator('#quick-vehicle').select_option('202')
-        page.locator('#quick-store').select_option('1')
-        expect(page.locator('#quick-vehicle')).to_have_value('')
         expect(master.get_by_role('checkbox', name='Chọn tất cả đơn trong trang')).to_be_visible()
         master.get_by_role('checkbox', name='Chọn tất cả đơn trong trang').check()
         assert all(master.get_by_role('checkbox').nth(i).is_checked() for i in range(4))
         master.get_by_role('checkbox', name='Chọn tất cả đơn trong trang').uncheck()
     else:
-        expect(page.locator('#quick-store')).to_be_disabled()
-        expect(page.locator('#quick-vehicle option')).to_have_count(2)
         expect(master.get_by_role('button', name='Xóa', exact=True)).to_have_count(0)
-
-    page.locator('#quick-customer').fill('Khách tạo nhanh')
-    page.locator('#quick-phone').fill('0912345678')
-    page.locator('#quick-vehicle').select_option('101')
-    page.locator('#quick-rent').fill('2026-10-02T09:00')
-    page.locator('#quick-return').fill('2026-10-03T09:00')
-    page.locator('#quick-note').fill('Ghi chú tạo nhanh')
-    expect(page.locator('#quick-price')).to_have_value('200.000đ')
+    expect(page.locator('.rental-quick-create')).to_have_count(0)
+    assert not submitted and not documents
     assert page.evaluate('document.documentElement.scrollWidth') <= width + 1
     if output_dir:
         page.screenshot(path=str(output_dir / f'rental-layout-{width}-{"admin" if admin else "staff"}.png'), full_page=True)
 
-    page.get_by_role('button', name='Tạo đơn & In', exact=True).click()
-    modal = page.locator('.modal.show').filter(has=page.locator('.form'))
-    expect(modal.get_by_text('Bước 1/5:', exact=False)).to_be_visible()
-    page.evaluate("""() => { window.contractForm = () => {
-        let node = document.querySelector('.modal.show .form');
-        while (node && !node.__vue__) node = node.parentElement;
-        let vm = node && node.__vue__;
-        while (vm && vm.$options.name !== 'OrderUpdate') vm = vm.$parent;
-        return vm;
-    }; }""")
-    page.wait_for_function('contractForm().priceVehicles.length === 1')
-    assert page.evaluate('contractForm().order.customer_name') == 'Khách tạo nhanh'
-    assert page.evaluate('contractForm().order.note') == 'Ghi chú tạo nhanh'
-    assert page.evaluate('contractForm().order.order_items[0].hiringFee') == 200000
-    next_step = modal.get_by_role('button', name=re.compile('^Tiếp tục:'))
-    next_step.click()
-    page.wait_for_function("contractForm().activeContractTab === 'customer'")
-    modal.get_by_placeholder('Số CMTND/CCCD', exact=True).fill('123456789')
-    for target in ['vehicle', 'payment', 'signing']:
-        next_step.click()
-        page.wait_for_function('target => contractForm().activeContractTab === target', arg=target)
-    modal.get_by_role('button', name='Lưu hợp đồng & In', exact=True).click()
-    expect(modal.get_by_text('CCCD kiểm thử bị từ chối.', exact=False).first).to_be_visible()
-    assert len(submitted) == 1 and not documents
-    assert page.evaluate('contractForm().order.customer_name') == 'Khách tạo nhanh'
-    assert page.evaluate('contractForm().order.note') == 'Ghi chú tạo nhanh'
-    page.wait_for_function('!contractForm().loading')
-    for target in ['vehicle', 'payment', 'signing']:
-        next_step.click()
-        page.wait_for_function('target => contractForm().activeContractTab === target', arg=target)
-    modal.get_by_role('button', name='Lưu hợp đồng & In', exact=True).click()
-    expect(page.locator('.modal.show .contract-print-wrapper')).to_be_visible(timeout=10000)
-    assert len(submitted) == 2
-    assert documents == ['/api/auth/order/car-rental/1001/document']
-    assert submitted[1]['total'] == submitted[1]['total_rental_fees'] == 200000
-    assert submitted[1]['contract_signer_b_name'] == 'Khách tạo nhanh'
-    assert submitted[1]['order_items'][0]['vehicle_id'] == 101
-    assert not submitted[1]['order_items'][0]['custom_total_money']
-    expect(page.locator('#quick-customer')).to_have_value('')
     assert not errors, errors
     assert not blocked, blocked
     context.close()

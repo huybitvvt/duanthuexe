@@ -264,8 +264,11 @@ class OrderController extends Controller
 				if ($order->order_status === OrderValidator::ORDER_DRAFT
 					&& !filter_var($request->input('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
 					&& (int) $request->input('contract_type', 1) === 1) {
-					\App\Support\CounterOrderPricing::validate($request);
+                    \App\Support\CounterOrderPricing::validate($request, true);
 				}
+                if ($order->order_status === OrderValidator::ORDER_DRAFT) {
+                    return;
+                }
 				if (($request->has('total') && (float) $request->input('total') < (float) $order->total)
 					|| ($request->has('total_rental_fees') && (float) $request->input('total_rental_fees') < (float) $order->total_rental_fees)) {
 					throw ValidationException::withMessages(['total' => 'Giảm tổng tiền đơn cần đề nghị và phê duyệt riêng.']);
@@ -281,7 +284,7 @@ class OrderController extends Controller
 				}
 			} elseif (!filter_var($request->input('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
 				&& (int) $request->input('contract_type', 1) === 1) {
-				\App\Support\CounterOrderPricing::validate($request);
+                \App\Support\CounterOrderPricing::validate($request, true);
 			}
 			return;
 		}

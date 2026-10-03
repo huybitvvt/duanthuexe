@@ -212,6 +212,17 @@ class OrderService
 		if (Schema::hasColumn('orders', 'draft_reference') && $request->has('draft_reference')) {
 			$dataOrder['draft_reference'] = trim((string) $request->get('draft_reference')) ?: null;
 		}
+        $numberingMode = $order ? ($order->order_mode ?: 'standard') : ($dataOrder['order_mode'] ?? 'standard');
+        if ($numberingMode === 'standard' && Schema::hasColumn('orders', 'draft_reference')) {
+            if ($order && $order->order_status === OrderValidator::ORDER_DRAFT && $order->draft_reference) {
+                $manualNumber = $order->draft_reference;
+                $dataOrder['draft_reference'] = $order->draft_reference;
+            } elseif (filter_var($request->get('save_as_draft', false), FILTER_VALIDATE_BOOLEAN)
+                && (int) $request->get('contract_type', 1) === 1) {
+                $dataOrder['draft_reference'] = $manualNumber !== '' ? $manualNumber
+                    : ContractNumberService::generateForDraft($request->get('contract_signed_on'));
+            }
+        }
 
 		// Bổ sung các trường thông tin hợp đồng từ request
 		$contractFields = [

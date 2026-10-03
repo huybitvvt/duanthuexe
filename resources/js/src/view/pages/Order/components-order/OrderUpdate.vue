@@ -2,6 +2,9 @@
     <div v-loading="loadingComponent">
         <ValidationObserver ref="form">
             <form class="form" @submit.prevent="submitContractForm" @pointerdown.capture="onContractStepPointerdown" @keydown.capture="contractStepPointerNavigation = false">
+                <div v-if="!id && initialMode === 'standard'" class="alert alert-info" role="status">
+                    Nhập thông tin đã có rồi tạo đơn nháp để bổ sung các ô còn trống. Mã hợp đồng được cấp tự động khi lưu nháp; tiền thu và xe chỉ được ghi nhận khi phát hành.
+                </div>
 				<div v-if="!id && initialMode === 'draft'" class="alert alert-custom alert-light-success p-3 mb-4">
 					<div class="d-flex align-items-center justify-content-between flex-wrap">
 						<div>
@@ -158,13 +161,14 @@
 						</div>
 						<div class="col-md-6 form-group">
 							<label>
-								<strong>Mã hợp đồng tự tạo / Số HĐ giấy</strong>
-								<small class="text-muted ml-1">(nhập nếu dùng HĐ giấy hoặc tạo mã riêng)</small>
+                                    <strong>{{ isStandardContract ? 'Mã hợp đồng tự động' : 'Mã hợp đồng tự tạo / Số HĐ giấy' }}</strong>
+                                    <small class="text-muted ml-1">{{ isStandardContract ? '(YYMMDD-0001, tăng dần trong ngày)' : '(nhập nếu dùng HĐ giấy hoặc tạo mã riêng)' }}</small>
 							</label>
 							<el-input
 								v-model="order.manual_contract_number"
-									placeholder="VD: 260924-0001 hoặc số trên hợp đồng giấy"
-								clearable
+                                    :placeholder="isStandardContract ? 'Hệ thống tự cấp mã khi lưu nháp' : 'VD: 260924-0001 hoặc số trên hợp đồng giấy'"
+                                    :readonly="isStandardContract"
+                                    :clearable="!isStandardContract"
 							></el-input>
 						</div>
 						<div class="col-md-6 form-group" v-if="order.is_authorized_contract">
@@ -347,7 +351,7 @@
                         </div>
                     </div>
                     <ValidationObserver v-for="(item, key) in order.order_items" :key="key" tag="div">
-                        <items-order :priceVehicles="priceVehicles" :order_item="item" :banks="banks"
+                        <items-order :priceVehicles="priceVehicles" :order_item="item" :banks="banks" :can-customize-price="canCustomizeUnitPrice"
 							:is_deposit_contract_mode="is_deposit_contract_mode"
 							:is_draft_mode="isDraftMode"
                             :ref="'itemOrder-' + key" :vehicles="contractVehicles" :index="key" :order_id="id"
@@ -641,14 +645,13 @@
 						</button>
 						<el-button v-if="initialMode !== 'handover' && (!id || order.order_status === 'draft')" type="button" class="btn btn-sm btn-outline-success mr-2"
 							:loading="loading" @click="saveDraft">
-							Lưu bản nháp giao xe
+							{{ id ? 'Lưu thay đổi bản nháp' : 'Tạo đơn nháp và bổ sung thông tin' }}
 						</el-button>
 
-						<el-button v-if="!id && (isHandoverMode || activeContractStep === contractSteps.length - 1)" native-type="submit" class="btn btn-sm btn-success mr-2"
+						<el-button v-if="!id && isHandoverMode" native-type="submit" class="btn btn-sm btn-success mr-2"
 							style="color: #fff" :loading="loading">
 							<span v-if="initialMode === 'handover'">Lưu & In biên bản bàn giao</span>
-							<span v-else-if="initialMode === 'draft'">Lưu bản nháp giao xe</span>
-                            <span v-else>{{ printAfterCreate ? 'Lưu hợp đồng & In' : 'Lưu hợp đồng' }}</span>
+                            <span v-else>Tạo đơn nháp và bổ sung thông tin</span>
 						</el-button>
 						<el-button v-if="
 							id &&
@@ -907,8 +910,15 @@ export default {
             return this.contractSteps.findIndex(step => step.name === this.activeContractTab);
         },
         canEditRentalPricing() {
-            return Boolean(this.id) && this.order.order_status !== 'draft'
+            return Boolean(this.id) && this.order.order_status !== 'draft' && this.canCustomizeUnitPrice;
+        },
+        canCustomizeUnitPrice() {
+            return !this.order.contract_is_locked && !this.order.contract_snapshot?.is_locked
+                && !['completed', 'wait_payment', 'cancelled', 'cancel_pending_settlement'].includes(this.order.order_status)
                 && (this.capabilities.includes('*') || this.capabilities.includes('order.discount_approve'));
+        },
+        isStandardContract() {
+            return (this.id ? (this.order.order_mode || 'standard') : this.initialMode) === 'standard';
         },
         canChooseContractStore() {
             return (this.capabilities || []).includes('*') || Number(this.currentUser?.role_id) === 1;
@@ -943,7 +953,7 @@ export default {
                 && this.order.order_items.every(item => Boolean(item.completed_at)));
         },
         isDraftMode() {
-            return ['draft', 'handover'].includes(this.initialMode) || (this.order && this.order.order_status === 'draft');
+            return !this.id || (this.order && this.order.order_status === 'draft');
         },
         isHandoverMode() {
             return this.initialMode === 'handover' || (this.order && this.order.order_mode === 'handover');
@@ -1550,14 +1560,11 @@ export default {
                     rangeDays += 1;
                 }
 
-                let unitPrice
-                if (order_item.substitute_unit_price > 0) {
-                    unitPrice = order_item.substitute_unit_price
-                } else {
-                    unitPrice = this.calOriginalUnitPrice(order_item, rangeDays);
-					order_item.default_unit_price = unitPrice; // Bảng giá thuê mặc định theo ngày của xe này.
-					order_item.rental_days = rangeDays; // Tổng số ngày thuê xe
-                }
+                const defaultUnitPrice = this.calOriginalUnitPrice(order_item, rangeDays);
+                this.$set(order_item, 'default_unit_price', defaultUnitPrice);
+                this.$set(order_item, 'rental_days', rangeDays);
+                const unitPrice = Number(order_item.substitute_unit_price) > 0
+                    ? Number(order_item.substitute_unit_price) : Number(defaultUnitPrice);
 
 				this.$set(order_item, 'contract_unit_price', order_item.is_all_in_one || order_item.custom_hiring_fee > 0 ? null : unitPrice);
 				if (order_item.custom_hiring_fee && order_item.custom_hiring_fee > 0) {
@@ -2143,7 +2150,7 @@ export default {
             };
         },
         handleFormSubmit() {
-            const saveAsDraft = !this.id && ['draft', 'handover'].includes(this.initialMode);
+            const saveAsDraft = !this.id;
             if (this.id) {
                 this.onSubmit();
             } else {
@@ -2231,7 +2238,7 @@ export default {
         onSubmitCreate(saveAsDraft = false) {
             this.loading = true;
             this.serverValidationErrors = [];
-            const effectiveSaveAsDraft = saveAsDraft || ['draft', 'handover'].includes(this.initialMode);
+            const effectiveSaveAsDraft = true;
             const handoverTab = this.initialMode === 'handover' ? window.open('', '_blank') : null;
             let handoverOpened = false;
             let params = this.prepareRequestParams();
@@ -2255,7 +2262,9 @@ export default {
 					} else if (this.initialMode === 'handover' && handoverTab) {
 						handoverTab.close();
 					}
-                    this.$emit("createSuccess", { id: createdId, print: this.printAfterCreate && this.initialMode !== 'handover' });
+                    this.$emit("createSuccess", { id: createdId,
+                        continueEditing: effectiveSaveAsDraft && this.initialMode !== 'handover',
+                        print: this.printAfterCreate && this.initialMode !== 'handover' });
                     this.resetForm();
                     this.noticeMessage(
                         "success",
@@ -2272,6 +2281,7 @@ export default {
                 .finally(() => (this.loading = false));
         },
 		saveDraft() {
+			if (this.loading) return;
 			if (this.id) this.onSubmit(true);
 			else this.onSubmitCreate(true);
 		},

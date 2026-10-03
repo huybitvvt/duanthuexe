@@ -59,6 +59,7 @@ class OrderValidator extends LaravelValidator
             'relatives.*.phone' => 'nullable|string|max:30',
             'relatives.*.relationship' => 'nullable|string|max:100',
             'order_items' => 'nullable|array',
+            'order_items.*.substitute_unit_price' => 'nullable|numeric|min:0',
             'order_items.*.borrow_raincoats' => 'nullable|integer|min:0',
             'order_items.*.pricing_scheme' => 'nullable|in:flat_200k_day',
             'order_items.*.driver_name' => 'nullable|string|max:191',

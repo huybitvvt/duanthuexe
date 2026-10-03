@@ -1,0 +1,15 @@
+{
+  "all_passed": true,
+  "viewports": [
+    {
+      "width": 1440,
+      "passed": true,
+      "save": "intercepted fixture only"
+    },
+    {
+      "width": 375,
+      "passed": true,
+      "save": "intercepted fixture only"
+    }
+  ]
+}

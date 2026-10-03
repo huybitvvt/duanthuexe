@@ -1,0 +1,39 @@
+﻿{
+    "mode":  "read_only",
+    "schema":  "himoto",
+    "migration_applied":  true,
+    "migration_record":  {
+                             "migration":  "2026_10_03_000001_add_lease_billing_cycle_and_prepaid_amount",
+                             "batch":  51
+                         },
+    "columns":  [
+                    {
+                        "column_name":  "billing_cycle",
+                        "data_type":  "character varying",
+                        "column_default":  "\u0027month\u0027::character varying",
+                        "is_nullable":  "NO"
+                    },
+                    {
+                        "column_name":  "paperwork",
+                        "data_type":  "text",
+                        "column_default":  null,
+                        "is_nullable":  "YES"
+                    },
+                    {
+                        "column_name":  "prepaid_amount",
+                        "data_type":  "numeric",
+                        "column_default":  "\u00270\u0027::numeric",
+                        "is_nullable":  "NO"
+                    }
+                ],
+    "row_checks":  {
+                       "contracts":  0,
+                       "missing_defaults":  0
+                   },
+    "draft_numbering_schema":  {
+                                   "draft_reference_column":  true,
+                                   "counters_table":  true,
+                                   "unique_draft_reference":  true,
+                                   "counters_primary_key":  true
+                               }
+}

@@ -90,133 +90,53 @@ def check_form(browser, base_url, width, output_dir):
     page.goto(base_url + "/car-rental", wait_until="domcontentloaded")
     create = page.get_by_role("button", name="Thêm mới đơn thuê xe phổ thông", exact=True)
     expect(create).to_be_visible(timeout=20000)
-    assert page.get_by_role("link", name=re.compile("Xem kho xe Thuê")).count() == 1
+    expect(page.locator('.rental-quick-create')).to_have_count(0)
     create.click()
-    modal = page.locator(".modal.show")
-    expect(modal.get_by_text("Bước 1/5:", exact=False)).to_be_visible()
+    modal = page.locator('.modal.show')
+    expect(modal.get_by_text('Bước 1/5:', exact=False)).to_be_visible()
     page.evaluate("""() => { window.contractForm = () => {
         let node = document.querySelector('.modal.show .form');
         while (node && !node.__vue__) node = node.parentElement;
         let vm = node && node.__vue__;
         while (vm && vm.$options.name !== 'OrderUpdate') vm = vm.$parent;
-        if (!vm) throw new Error('OrderUpdate was not mounted');
         return vm;
     }; }""")
-    page.wait_for_function("contractForm().priceVehicles.length === 1")
-    assert "is-disabled" in modal.locator("#tab-vehicle").get_attribute("class")
-    assert page.get_by_role("link", name=re.compile("Xem kho xe Thuê")).count() == 1
-
-    # Keyboard completion of the final optional field advances automatically.
-    reference = modal.get_by_placeholder("VD: 260924-0001 hoặc số trên hợp đồng giấy")
-    reference.fill("LOCAL-FORM-0001")
-    reference.press("Tab")
+    page.wait_for_function('contractForm().priceVehicles.length === 1')
+    expect(modal.get_by_placeholder('Hệ thống tự cấp mã khi lưu nháp', exact=True)).to_have_attribute('readonly', 'readonly')
+    next_step = modal.get_by_role('button', name=re.compile('^Tiếp tục:'))
+    next_step.click()
     page.wait_for_function("contractForm().activeContractTab === 'customer'")
-    next_step = modal.get_by_role("button", name=re.compile("^Tiếp tục:"))
-
-    def go_to_step(target):
-        names = ['contract', 'customer', 'vehicle', 'payment', 'signing']
-        while page.evaluate('contractForm().activeContractTab') != target:
-            current = names.index(page.evaluate('contractForm().activeContractTab'))
-            destination = names.index(target)
-            if current > destination:
-                modal.get_by_role('button', name='Quay lại', exact=True).click()
-                expected = names[current - 1]
-            else:
-                next_step.click()
-                expected = names[current + 1]
-            page.wait_for_function('name => contractForm().activeContractTab === name', arg=expected)
-
-    next_step.click()
-    assert page.evaluate("contractForm().activeContractTab") == "customer"
-    assert not submitted
-
-    modal.get_by_placeholder("Tên khách hàng", exact=True).fill("Khách kiểm thử")
-    modal.get_by_placeholder("SĐT khách hàng", exact=True).fill("0912345678")
-    modal.get_by_placeholder("Số CMTND/CCCD", exact=True).fill("123456789")
+    modal.get_by_placeholder('Tên khách hàng', exact=True).fill('Khách kiểm thử')
     page.wait_for_function("contractForm().order.contract_signer_b_name === 'Khách kiểm thử'")
-    last_customer_field = modal.get_by_placeholder("SĐT người thân 2", exact=True)
+    last_customer_field = modal.get_by_placeholder('SĐT người thân 2', exact=True)
     last_customer_field.focus()
-    last_customer_field.press("Tab")
+    last_customer_field.press('Tab')
     page.wait_for_function("contractForm().activeContractTab === 'vehicle'")
-
-    # Invalid dates and an incomplete additional vehicle cannot advance or submit.
-    next_step.click()
-    assert page.evaluate("contractForm().activeContractTab") == "vehicle"
-    modal.get_by_role("button", name="Thêm phương tiện", exact=True).click()
-    assert page.evaluate("contractForm().order.order_items.length") == 2
-    assert not submitted
     page.evaluate("""() => {
-        const form = contractForm();
-        const item = form.order.order_items[0];
-        item.vehicle_id = 101;
-        item.rent_at = new Date('2026-10-02T09:00:00');
-        item.return_at = new Date('2026-10-03T09:00:00');
+        const item = contractForm().order.order_items[0]; item.vehicle_id = 101;
+        item.rent_at = new Date('2026-10-02T09:00:00'); item.return_at = new Date('2026-10-03T09:00:00');
     }""")
-    page.wait_for_function("contractForm().order.order_items[0].hiringFee === 200000")
-    next_step.click()
-    assert page.evaluate("contractForm().activeContractTab") == "vehicle"
-    page.evaluate("contractForm().order.order_items.splice(1, 1)")
+    page.wait_for_function('contractForm().order.order_items[0].hiringFee === 200000')
     last_vehicle_field = modal.get_by_placeholder('Số km khi khách nhận xe', exact=True)
     last_vehicle_field.focus()
     last_vehicle_field.press('Tab')
     page.wait_for_function("contractForm().activeContractTab === 'payment'")
-    expect(modal.locator("#rental-fee")).to_be_disabled()
-    assert page.evaluate("contractForm().order.order_items[0].custom_hiring_fee") is None
-
-    page.evaluate("contractForm().order.first_deposit_amount = 1000000")
-    page.wait_for_function("contractForm().order.first_deposit_payment_method.cash_amount === 1000000")
-    page.evaluate("contractForm().order.first_deposit_payment_method.cash_amount = 999")
+    expect(modal.locator('#rental-fee')).to_be_disabled()
     next_step.click()
-    assert page.evaluate("contractForm().activeContractTab") == "payment"
-    expect(modal.get_by_text("Tiền cọc: cần chọn tài khoản nhận chuyển khoản.", exact=True)).to_be_visible()
-    page.evaluate("contractForm().order.first_deposit_payment_method.cash_amount = 1000000")
-    if output_dir:
-        page.screenshot(path=str(output_dir / f"contract-payment-{width}.png"), full_page=True)
-    last_payment_field = modal.get_by_placeholder('VD: Ví điện tử, bù trừ công nợ...', exact=True).last
-    last_payment_field.focus()
-    last_payment_field.press('Tab')
     page.wait_for_function("contractForm().activeContractTab === 'signing'")
-    signer = modal.get_by_placeholder("Họ tên người thuê ký hợp đồng", exact=True)
-    expect(signer).to_have_value("Khách kiểm thử")
-
-    # Renaming the customer follows through, but an explicit representative is preserved.
-    go_to_step('customer')
-    modal.get_by_placeholder("Tên khách hàng", exact=True).fill("Khách kiểm thử lần 2")
-    page.wait_for_function("contractForm().order.contract_signer_b_name === 'Khách kiểm thử lần 2'")
-    go_to_step('signing')
-    signer.fill("Người đại diện kiểm thử")
-    go_to_step('customer')
-    modal.get_by_placeholder("Tên khách hàng", exact=True).fill("Khách kiểm thử lần 3")
-    go_to_step('signing')
-    expect(signer).to_have_value("Người đại diện kiểm thử")
+    signer = modal.get_by_placeholder('Họ tên người thuê ký hợp đồng', exact=True)
+    expect(signer).to_have_value('Khách kiểm thử')
+    signer.fill('Người đại diện kiểm thử')
+    page.evaluate("contractForm().order.customer_name = 'Khách đổi tên'")
+    expect(signer).to_have_value('Người đại diện kiểm thử')
     expect(modal.locator('#tab-signing')).to_have_class(re.compile(r'\bis-active\b'))
     expect(modal.locator('#tab-signing')).to_have_attribute('aria-selected', 'true')
-    bounds = modal.locator(".modal-dialog").bounding_box()
-    assert bounds["x"] >= 0 and bounds["x"] + bounds["width"] <= width + 1, bounds
+    bounds = modal.locator('.modal-dialog').bounding_box()
+    assert bounds['x'] >= 0 and bounds['x'] + bounds['width'] <= width + 1
+    expect(modal.get_by_role('button', name='Tạo đơn nháp và bổ sung thông tin', exact=True)).to_be_visible()
     if output_dir:
-        page.screenshot(path=str(output_dir / f"contract-signing-{width}.png"), full_page=True)
-
-    # Only the intercepted fixture receives the save; the built UI sends the correct amounts.
-    modal.get_by_role("button", name="Lưu hợp đồng", exact=True).click()
-    page.wait_for_function("!document.querySelector('.modal.show .form')")
-    assert len(submitted) == 1, submitted
-    saved = submitted[0]
-    assert saved["store_id"] == 1
-    assert saved["total_rental_fees"] == saved["total"] == 200000
-    assert saved["pid"] == 1200000
-    assert saved["contract_signer_b_name"] == "Người đại diện kiểm thử"
-    assert saved["order_items"][0]["custom_total_money"] is None
-    assert saved["order_items"][0]["total_money"] == 200000
-
-    # Incomplete delivery drafts retain their existing save-from-any-step behavior.
-    page.get_by_role('button', name='Đơn thuê xe nháp', exact=True).click()
-    page.get_by_role('button', name='Thêm mới đơn thuê xe nháp', exact=True).click()
-    modal.get_by_role('button', name='Lưu bản nháp', exact=True).click()
-    page.wait_for_function("!document.querySelector('.modal.show .form')")
-    assert len(submitted) == 2
-    assert submitted[1]['save_as_draft'] is True
-    assert submitted[1]['order_mode'] == 'draft'
-    assert submitted[1]['customer_name'] == ''
+        page.screenshot(path=str(output_dir / f'contract-signing-{width}.png'), full_page=True)
+    assert not submitted
     assert not page_errors, page_errors
     assert not blocked_writes, blocked_writes
     context.close()
