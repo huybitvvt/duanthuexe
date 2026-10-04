@@ -165,7 +165,7 @@
                                     <th scope="col" class="min-w-120px">
                                         Trạng thái
                                     </th>
-                                    <th v-if="currentUser.role_id === 1" scope="col">Hành động</th>
+                                    <th v-if="currentUser.role_id === 1" scope="col" class="text-center">Hành động</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -195,15 +195,25 @@
                                             : 'badge badge-danger'
                                             ">{{ item.status }}</span>
                                     </td>
-                                    <td>
-                                        <button v-b-modal.modal-user-edit @click="item_current = item"
-                                            class="btn btn-xs btn-outline-info font-weight-bold mr-1">
-                                            Sửa
-                                        </button>
-                                        <a title="Xóa" @click="deleteUser(item.id)" href="javascript:"
-                                            class="btn btn-xs btn-outline-danger font-weight-bold">
-                                            Xóa
-                                        </a>
+                                    <td v-if="currentUser.role_id === 1" class="text-center">
+                                        <el-dropdown trigger="click" placement="bottom-end" @command="handleUserAction(item, $event)">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-light btn-icon user-actions-trigger"
+                                                title="Hành động"
+                                                aria-label="Mở hành động nhân sự"
+                                            >
+                                                <i class="la la-ellipsis-v"></i>
+                                            </button>
+                                            <el-dropdown-menu slot="dropdown">
+                                                <el-dropdown-item command="edit">
+                                                    <i class="la la-edit mr-2"></i>Sửa
+                                                </el-dropdown-item>
+                                                <el-dropdown-item command="delete" divided>
+                                                    <span class="text-danger"><i class="la la-trash mr-2"></i>Xóa</span>
+                                                </el-dropdown-item>
+                                            </el-dropdown-menu>
+                                        </el-dropdown>
                                     </td>
                                 </tr>
                             </tbody>
@@ -347,6 +357,16 @@ export default {
                 this.stores = data?.data || [];
             }).catch(() => {});
         },
+        handleUserAction(item, action) {
+            if (action === "edit") {
+                this.item_current = item;
+                this.$nextTick(() => this.$bvModal.show("modal-user-edit"));
+                return;
+            }
+            if (action === "delete") {
+                this.deleteUser(item.id);
+            }
+        },
         deleteUser(id) {
             Swal.fire({
                 title: "Bạn chắc chắn muốn xóa?",
@@ -376,5 +396,10 @@ export default {
 <style scoped>
 .mx-datepicker {
     width: 100% !important;
+}
+
+.user-actions-trigger {
+    min-width: 32px;
+    padding: 0.35rem;
 }
 </style>
