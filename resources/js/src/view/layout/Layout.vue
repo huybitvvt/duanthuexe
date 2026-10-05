@@ -276,10 +276,20 @@ export default {
       }
     },
     onQuickCreateOrder() {
-      const target = this.currentUser && this.currentUser.role_id === 4 ? "/leads" : "/car-rental";
-      if (this.$route.path !== target) {
-        this.$router.push(target).catch(() => {});
+      const isLeadManager = this.currentUser && Number(this.currentUser.role_id) === 4;
+      if (isLeadManager) {
+        if (this.$route.path !== "/leads") this.$router.push("/leads").catch(() => {});
+        return;
       }
+
+      const query = this.$route.path === "/car-rental"
+        ? { ...this.$route.query, open_create: String(Date.now()) }
+        : { open_create: String(Date.now()) };
+      this.$router.push({ path: "/car-rental", query }).catch(() => {
+        if (this.$route.path === "/car-rental") {
+          this.$router.replace({ path: "/car-rental", query: { ...this.$route.query, open_create: String(Date.now()) } }).catch(() => {});
+        }
+      });
     }
   }
 };

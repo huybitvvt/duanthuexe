@@ -1,7 +1,7 @@
 <template>
     <div v-loading="loadingComponent">
         <ValidationObserver ref="form">
-            <form class="form" @submit.prevent="submitContractForm" @pointerdown.capture="onContractStepPointerdown" @keydown.capture="contractStepPointerNavigation = false">
+            <form class="form" @submit.prevent="submitContractForm" @pointerdown.capture="onContractStepPointerdown" @keydown.capture="contractStepPointerNavigation = false" @change.capture="scheduleContractStepAdvance">
 				<div v-if="!id && initialMode === 'draft'" class="alert alert-custom alert-light-success p-3 mb-4">
 					<div class="d-flex align-items-center justify-content-between flex-wrap">
 						<div>
@@ -27,7 +27,7 @@
 					</div>
 				</div>
 				
-				<div class="row mb-4 align-items-center">
+				<div v-if="id" class="row mb-4 align-items-center">
 					<div class="col-md-6">
 						<div class="d-flex justify-content-start align-items-center flex-wrap">
 							<h6 v-if="id" class="mb-0 mr-3">ID hợp đồng: #{{ id }}</h6>
@@ -75,10 +75,6 @@
 					<ul class="mb-0 mt-2 pl-4">
 						<li v-for="(error, index) in serverValidationErrors" :key="index">{{ error }}</li>
 					</ul>
-				</div>
-				<div v-if="isGuidedContract && !isHandoverMode" class="contract-step-summary mb-3">
-					<strong ref="contractStepHeading" tabindex="-1" aria-live="polite">Bước {{ activeContractStep + 1 }}/{{ contractSteps.length }}: {{ contractSteps[activeContractStep].label }}</strong>
-					<p class="text-muted mb-0 mt-1">Điền từ trên xuống. Rời ô cuối để tự chuyển bước, hoặc bấm Tiếp tục để bỏ qua ô không bắt buộc.</p>
 				</div>
 				<div v-if="stepValidationMessage" class="alert alert-danger" role="alert">{{ stepValidationMessage }}</div>
 				<el-tabs v-model="activeContractTab" type="border-card" class="contract-form-tabs mb-4" :class="{ 'contract-form-stack': isHandoverMode }" @focusout.native="onContractStepFocusout">
@@ -620,12 +616,6 @@
 					</ValidationObserver>
 					</el-tab-pane>
 				</el-tabs>
-
-				<div v-if="isGuidedContract && !isHandoverMode" class="contract-step-navigation d-flex justify-content-between align-items-center mb-3">
-					<button type="button" class="btn btn-outline-secondary font-weight-bold" :disabled="activeContractStep === 0 || navigatingContractStep || loading" @click="previousContractStep">Quay lại</button>
-					<el-button v-if="activeContractStep < contractSteps.length - 1" native-type="button" class="btn btn-primary font-weight-bold" :loading="navigatingContractStep" :disabled="loading" @click="nextContractStep(false)">Tiếp tục: {{ contractSteps[activeContractStep + 1].label }}</el-button>
-					<span v-else class="text-muted">Kiểm tra thông tin và lưu hợp đồng.</span>
-				</div>
 
 					<div class="update-order-buttons card-toolbar mt-3 d-flex justify-content-center"
 						v-if="parent !== 'vehicle-revenue'">
@@ -1330,18 +1320,21 @@ export default {
         onContractStepPointerdown(event) {
             this.contractStepPointerNavigation = Boolean(event.target.closest('button, a, [role="tab"]'));
         },
+        scheduleContractStepAdvance() {
+            if (!this.isGuidedContract || this.isHandoverMode || this.loading || this.navigatingContractStep) return;
+            if (this.activeContractStep < this.furthestContractStep) return;
+            if (this.activeContractStep >= this.contractSteps.length - 1) return;
+            clearTimeout(this.contractStepAdvanceTimer);
+            this.contractStepAdvanceTimer = setTimeout(() => this.nextContractStep(true), 200);
+        },
         onContractStepFocusout(event) {
-            if (!this.isGuidedContract || this.loading || this.navigatingContractStep) return;
+            if (!this.isGuidedContract || this.isHandoverMode || this.loading || this.navigatingContractStep) return;
             const pane = this.$refs[`${this.activeContractTab}Step`]?.$el;
             if (!pane || !pane.contains(event.target)) return;
             if (this.contractStepPointerNavigation
-                || event.relatedTarget?.closest('a, [role="tab"], .close, .el-select-dropdown, .el-picker-panel')) return;
-            const inputs = Array.from(pane.querySelectorAll('input, textarea, select')).filter(input =>
-                !input.disabled && !input.readOnly && input.type !== 'hidden'
-                && !['checkbox', 'radio'].includes(input.type) && input.getClientRects().length);
-            if (inputs.length && event.target === inputs[inputs.length - 1]) {
-                this.$nextTick(() => this.nextContractStep(true));
-            }
+                || event.relatedTarget?.closest('a, [role="tab"], .close, .el-select-dropdown, .el-picker-panel, .el-popper')) return;
+            if (pane.contains(event.relatedTarget)) return;
+            this.scheduleContractStepAdvance();
         },
         async submitContractForm() {
             if (this.loading || this.navigatingContractStep) return;

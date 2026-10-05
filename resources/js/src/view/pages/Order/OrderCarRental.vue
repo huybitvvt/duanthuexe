@@ -178,12 +178,21 @@
                                 {{ category.label }}
                             </button>
                         </div>
-                        <OrderQuickCreate v-if="canCreateOrder" ref="quickCreate" :mode="activeCategory" :stores="stores" @continue="openQuickCreate" />
                         <div class="rental-list-heading">
                             <h4>Danh sách {{ activeCategoryLabel.toLowerCase() }}</h4>
-                            <button v-if="canCreateOrder" type="button" class="btn btn-sm btn-outline-primary font-weight-bold" @click="openModalCreate(activeCategory)">
-                                Thêm mới {{ activeCategoryLabel.toLowerCase() }}
-                            </button>
+                            <details v-if="canCreateOrder" ref="createMenu" class="rental-create-dropdown">
+                                <summary class="btn btn-sm btn-outline-primary font-weight-bold">
+                                    <i class="fas fa-plus mr-1" aria-hidden="true"></i>Thêm đơn mới
+                                </summary>
+                                <div class="rental-create-menu-items" role="menu">
+                                    <button type="button" role="menuitem" @click="openQuickCreateFromMenu">
+                                        <i class="fas fa-bolt mr-2 text-warning" aria-hidden="true"></i>Tạo nhanh &amp; in ngay
+                                    </button>
+                                    <button type="button" role="menuitem" @click="openFullCreateFromMenu">
+                                        <i class="fas fa-file-alt mr-2 text-primary" aria-hidden="true"></i>T&#x1EA1;o &#x0111;&#x01A1;n &#x0111;&#x1EA7;y &#x0111;&#x1EE7;
+                                    </button>
+                                </div>
+                            </details>
                         </div>
                         <HimotoErrorState v-if="categoryError" title="Không thể tải danh sách theo loại" :message="categoryError" @retry="getCategoryList" />
                         <HimotoTableSkeleton v-else-if="categoryLoading" :rows="4" :columns="9" />
@@ -226,6 +235,9 @@
             <b-modal v-model="showModalCreate" :title="modalCreateTitle" size="xl" modal-class="contract-modal-wide" ref="modal-contract-create" :centered="true" :scrollable="true"
                 hide-footer>
                 <order-update v-if="showModalCreate" :initial-mode="createMode" :initial-data="createInitialData" :print-after-create="createAndPrint" @createSuccess="createSuccess"></order-update>
+            </b-modal>
+            <b-modal v-model="showModalQuickCreate" title="Tạo nhanh &amp; in ngay" size="xl" modal-class="contract-modal-wide" ref="modal-contract-quick-create" :centered="true" :scrollable="true" hide-footer @hidden="continueQuickCreate">
+                <order-quick-create v-if="showModalQuickCreate" ref="quickCreate" :mode="activeCategory" :stores="stores" @continue="openQuickCreate"></order-quick-create>
             </b-modal>
             <b-modal v-model="showModalUpdate" :title='"Sửa hợp đồng  " + orderId' size="xl" modal-class="contract-modal-wide" ref="modal-contract-update" :centered="true"
                 :scrollable="true" hide-footer>
@@ -274,7 +286,7 @@ export default {
     name: "OrderCarRental",
     mixins: [queryMixin],
     data() {
-        const { page, store_id, order_mode, open_order, open_payment, payment_amount, ...restQuery } = this.$route?.query || {};
+        const { page, store_id, order_mode, open_order, open_payment, payment_amount, open_create, ...restQuery } = this.$route?.query || {};
         return {
             categories: [
                 { value: 'standard', label: 'Đơn thuê xe phổ thông' },
@@ -302,6 +314,9 @@ export default {
             page: +page || 1,
             last_page: 1,
             showModalCreate: false,
+            showModalQuickCreate: false,
+            pendingQuickCreate: null,
+            openCreateOnMount: Boolean(open_create),
             showModalUpdate: false,
             showModalDetail: false,
             showModalPayment: false,
@@ -420,6 +435,10 @@ export default {
         } else if (this.pendingOpenOrderId) {
             this.$nextTick(() => this.openShowOrder({ id: this.pendingOpenOrderId }));
         }
+        if (this.openCreateOnMount) {
+            this.openCreateOnMount = false;
+            this.openCreateFromRoute();
+        }
     },
     watch: {
         "$route.query.order_mode"(mode) {
@@ -443,6 +462,9 @@ export default {
                     Number(this.$route.query.payment_amount || 0)
                 );
             }
+        },
+        "$route.query.open_create"(value) {
+            if (value) this.openCreateFromRoute();
         },
     },
     activated() {
@@ -619,6 +641,36 @@ export default {
             });
         },
         openQuickCreate(data) {
+            this.pendingQuickCreate = data;
+            this.$refs['modal-contract-quick-create'].hide();
+        },
+        openQuickCreateModal() {
+            this.$refs['modal-contract-quick-create'].show();
+        },
+        openCreateFromRoute() {
+            this.$nextTick(() => {
+                if (!this.$route.query.open_create) return;
+                this.openModalCreate(this.activeCategory);
+                const query = { ...this.$route.query };
+                delete query.open_create;
+                this.$router.replace({ path: this.$route.path, query }).catch(() => {});
+            });
+        },
+        closeCreateMenu() {
+            if (this.$refs.createMenu) this.$refs.createMenu.open = false;
+        },
+        openQuickCreateFromMenu() {
+            this.closeCreateMenu();
+            this.openQuickCreateModal();
+        },
+        openFullCreateFromMenu() {
+            this.closeCreateMenu();
+            this.openModalCreate(this.activeCategory);
+        },
+        continueQuickCreate() {
+            if (!this.pendingQuickCreate) return;
+            const data = this.pendingQuickCreate;
+            this.pendingQuickCreate = null;
             this.openModalCreate(this.activeCategory, data, true);
         },
         openModalCreate(mode = this.activeCategory, initialData = {}, print = false) {
@@ -865,6 +917,12 @@ export default {
 .contract-category-tabs .nav-link:focus-visible { outline: 3px solid #257bb5; outline-offset: -3px; }
 .contract-category-actions { white-space: nowrap; }
 .contract-master-list { border: 1px solid #cbdce7; border-radius: 10px; padding: 0 18px 18px; margin-top: 24px; background: #fff; }
+.rental-create-dropdown { position: relative; }
+.rental-create-dropdown > summary { list-style: none; cursor: pointer; }
+.rental-create-dropdown > summary::-webkit-details-marker { display: none; }
+.rental-create-menu-items { position: absolute; z-index: 1060; top: calc(100% + 4px); right: 0; min-width: 220px; padding: 6px 0; border: 1px solid #d6e2eb; border-radius: 6px; background: #fff; box-shadow: 0 8px 24px rgba(25, 42, 62, .16); }
+.rental-create-menu-items button { display: flex; align-items: center; width: 100%; padding: 9px 14px; border: 0; background: transparent; color: #243e50; text-align: left; white-space: nowrap; }
+.rental-create-menu-items button:hover, .rental-create-menu-items button:focus { background: #f1f6fa; outline: none; }
 .rental-list-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin: 20px 0 14px; }
 .rental-list-heading h4 { margin: 0; font-size: 15px; font-weight: 700; text-transform: uppercase; color: #243e50; }
 .rental-master-heading { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; padding: 17px 18px; margin: 0 -18px 18px; background: #1b4a67; color: #fff; border-radius: 10px 10px 0 0; }
