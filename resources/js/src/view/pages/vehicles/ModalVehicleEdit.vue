@@ -1,6 +1,6 @@
 <template>
     <div>
-        <b-modal id="modal-vehicle-edit" title="Sửa thông tin xe" size="xl" ok-title="Cập nhật" ok-only @ok="handleOk">
+        <b-modal id="modal-vehicle-edit" title="Sửa thông tin xe" size="xl" ok-title="Cập nhật" ok-only @ok="handleOk" ignore-enforce-focus-selector=".el-select-dropdown, .el-popper">
             <div class="row">
                 <div class="col-md-12">
                     <h5 class="text-primary">Thông tin xe</h5>
@@ -409,21 +409,33 @@ export default {
 		};
     },
     watch: {
-        item() {
-            this.vehicle = { ...this.item };
-            this.changeTypeOfService();
+        item: {
+            immediate: true,
+            handler() {
+                this.applyItem();
+            },
         },
     },
     mounted() {
-        // get stores & year when modal shown
         this.$root.$on("bv::modal::show", (_, modalId) => {
             if (modalId === "modal-vehicle-edit") {
+                this.applyItem();
                 this.getStore();
                 this.handYear();
             }
         });
     },
     methods: {
+        applyItem() {
+            if (!this.item) return;
+            const storeId = this.item.store_id || this.item.store?.id || "";
+            this.vehicle = {
+                ...this.item,
+                id: this.item.id,
+                store_id: storeId === "" || storeId == null ? "" : Number(storeId),
+            };
+            this.changeTypeOfService();
+        },
         addSetting() {
             this.maintenance_settings.push({ id: "" });
         },

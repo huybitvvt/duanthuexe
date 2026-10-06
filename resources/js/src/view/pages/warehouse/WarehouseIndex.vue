@@ -419,6 +419,9 @@ import ModalVehicleMovementHistory from "./components/ModalVehicleMovementHistor
 
 export default {
   name: "WarehouseIndex",
+  props: {
+    initialStoreId: { default: null },
+  },
   components: {
     ModalStoreTransfer,
     ModalReturnDifferentStore,
@@ -471,7 +474,7 @@ export default {
       return storeId > 0 && [Number(vehicle.managed_store_id), Number(vehicle.current_store_id)].includes(storeId);
     },
     initData() {
-      const qStoreId = this.$route.query.store_id;
+      const qStoreId = this.initialStoreId || this.$route.query.store_id;
       if (this.$route.query.keyword) {
         this.filters.keyword = this.$route.query.keyword;
       }

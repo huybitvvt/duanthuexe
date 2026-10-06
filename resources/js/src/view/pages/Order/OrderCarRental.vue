@@ -7,13 +7,14 @@
                 </div>
                 <div class="card-toolbar d-flex flex-wrap align-items-center">
                     <button v-if="canReportStore" @click="exportFile" class="btn btn-primary font-weight-bold mr-2 mb-1">Xuất Excel theo bộ lọc thời gian</button>
-                    <router-link
-                        :to="rentalWarehouseLink"
+                    <button
+                        type="button"
                         class="btn btn-warning font-weight-bold mb-1 text-dark"
                         title="Mở kho thuê xe"
+                        @click="showWarehouseModal = true"
                     >
                         <i class="fas fa-warehouse mr-1"></i>Kho thuê xe
-                    </router-link>
+                    </button>
                 </div>
             </div>
             <div class="card-body">
@@ -247,6 +248,9 @@
                 :scrollable="true">
                 <order-show v-if="showModalDetail" :order="order_show"></order-show>
             </b-modal>
+            <b-modal v-model="showWarehouseModal" title="Kho thuê xe" size="xl" modal-class="contract-modal-wide" :centered="true" :scrollable="true" hide-footer>
+                <warehouse-index v-if="showWarehouseModal" :initial-store-id="query.store_id || null"></warehouse-index>
+            </b-modal>
             <b-modal v-model="showModalPayment" title="Thu chi hợp đồng" size="xl" ref="modal-contract-payment" :centered="true" :scrollable="true"
                 hide-footer>
                 <order-payment v-if="showModalPayment" :id="orderId" :order-status="order_status_prop" :suggested-amount="paymentSuggestedAmount"
@@ -281,6 +285,7 @@ const OrderUpdate = () => import(/* webpackChunkName: "contract-form" */ "./comp
 const OrderShow = () => import(/* webpackChunkName: "contract-detail" */ "./components-order/OrderShow");
 const OrderPayment = () => import(/* webpackChunkName: "contract-payment" */ "./components-order/OrderPayment");
 const ModalContractPreview = () => import(/* webpackChunkName: "contract-print" */ "./components-order/ModalContractPreview");
+const WarehouseIndex = () => import("@/view/pages/warehouse/WarehouseIndex.vue");
 
 export default {
     name: "OrderCarRental",
@@ -320,6 +325,7 @@ export default {
             showModalUpdate: false,
             showModalDetail: false,
             showModalPayment: false,
+            showWarehouseModal: false,
             createMode: 'standard',
             createInitialData: {},
             createAndPrint: false,
@@ -363,6 +369,7 @@ export default {
         RentalOrderTable,
         OrderPayment,
         ModalContractPreview,
+        WarehouseIndex,
         HimotoTableSkeleton,
         HimotoErrorState
     },
@@ -385,13 +392,6 @@ export default {
         },
         activeCategoryLabel() {
             return this.categoryLabel(this.activeCategory);
-        },
-        rentalWarehouseLink() {
-            const storeId = this.query.store_id;
-            return {
-                name: 'warehouse',
-                query: storeId ? { store_id: storeId } : {},
-            };
         },
         checkedCount() {
             return Object.values(this.checkedItems).filter(item => item).length;

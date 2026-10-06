@@ -494,6 +494,7 @@
             placeholder="Chọn cơ sở"
             class="w-100"
             filterable
+            @change="onDutyStoreChange"
           >
             <el-option
               v-for="s in stores"
@@ -530,16 +531,24 @@
           <label class="font-weight-bold">Chọn từ danh sách nhân viên HCNS</label>
           <el-select
             v-model="dutyForm.selectedStaffId"
-            placeholder="-- Chọn nhân viên để tự điền thông tin --"
             class="w-100"
-            clearable
             filterable
+            remote
+            reserve-keyword
+            clearable
+            default-first-option
+            popper-append-to-body
+            :placeholder="dutyForm.store_id ? 'Gõ tên, mã nhân viên hoặc số điện thoại' : 'Chọn cơ sở phía trên trước'"
+            :disabled="!dutyForm.store_id"
+            :remote-method="searchDutyStaff"
+            :loading="dutyStaffLoading"
+            @focus="searchDutyStaff(dutyStaffQuery)"
             @change="handleSelectStaffForDuty"
           >
             <el-option
-              v-for="st in staffList"
+              v-for="st in dutyStaffOptions"
               :key="st.id"
-              :label="st.full_name + ' - ' + (st.phone || '')"
+              :label="staffOptionLabel(st)"
               :value="st.id"
             />
           </el-select>
@@ -565,11 +574,17 @@
 
         <div class="form-group mb-3">
           <label class="font-weight-bold">Vai trò trong ca</label>
-          <el-input
+          <el-select
             v-model="dutyForm.role_in_shift"
-            placeholder="Ví dụ: Trưởng ca, Nhân viên kỹ thuật xe, Bàn giao xe..."
             class="w-100"
-          />
+            filterable
+            allow-create
+            default-first-option
+            placeholder="Chọn vai trò hoặc gõ để thêm mới"
+            @change="rememberDutyRole"
+          >
+            <el-option v-for="role in dutyRoles" :key="role" :label="role" :value="role" />
+          </el-select>
         </div>
 
         <div class="form-group mb-3">
@@ -748,6 +763,16 @@ export default {
       },
 
       staffList: [],
+      dutyStaffOptions: [],
+      dutyStaffLoading: false,
+      dutyStaffTimer: null,
+      dutyStaffQuery: "",
+      dutyRoles: [
+        "Nhân viên trực cửa hàng",
+        "Trưởng ca",
+        "Nhân viên kỹ thuật xe",
+        "Bàn giao xe",
+      ],
       organizationUnits: [],
       departmentOptions: [],
       orgStoreId: null,
@@ -781,7 +806,11 @@ export default {
     this.fetchStores();
     this.fetchDutySchedules();
     this.fetchStaffList();
+    this.fetchDutyRoles();
     this.fetchOrganizationChart();
+  },
+  beforeDestroy() {
+    clearTimeout(this.dutyStaffTimer);
   },
   methods: {
     selectTab(tab) {
@@ -922,20 +951,77 @@ export default {
         notes: "",
       };
       this.showDutyModal = true;
+      this.searchDutyStaff("");
+    },
+
+    staffOptionLabel(staff) {
+      return [staff.full_name, staff.staff_code, staff.phone].filter(Boolean).join(" — ");
+    },
+
+    onDutyStoreChange() {
+      this.dutyForm.selectedStaffId = null;
+      this.dutyStaffQuery = "";
+      this.searchDutyStaff("");
+    },
+
+    searchDutyStaff(query) {
+      this.dutyStaffQuery = query || "";
+      clearTimeout(this.dutyStaffTimer);
+      this.dutyStaffTimer = setTimeout(() => this.loadDutyStaff(this.dutyStaffQuery), 250);
+    },
+
+    async loadDutyStaff(query) {
+      const storeId = this.dutyForm.store_id;
+      if (!storeId) {
+        this.dutyStaffOptions = [];
+        return;
+      }
+      this.dutyStaffLoading = true;
+      try {
+        const res = await ApiService.query("/api/auth/hr/staff", {
+          keyword: query || undefined,
+          store_id: storeId,
+          per_page: 50,
+        });
+        const payload = res.data.data || {};
+        const rows = Array.isArray(payload) ? payload : (payload.data || []);
+        this.dutyStaffOptions = rows.filter((staff) => Number(staff.store_id) === Number(storeId));
+      } catch (err) {
+        this.dutyStaffOptions = [];
+      } finally {
+        this.dutyStaffLoading = false;
+      }
     },
 
     handleSelectStaffForDuty(staffId) {
       if (!staffId) return;
-      const st = this.staffList.find((s) => s.id === staffId);
-      if (st) {
-        this.dutyForm.staff_name = st.full_name;
-        this.dutyForm.staff_phone = st.phone || "";
-        if (st.position) {
-          this.dutyForm.role_in_shift = st.position;
-        }
-        if (st.store_id) {
-          this.dutyForm.store_id = st.store_id;
-        }
+      const st = this.dutyStaffOptions.find((s) => s.id === staffId);
+      if (!st || Number(st.store_id) !== Number(this.dutyForm.store_id)) return;
+      this.dutyForm.staff_name = st.full_name;
+      this.dutyForm.staff_phone = st.phone || "";
+    },
+
+    async fetchDutyRoles() {
+      try {
+        const res = await ApiService.query("/api/auth/hr/duty-roles", {});
+        const roles = res.data.data || [];
+        this.dutyRoles = this.mergeDutyRoles(Array.isArray(roles) ? roles : []);
+      } catch (err) {
+        this.dutyRoles = this.mergeDutyRoles(this.dutyRoles);
+      }
+    },
+
+    mergeDutyRoles(roles) {
+      const merged = new Set(this.dutyRoles.concat(roles).map((role) => String(role || "").trim()).filter(Boolean));
+      return Array.from(merged).sort((a, b) => a.localeCompare(b, "vi"));
+    },
+
+    rememberDutyRole(role) {
+      const value = String(role || "").trim();
+      if (!value) return;
+      this.dutyForm.role_in_shift = value;
+      if (!this.dutyRoles.includes(value)) {
+        this.dutyRoles = this.mergeDutyRoles([value]);
       }
     },
 
@@ -955,10 +1041,12 @@ export default {
 
       this.savingDuty = true;
       try {
+        this.rememberDutyRole(this.dutyForm.role_in_shift);
         await ApiService.post("/api/auth/hr/duty-schedules", this.dutyForm);
         this.$message.success("Đã phân công ca trực thành công");
         this.showDutyModal = false;
         this.fetchDutySchedules();
+        this.fetchDutyRoles();
       } catch (err) {
         this.$message.error(err.response?.data?.message || "Không thể lưu ca trực");
       } finally {

@@ -294,6 +294,34 @@ class HrService
     }
 
     /**
+     * Distinct shift roles already stored, plus the roles used on the form.
+     */
+    public function dutyRoles(): array
+    {
+        $defaults = [
+            'Nhân viên trực cửa hàng',
+            'Trưởng ca',
+            'Nhân viên kỹ thuật xe',
+            'Bàn giao xe',
+        ];
+        $stored = StoreDutySchedule::query()
+            ->whereNotNull('role_in_shift')
+            ->where('role_in_shift', '!=', '')
+            ->distinct()
+            ->pluck('role_in_shift')
+            ->map(function ($role) {
+                return trim((string) $role);
+            })
+            ->filter()
+            ->all();
+
+        $roles = array_values(array_unique(array_merge($defaults, $stored)));
+        natcasesort($roles);
+
+        return array_values($roles);
+    }
+
+    /**
      * Thêm phân ca trực cửa hàng.
      */
     public function saveStoreDutySchedule(array $data, int $userId): StoreDutySchedule

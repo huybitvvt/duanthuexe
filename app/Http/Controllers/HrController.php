@@ -223,6 +223,18 @@ class HrController extends Controller
         return $this->successResponse($schedules);
     }
 
+    public function dutyRoles(): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return $this->errorResponse('Chưa đăng nhập.', 401);
+        }
+
+        PermissionAccess::can($user, 'hr.view');
+
+        return $this->successResponse($this->hrService->dutyRoles());
+    }
+
     /**
      * Thêm ca trực cửa hàng.
      */

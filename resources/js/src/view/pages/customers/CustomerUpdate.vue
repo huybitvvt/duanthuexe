@@ -125,21 +125,51 @@
                         </div>
                         <div class="col-md-4">
                             <div class="form-group">
+                                <label>Cơ sở</label>
+                                <el-select
+                                    v-model="customer.store_id"
+                                    class="w-100"
+                                    filterable
+                                    clearable
+                                    placeholder="Chọn cơ sở"
+                                    @change="onStoreChange"
+                                >
+                                    <el-option
+                                        v-for="store in stores"
+                                        :key="store.id"
+                                        :label="store.store_name"
+                                        :value="store.id"
+                                    ></el-option>
+                                </el-select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Sale phụ trách</label>
+                                <el-select
+                                    v-model="customer.sale_user_id"
+                                    class="w-100"
+                                    filterable
+                                    clearable
+                                    :disabled="!customer.store_id"
+                                    :placeholder="customer.store_id ? 'Chọn sale phụ trách' : 'Chọn cơ sở trước'"
+                                    :loading="salesLoading"
+                                >
+                                    <el-option
+                                        v-for="sale in sales"
+                                        :key="sale.id"
+                                        :label="sale.name"
+                                        :value="sale.id"
+                                    ></el-option>
+                                </el-select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
                                 <label>Cảnh báo</label>
-                                <ValidationProvider vid="warning" name="Cảnh báo"
-                                                    rules=""
-                                                    v-slot="{ errors,classes }">
-                                    <el-input
-                                        v-model="customer.warning"
-                                        :class="classes"
-                                    ></el-input>
-                                    <div class="fv-plugins-message-container">
-                                        <div data-field="address" data-validator="notEmpty" class="fv-help-block">{{
-                                                errors[0]
-                                            }}
-                                        </div>
-                                    </div>
-                                </ValidationProvider>
+                                <el-select v-model="customer.warning" class="w-100" filterable clearable placeholder="Chọn cảnh báo">
+                                    <el-option v-for="option in warningChoices" :key="option" :label="option" :value="option"></el-option>
+                                </el-select>
                             </div>
                         </div>
                     </div>
@@ -157,7 +187,10 @@
 
 import {SET_BREADCRUMB} from "@/core/services/store/breadcrumbs.module";
 import {CUSTOMER_SHOW, CUSTOMER_UPDATE} from "@/core/services/store/customers.module";
+import {STORE_GET_ALL} from "@/core/services/store/store.module";
+import {USER_GET_ALL} from "@/core/services/store/user.module";
 import { getApiMessage, getApiValidationErrors } from "@/utils/apiErrorHandler";
+import { normalizePaginator } from "@/utils/paginatorAdapter";
 
 export default {
     name: "CustomerUpdate",
@@ -170,11 +203,28 @@ export default {
                 id_card: "",
                 address: ""
             },
+            stores: [],
+            sales: [],
+            salesLoading: false,
             loading: false
         }
     },
+    computed: {
+        warningChoices() {
+            const options = ["Khách mới", "Khách cũ", "Blacklist"];
+            const current = String(this.customer.warning || "").trim();
+            if (current && !options.includes(current)) options.push(current);
+            return options;
+        },
+    },
     created() {
+        this.loadStores();
         this.showCustomer();
+    },
+    watch: {
+        '$route.params.id'(id) {
+            if (id) this.showCustomer();
+        },
     },
     mounted() {
         this.$store.dispatch(SET_BREADCRUMB, [{
@@ -183,10 +233,45 @@ export default {
         }, {title: "Cập nhật khách hàng"}]);
     },
     methods: {
+        loadStores() {
+            this.$store.dispatch(STORE_GET_ALL, {}).then((data) => {
+                this.stores = data?.data || [];
+            }).catch(() => {
+                this.stores = [];
+            });
+        },
+        onStoreChange() {
+            this.customer.sale_user_id = null;
+            this.loadSales();
+        },
+        loadSales() {
+            if (!this.customer.store_id) {
+                this.sales = [];
+                return;
+            }
+            this.salesLoading = true;
+            this.$store.dispatch(USER_GET_ALL, { store_id: this.customer.store_id, limit: 200 }).then((data) => {
+                const users = normalizePaginator(data).items || [];
+                const sales = users.filter(user => this.isSaleUser(user));
+                this.sales = sales.length ? sales : users;
+                if (this.customer.sale_user_id && !this.sales.some(user => user.id === this.customer.sale_user_id)) {
+                    this.sales.unshift({ id: this.customer.sale_user_id, name: "Sale đã gán" });
+                }
+            }).catch(() => {
+                this.sales = [];
+            }).finally(() => {
+                this.salesLoading = false;
+            });
+        },
+        isSaleUser(user) {
+            const role = user.role_rel || {};
+            const text = `${role.slug || ""} ${role.name || ""} ${user.role || ""}`.toLowerCase();
+            return /sale|telesale|nhan-vien|nhân viên|nhan vien/.test(text);
+        },
         onSubmit: function () {
             let payload = {
                 id: this.$route.params.id,
-                params: this.customer
+                params: { ...this.customer, id: this.$route.params.id }
             }
             this.loading = true;
             this.$store.dispatch(CUSTOMER_UPDATE, payload).then((res) => {
@@ -205,7 +290,12 @@ export default {
         showCustomer() {
             let id = this.$route.params.id;
             this.$store.dispatch(CUSTOMER_SHOW, id).then((res) => {
-                this.customer = res.data;
+                this.customer = {
+                    ...res.data,
+                    store_id: res.data.store_id || null,
+                    sale_user_id: res.data.sale_user_id || null,
+                };
+                this.loadSales();
             }).catch((e) => {
                 this.noticeMessage('error', 'Thất bại', e.data?.message);
             });

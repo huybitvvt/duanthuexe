@@ -39,8 +39,8 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label>SĐT</label>
-                                <ValidationProvider vid="store_phone" name="Số điện thoại khách hàng"
-                                                    rules="required|numeric"
+                                <ValidationProvider vid="store_phone" name="Số điện thoại cửa hàng"
+                                                    rules="required|max:30"
                                                     v-slot="{ errors,classes }">
                                     <el-input
                                         placeholder="SĐT cửa hàng"
@@ -105,28 +105,32 @@ export default {
         }
     },
     mounted() {
-        console.log('hello')
         this.getById();
         this.$store.dispatch(SET_BREADCRUMB, [{
             title: "Quản lý cửa hàng",
             route: 'stores'
         }, {title: "Cập nhật cửa hàng"}]);
     },
+    watch: {
+        '$route.params.id'(id) {
+            if (id) this.getById();
+        },
+    },
     methods: {
         getById() {
-            let id = this.$route.params.id;
+            const id = this.$route.params.id;
             this.$store.dispatch(STORE_SHOW, id).then((res) => {
-                this.store = res.data;
+                const store = res?.data?.id ? res.data : (res?.data?.data || {});
+                this.store = { ...store, id: store.id || id };
             }).catch((e) => {
-                if (e.data.errors) {
+                if (e?.data?.errors) {
                     this.$refs.form.setErrors(e.data.errors);
                 }
             }).finally(() => this.loading = false);
         },
         onSubmit: function () {
             this.loading = true;
-            console.log(this.store)
-            this.$store.dispatch(STORE_UPDATE, this.store).then((res) => {
+            this.$store.dispatch(STORE_UPDATE, { ...this.store, id: this.$route.params.id }).then((res) => {
                 this.$router.push({name: "stores"}).then(() => {
                     this.noticeMessage('success', 'Thành công', res.message);
                 })

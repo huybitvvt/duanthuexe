@@ -211,11 +211,39 @@
                     </div>
                     <div class="col-md-4">
                         <div class="form-group">
-                            <label><strong>Tên khách hàng</strong> <span v-if="!isDraftMode" class="text-danger">(*)</span></label>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="mb-0"><strong>Tên khách hàng</strong> <span v-if="!isDraftMode" class="text-danger">(*)</span></label>
+                                <button type="button" class="btn btn-link btn-sm p-0" @click="openNewContractCustomer">Thêm khách hàng mới</button>
+                            </div>
                             <ValidationProvider vid="name" name="Tên khách hàng" :rules="isDraftMode ? '' : 'required'" v-slot="{ errors }">
-                                <el-input placeholder="Tên khách hàng" v-model="order.customer_name"></el-input>
+                                <el-select
+                                    v-model="order.customer_name"
+                                    class="w-100"
+                                    filterable
+                                    remote
+                                    clearable
+                                    reserve-keyword
+                                    popper-append-to-body
+                                    placeholder="Chọn khách hàng"
+                                    :remote-method="searchContractCustomers"
+                                    :loading="customerLookupLoading"
+                                    @focus="searchContractCustomers(customerNameQuery)"
+                                    @change="onContractCustomerName"
+                                >
+                                    <el-option v-for="name in customerNameOptions" :key="name" :label="name" :value="name"></el-option>
+                                    <div slot="empty" class="px-3 py-2">
+                                        <span>Chưa có khách hàng này.</span>
+                                        <button type="button" class="btn btn-sm btn-primary ml-2" @click="openNewContractCustomer">Thêm khách hàng mới</button>
+                                    </div>
+                                </el-select>
                                 <error-message :errors="errors" field="name"></error-message>
                             </ValidationProvider>
+                            <div v-if="selectedCustomer" class="mt-2">
+                                <span class="label label-inline font-weight-bold" :class="Number(selectedCustomer.status) === 1 ? 'label-light-success' : 'label-light-warning'">
+                                    {{ Number(selectedCustomer.status) === 1 ? 'Hoàn thành' : 'Chưa hoàn thành' }}
+                                </span>
+                                <span v-if="selectedCustomer.warning" class="label label-inline label-light-danger font-weight-bold ml-2">Blacklist</span>
+                            </div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -668,6 +696,29 @@
 			:subject-id="Number(id)" :store-id="Number(order.store_id)" subject-type="order" @changed="getOrder" />
 
 		<ModalContractPreview v-if="showPreviewModal" v-model="showPreviewModal" :doc="previewDocumentDto" />
+        <el-dialog title="Thêm khách hàng mới" :visible.sync="showNewCustomerModal" append-to-body width="520px" @closed="resetNewContractCustomer">
+            <div class="form-group">
+                <label><strong>Tên khách hàng</strong> <span class="text-danger">*</span></label>
+                <el-input v-model.trim="newCustomer.name" placeholder="Tên khách hàng"></el-input>
+            </div>
+            <div class="form-group">
+                <label><strong>Số điện thoại</strong> <span class="text-danger">*</span></label>
+                <el-input v-model.trim="newCustomer.phone" placeholder="Số điện thoại"></el-input>
+            </div>
+            <div class="form-group">
+                <label><strong>Số CMTND/CCCD</strong></label>
+                <el-input v-model.trim="newCustomer.id_card" placeholder="Số CMTND/CCCD"></el-input>
+            </div>
+            <div class="form-group mb-0">
+                <label><strong>Địa chỉ</strong></label>
+                <el-input v-model.trim="newCustomer.address" placeholder="Địa chỉ"></el-input>
+            </div>
+            <p v-if="newCustomerError" class="text-danger mb-0 mt-3">{{ newCustomerError }}</p>
+            <span slot="footer">
+                <el-button @click="showNewCustomerModal = false">Hủy</el-button>
+                <el-button type="primary" :loading="savingCustomer" @click="saveNewContractCustomer">Lưu khách hàng</el-button>
+            </span>
+        </el-dialog>
     </div>
 </template>
 
@@ -702,7 +753,9 @@ import ModalStart from "./ModalStart";
 import TransactionHistory from "./TransactionHistory";
 const ModalContractPreview = () => import(/* webpackChunkName: "contract-print" */ "./ModalContractPreview");
 import BusinessApprovalPanel from "../../approvals/BusinessApprovalPanel.vue";
-import { CUSTOMER_INDEX } from "@/core/services/store/customers.module";
+import { CUSTOMER_CREATE, CUSTOMER_INDEX } from "@/core/services/store/customers.module";
+import { normalizePaginator } from "@/utils/paginatorAdapter";
+import { getApiMessage } from "@/utils/apiErrorHandler";
 import { LEAD_INDEX } from "@/core/services/store/lead.module";
 import Swal from "sweetalert2";
 import PaymentMethod from "../../components/PaymentMethod";
@@ -774,6 +827,16 @@ export default {
             otherFeeAllOrderItems: 0,
             totalFeeAllOrderItems: 0,
             customerSearchSeq: 0,
+            customerNameSeq: 0,
+            customerOptions: [],
+            customerNameQuery: "",
+            customerLookupLoading: false,
+            sameNameCustomers: [],
+            selectedCustomer: null,
+            showNewCustomerModal: false,
+            savingCustomer: false,
+            newCustomerError: "",
+            newCustomer: { name: "", phone: "", id_card: "", address: "" },
             selectedCollateralTypes: [],
             serverValidationErrors: [],
 
@@ -889,6 +952,18 @@ export default {
     },
     computed: {
         ...mapGetters(["currentUser", "capabilities"]),
+        customerNameOptions() {
+            const names = new Map();
+            (this.customerOptions || []).forEach(customer => {
+                const name = String(customer.name || "").trim();
+                if (!name) return;
+                const key = name.toLowerCase();
+                if (!names.has(key)) names.set(key, name);
+            });
+            const current = String(this.order.customer_name || "").trim();
+            if (current && !names.has(current.toLowerCase())) names.set(current.toLowerCase(), current);
+            return Array.from(names.values());
+        },
         isGuidedContract() {
             if (this.isHandoverMode) return false;
             return !this.id || this.order.order_status === 'draft';
@@ -1140,6 +1215,7 @@ export default {
         }
         // this.getBank();
         await this.getStore();
+        this.searchContractCustomers("");
         if (!this.id && this.initialData.store_id && this.order.store_id) this.onStoreChange(this.order.store_id);
         await this.getStaffByStore(this.order.store_id || this.currentUser?.store_id);
         await this.getListVehicles();
@@ -2276,6 +2352,124 @@ export default {
 			setTimeout(() => window.URL.revokeObjectURL(url), 60000);
 		},
 
+        async searchContractCustomers(keyword) {
+            this.customerNameQuery = keyword || "";
+            this.customerLookupLoading = true;
+            try {
+                const data = await this.$store.dispatch(CUSTOMER_INDEX, { keyword: this.customerNameQuery, limit: 20 });
+                this.customerOptions = normalizePaginator(data).items || [];
+            } catch (_) {
+                this.customerOptions = [];
+            } finally {
+                this.customerLookupLoading = false;
+            }
+        },
+        async onContractCustomerName(name) {
+            const trimmed = String(name || "").trim();
+            if (!trimmed) {
+                this.sameNameCustomers = [];
+                this.selectedCustomer = null;
+                this.resetCustomerInfo();
+                return;
+            }
+            const matches = await this.loadSameNameCustomers(trimmed);
+            if (String(this.order.customer_name || "").trim().toLowerCase() !== trimmed.toLowerCase()) return;
+            if (matches.length === 1) {
+                this.applyCustomerRecord(matches[0]);
+                return;
+            }
+            if (matches.length > 1) {
+                const current = matches.find(item => item.id_card && item.id_card === this.order.customer_id_card);
+                if (current) this.applyCustomerRecord(current);
+                else this.clearCustomerDetails();
+            } else {
+                this.selectedCustomer = null;
+            }
+        },
+        async loadSameNameCustomers(name) {
+            const seq = ++this.customerNameSeq;
+            const key = String(name || "").trim().toLowerCase();
+            try {
+                const data = await this.$store.dispatch(CUSTOMER_INDEX, { keyword: name, limit: 100 });
+                if (seq !== this.customerNameSeq) return this.sameNameCustomers;
+                const items = normalizePaginator(data).items || [];
+                this.sameNameCustomers = items.filter(item => String(item.name || "").trim().toLowerCase() === key);
+            } catch (_) {
+                if (seq === this.customerNameSeq) this.sameNameCustomers = [];
+            }
+            return this.sameNameCustomers;
+        },
+        applyCustomerRecord(customer) {
+            if (!customer) return;
+            this.selectedCustomer = customer;
+            this.order.customer_name = customer.name || "";
+            this.order.customer_phone = customer.phone || "";
+            this.order.customer_id_card = customer.id_card || "";
+            this.order.customer_address = customer.address || "";
+            this.order.customer_id_card_issued_on = customer.id_card_issued_on ? moment(customer.id_card_issued_on).format("YYYY-MM-DD") : null;
+            this.order.customer_id_card_issued_by = customer.id_card_issued_by || "";
+            const relatives = Array.isArray(customer.relatives) ? customer.relatives : [];
+            this.order.relatives = [
+                relatives[0] || { name: "", relationship: "", phone: "" },
+                relatives[1] || { name: "", relationship: "", phone: "" },
+            ];
+            this.warningTemp = customer.warning || "";
+            this.getLeads();
+        },
+        clearCustomerDetails() {
+            this.selectedCustomer = null;
+            this.order.customer_phone = "";
+            this.order.customer_id_card = "";
+            this.order.customer_address = "";
+            this.order.customer_id_card_issued_on = null;
+            this.order.customer_id_card_issued_by = "";
+            this.order.relatives = [
+                { name: "", relationship: "", phone: "" },
+                { name: "", relationship: "", phone: "" },
+            ];
+            this.warningTemp = "";
+            this.leads = [];
+            this.leadIds = [];
+        },
+        openNewContractCustomer() {
+            this.newCustomer = {
+                name: this.customerNameQuery || this.order.customer_name || "",
+                phone: "",
+                id_card: "",
+                address: "",
+            };
+            this.newCustomerError = "";
+            this.showNewCustomerModal = true;
+        },
+        resetNewContractCustomer() {
+            this.newCustomer = { name: "", phone: "", id_card: "", address: "" };
+            this.newCustomerError = "";
+        },
+        async saveNewContractCustomer() {
+            this.newCustomerError = "";
+            if (!this.newCustomer.name) {
+                this.newCustomerError = "Nhập tên khách hàng.";
+                return;
+            }
+            if (!this.newCustomer.phone) {
+                this.newCustomerError = "Nhập số điện thoại.";
+                return;
+            }
+            this.savingCustomer = true;
+            try {
+                const response = await this.$store.dispatch(CUSTOMER_CREATE, { ...this.newCustomer });
+                const customer = response.data || response;
+                if (!this.customerOptions.some(item => item.id === customer.id)) {
+                    this.customerOptions.unshift(customer);
+                }
+                this.applyCustomerRecord(customer);
+                this.showNewCustomerModal = false;
+            } catch (error) {
+                this.newCustomerError = getApiMessage(error, "Không thể thêm khách hàng.");
+            } finally {
+                this.savingCustomer = false;
+            }
+        },
         onBlurCardId(event, errors) {
             const hasError = (errors || []).length > 0;
             if (!hasError) {

@@ -37,9 +37,13 @@ class StoreController extends Controller
         if (!HimotoStores::isCanonical($store)) {
             return $this->errorResponse('Không thể sửa kho ngoài danh mục 6 kho HIMOTO.', 422);
         }
-        $data = $request->validate(['store_phone' => 'nullable|string|max:30']);
+        $data = $request->validate([
+            'store_name' => 'required|string|max:255',
+            'store_phone' => 'nullable|string|max:30',
+            'store_address' => 'nullable|string|max:255',
+        ]);
         $store->update($data);
-        return $this->successResponse($store->fresh(), 'Đã cập nhật số liên hệ kho.');
+        return $this->successResponse($store->fresh(), 'Đã cập nhật cửa hàng.');
     }
 
     public function show(Store $store)

@@ -233,7 +233,7 @@
                                                 :disabled="loadingVehicleId !== null" @click="showPopup(item)">
                                                 {{ loadingVehicleId === item.id ? 'Đang tải...' : 'Xem' }}
                                             </button>
-                                            <button v-b-modal.modal-vehicle-edit @click="item_current = item"
+                                            <button type="button" @click="openVehicleEdit(item)"
                                                 class="btn btn-xs btn-outline-info font-weight-bold" title="Sửa">
                                                 Sửa
                                             </button>
@@ -241,7 +241,7 @@
                                                 @click="$router.push('/car-rental?vehicle_id=' + item.id)">
                                                 Thuê
                                             </button>
-                                            <a v-if="currentUser.role_id === 1" title="Xóa" @click="deleteVehicle(item.id)" href="javascript:"
+                                            <a title="Xóa" @click="deleteVehicle(item.id)" href="javascript:"
                                                 class="btn btn-xs btn-outline-danger font-weight-bold">
                                                 Xóa
                                             </a>
@@ -276,7 +276,7 @@
                                     <button class="btn btn-sm btn-secondary font-weight-bold" :disabled="loadingVehicleId !== null" @click="showPopup(item)">
                                         {{ loadingVehicleId === item.id ? 'Đang tải...' : 'Chi tiết' }}
                                     </button>
-                                    <button class="btn btn-sm btn-secondary font-weight-bold" @click="item_current = item" v-b-modal.modal-vehicle-edit>
+                                    <button type="button" class="btn btn-sm btn-secondary font-weight-bold" @click="openVehicleEdit(item)">
                                         Sửa
                                     </button>
                                     <button class="btn btn-sm btn-primary font-weight-bold ml-auto" @click="$router.push('/car-rental?vehicle_id=' + item.id)">
@@ -433,6 +433,13 @@ export default {
         this.getReport();
     },
     methods: {
+        openVehicleEdit(item) {
+            this.item_current = {
+                ...item,
+                store_id: item.store_id || item.store?.id || null,
+            };
+            this.$nextTick(() => this.$bvModal.show("modal-vehicle-edit"));
+        },
 		getFirstImage(item) {
 			return item?.images && item?.images.length > 0 ? item?.images[0]?.url : null;
 		},

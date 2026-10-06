@@ -1,6 +1,6 @@
 <template>
     <div>
-        <b-modal id="modal-user-edit" title="Sửa nhân viên" size="xl" centered hide-footer>
+        <b-modal id="modal-user-edit" title="Sửa nhân viên" size="xl" centered hide-footer ignore-enforce-focus-selector=".el-select-dropdown, .el-popper">
             <div class="card card-custom gutter-b">
                 <div class="card-header card-header-tabs-line">
                     <div class="card-toolbar">
@@ -234,7 +234,13 @@ export default {
     },
     watch: {
         item() {
-            this.user = this.item;
+            if (!this.item) return;
+            const storeId = this.item.store_id || this.item.store?.id || "";
+            this.user = {
+                ...this.item,
+                id: this.item.id,
+                store_id: storeId === "" || storeId == null ? "" : Number(storeId),
+            };
             console.log("this.item", this.item.status);
             if (this.item?.status) {
                 console.log(
